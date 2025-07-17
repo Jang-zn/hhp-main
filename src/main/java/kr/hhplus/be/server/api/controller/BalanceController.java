@@ -20,8 +20,9 @@ public class BalanceController {
     @ApiSuccess(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다.")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-    public void chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
+    public BalanceResponse chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
         // TODO: 잔액 충전 로직 구현 (request.getUserId(), request.getAmount())
+        return new BalanceResponse(request.getUserId(), request.getAmount(), java.time.LocalDateTime.now());
     }
 
     @ApiSuccess(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다.")
