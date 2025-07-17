@@ -3,6 +3,9 @@ package kr.hhplus.be.server.api.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.usecase.GetCouponsUseCase;
+import kr.hhplus.be.server.domain.usecase.AcquireCouponUseCase;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,17 +17,17 @@ import java.util.List;
 @Tag(name = "쿠폰 관리", description = "쿠폰 발급 및 조회 API")
 @RestController
 @RequestMapping("/api/coupon")
+@RequiredArgsConstructor
 public class CouponController {
+    private final AcquireCouponUseCase acquireCouponUseCase;
+    private final GetCouponsUseCase getCouponsUseCase;
 
     @ApiSuccess(summary = "쿠폰 발급")
-    @PostMapping("/issue")
-    public CouponResponse issueCoupon(
+    @PostMapping("/acquire")
+    public CouponResponse acquireCoupon(
             @RequestParam Long userId,
             @RequestParam Long couponId) {
-        // TODO: 선착순 쿠폰 발급 로직 구현 (userId, couponId)
-        // Coupon coupon = issueCouponUseCase.execute(userId, couponId);
-        return new CouponResponse(1L, "WELCOME10", new java.math.BigDecimal("10"), 
-                java.time.LocalDateTime.now().plusDays(30));
+        return acquireCouponUseCase.execute(userId, couponId);
     }
 
     @ApiSuccess(summary = "보유 쿠폰 조회")
@@ -33,13 +36,6 @@ public class CouponController {
             @PathVariable Long userId,
             @RequestParam(defaultValue = "10") int limit,
             @RequestParam(defaultValue = "0") int offset) {
-        // TODO: 보유 쿠폰 목록 조회 로직 구현
-        // List<Coupon> coupons = getCouponsUseCase.execute(userId, limit, offset);
-        return List.of(
-                new CouponResponse(1L, "WELCOME10", new java.math.BigDecimal("10"), 
-                        java.time.LocalDateTime.now().plusDays(30)),
-                new CouponResponse(2L, "VIP20", new java.math.BigDecimal("20"), 
-                        java.time.LocalDateTime.now().plusDays(7))
-        );
+        return getCouponsUseCase.execute(userId, limit, offset);
     }
 } 

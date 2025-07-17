@@ -14,7 +14,7 @@ public enum ApiMessage {
     PAYMENT_COMPLETED("결제가 완료되었습니다."),
     
     // 쿠폰 관련
-    COUPON_ISSUED("쿠폰이 발급되었습니다."),
+    COUPON_ACQUIRED("쿠폰이 발급되었습니다."),
     COUPONS_RETRIEVED("쿠폰 목록 조회 성공"),
     
     // 공통
