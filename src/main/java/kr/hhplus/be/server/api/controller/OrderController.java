@@ -1,33 +1,42 @@
 package kr.hhplus.be.server.api.controller;
 
-import kr.hhplus.be.server.api.ApiMessage;
-import kr.hhplus.be.server.api.CommonResponse;
-import org.springframework.http.ResponseEntity;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import kr.hhplus.be.server.api.dto.response.OrderResponse;
+import kr.hhplus.be.server.api.dto.response.PaymentResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/order")
+@Validated
 public class OrderController {
 
     @PostMapping
-    public ResponseEntity<CommonResponse<Object>> createOrder(
-            @RequestParam Long userId,
-            @RequestParam List<Long> productIds,
-            @RequestParam List<Integer> quantities) {
-        // TODO: 주문 생성 로직 구현
-        // Order order = createOrderUseCase.execute(userId, productIds, quantities);
-        return CommonResponse.created(ApiMessage.ORDER_CREATED.getMessage(), null); // 나중에 실제 order 데이터로 교체
+    @ResponseStatus(HttpStatus.CREATED)
+    public OrderResponse createOrder(
+            @NotNull(message = "사용자 ID는 필수입니다") @RequestParam Long userId,
+            @NotEmpty(message = "상품 목록은 필수입니다") @RequestParam List<Long> productIds,
+            @RequestParam(required = false) List<Long> couponIds) {
+        // TODO: 주문 생성 로직 구현 (userId, productIds, couponIds)
+        // Order order = createOrderUseCase.execute(userId, productIds, couponIds);
+        return new OrderResponse(1L, userId, "PENDING", 
+                new java.math.BigDecimal("1200000"), 
+                java.time.LocalDateTime.now(),
+                List.of(new OrderResponse.OrderItemResponse(1L, "노트북", 1, new java.math.BigDecimal("1200000"))));
     }
 
     @PostMapping("/{orderId}/pay")
-    public ResponseEntity<CommonResponse<Object>> payOrder(
+    public PaymentResponse payOrder(
             @PathVariable Long orderId,
-            @RequestParam Long userId,
-            @RequestParam(required = false) Long couponId) {
-        // TODO: 결제 처리 로직 구현
-        // Order paidOrder = payOrderUseCase.execute(orderId, userId, couponId);
-        return CommonResponse.ok(ApiMessage.PAYMENT_COMPLETED.getMessage(), null); // 나중에 실제 paidOrder 데이터로 교체
+            @NotNull(message = "사용자 ID는 필수입니다") @RequestParam Long userId) {
+        // TODO: 결제 처리 로직 구현 (orderId, userId)
+        // Payment payment = payOrderUseCase.execute(orderId, userId);
+        return new PaymentResponse(1L, orderId, "COMPLETED", 
+                new java.math.BigDecimal("1200000"), 
+                java.time.LocalDateTime.now());
     }
 } 
