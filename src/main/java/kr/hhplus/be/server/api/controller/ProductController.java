@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/product")
 public class ProductController {
 
-    @ApiSuccess(summary = "상품 목록 조회", description = "상품 목록을 페이징으로 조회합니다.")
+    @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
     public List<ProductResponse> getProducts(
             @RequestParam(defaultValue = "10") int limit,
@@ -30,7 +30,7 @@ public class ProductController {
         );
     }
 
-    @ApiSuccess(summary = "인기 상품 조회", description = "최근 3일간 판매량 기준 상위 5개 인기 상품을 조회합니다.")
+    @ApiSuccess(summary = "인기 상품 조회")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts() {
         // TODO: 인기 상품 조회 로직 구현 (최근 3일간 상위 5개)

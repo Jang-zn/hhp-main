@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/coupon")
 public class CouponController {
 
-    @ApiSuccess(summary = "쿠폰 발급", description = "선착순 쿠폰을 발급합니다.")
+    @ApiSuccess(summary = "쿠폰 발급")
     @PostMapping("/issue")
     public CouponResponse issueCoupon(
             @RequestParam Long userId,
@@ -27,7 +27,7 @@ public class CouponController {
                 java.time.LocalDateTime.now().plusDays(30));
     }
 
-    @ApiSuccess(summary = "보유 쿠폰 조회", description = "사용자가 보유한 쿠폰 목록을 조회합니다.")
+    @ApiSuccess(summary = "보유 쿠폰 조회")
     @GetMapping("/{userId}")
     public List<CouponResponse> getCoupons(
             @PathVariable Long userId,

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/balance")
 public class BalanceController {
 
-    @ApiSuccess(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다.")
+    @ApiSuccess(summary = "잔액 충전")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
@@ -25,7 +25,7 @@ public class BalanceController {
         return new BalanceResponse(request.getUserId(), request.getAmount(), java.time.LocalDateTime.now());
     }
 
-    @ApiSuccess(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다.")
+    @ApiSuccess(summary = "잔액 조회")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
         // TODO: 잔액 조회 로직 구현

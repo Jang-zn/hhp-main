@@ -1,6 +1,12 @@
 package kr.hhplus.be.server.api;
 
 import java.time.LocalDateTime;
+import io.swagger.v3.oas.annotations.media.Schema;
+import kr.hhplus.be.server.api.dto.response.BalanceResponse;
+import kr.hhplus.be.server.api.dto.response.CouponResponse;
+import kr.hhplus.be.server.api.dto.response.OrderResponse;
+import kr.hhplus.be.server.api.dto.response.PaymentResponse;
+import kr.hhplus.be.server.api.dto.response.ProductResponse;
 
 /**
  * API 응답의 표준화된 래퍼 클래스
@@ -19,10 +25,23 @@ import java.time.LocalDateTime;
  * - 성공: CommonResponse.success(userDto) -> SuccessResponseAdvice에서 자동 생성
  * - 실패: CommonResponse.failure("오류 메시지") -> GlobalExceptionHandler에서 자동 생성
  */
+@Schema(name = "CommonResponse", description = "표준 성공/실패 응답 래퍼")
 public class CommonResponse<T> {
+    @Schema(description = "요청 성공 여부", example = "true")
     private boolean success;      // 요청 성공 여부
+
+    @Schema(description = "응답 메시지", example = "요청이 성공했습니다")
     private String message;       // 응답 메시지 (성공/실패 메시지)
+
+    @Schema(description = "응답 데이터", anyOf = {
+        BalanceResponse.class, 
+        CouponResponse.class, 
+        OrderResponse.class, 
+        PaymentResponse.class, 
+        ProductResponse.class})
     private T data;              // 실제 응답 데이터 (성공 시에만 존재)
+
+    @Schema(description = "응답 시간", example = "2025-07-17T13:40:00.123")
     private LocalDateTime timestamp; // 응답 생성 시간
 
     /**
