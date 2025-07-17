@@ -15,7 +15,7 @@ version = getGitHash()
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
+		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
 
@@ -34,9 +34,18 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-validation")
+	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+	implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Swagger/OpenAPI
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 
     // DB
 	runtimeOnly("com.mysql:mysql-connector-j")
+	runtimeOnly("com.h2database:h2")
+	compileOnly("org.projectlombok:lombok")
+	annotationProcessor("org.projectlombok:lombok")
 
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -44,6 +53,10 @@ dependencies {
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:mysql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
+	testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+	testImplementation("io.mockk:mockk:1.13.8")
+	testImplementation("com.ninja-squad:springmockk:4.0.2")
 }
 
 tasks.withType<Test> {
