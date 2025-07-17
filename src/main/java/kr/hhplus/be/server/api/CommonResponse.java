@@ -1,54 +1,93 @@
 package kr.hhplus.be.server.api;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-
 import java.time.LocalDateTime;
 
+/**
+ * API 응답의 표준화된 래퍼 클래스
+ * 
+ * 모든 API 응답을 일관된 형태로 감싸서 클라이언트가 예측 가능한 응답 구조를 받을 수 있게 한다.
+ * 
+ * 응답 형태:
+ * {
+ *   "success": true/false,
+ *   "message": "성공/실패 메시지",
+ *   "data": 실제 응답 데이터 (성공 시에만),
+ *   "timestamp": "2024-01-01T12:00:00"
+ * }
+ * 
+ * 사용 예:
+ * - 성공: CommonResponse.success(userDto) -> SuccessResponseAdvice에서 자동 생성
+ * - 실패: CommonResponse.failure("오류 메시지") -> GlobalExceptionHandler에서 자동 생성
+ */
 public class CommonResponse<T> {
-    private final boolean success;
-    private final String message;
-    private final T data;
-    private final LocalDateTime timestamp;
-    
-    private CommonResponse(boolean success, String message, T data) {
-        this.success = success;
+    private boolean success;      // 요청 성공 여부
+    private String message;       // 응답 메시지 (성공/실패 메시지)
+    private T data;              // 실제 응답 데이터 (성공 시에만 존재)
+    private LocalDateTime timestamp; // 응답 생성 시간
+
+    /**
+     * 성공 응답용 private 생성자
+     * @param message 성공 메시지
+     * @param data 응답 데이터
+     */
+    private CommonResponse(String message, T data) {
+        this.success = true;
         this.message = message;
         this.data = data;
         this.timestamp = LocalDateTime.now();
     }
     
-    // 성공 응답 (데이터 포함)
-    public static <T> ResponseEntity<CommonResponse<T>> ok(String message, T data) {
-        return ResponseEntity.ok(new CommonResponse<>(true, message, data));
+    /**
+     * 실패 응답용 private 생성자
+     * @param message 실패 메시지
+     */
+    private CommonResponse(String message) {
+        this.success = false;
+        this.message = message;
+        this.data = null;
+        this.timestamp = LocalDateTime.now();
+    }
+
+    /**
+     * 성공 응답 생성 (커스텀 메시지)
+     * @param message 성공 메시지
+     * @param data 응답 데이터
+     * @return CommonResponse 객체
+     */
+    public static <T> CommonResponse<T> success(String message, T data) {
+        return new CommonResponse<>(message, data);
+    }
+
+    /**
+     * 성공 응답 생성 (기본 메시지 "요청이 성공했습니다")
+     * SuccessResponseAdvice에서 주로 사용
+     * @param data 응답 데이터
+     * @return CommonResponse 객체
+     */
+    public static <T> CommonResponse<T> success(T data) {
+        return new CommonResponse<>(ApiMessage.SUCCESS.getMessage(), data);
+    }
+
+    /**
+     * 성공 응답 생성 (데이터 없음, void 메서드용)
+     * SuccessResponseAdvice에서 void 반환 메서드에 사용
+     * @return CommonResponse 객체
+     */
+    public static CommonResponse<Void> success() {
+        return new CommonResponse<>(ApiMessage.SUCCESS.getMessage(), null);
+    }
+
+    /**
+     * 실패 응답 생성
+     * GlobalExceptionHandler에서 예외 발생 시 사용
+     * @param message 실패 메시지
+     * @return CommonResponse 객체
+     */
+    public static <T> CommonResponse<T> failure(String message) {
+        return new CommonResponse<>(message);
     }
     
-    // 성공 응답 (데이터 없음)
-    public static ResponseEntity<CommonResponse<Object>> ok(String message) {
-        return ResponseEntity.ok(new CommonResponse<>(true, message, null));
-    }
-    
-    // 성공 응답 (기본 메시지)
-    public static <T> ResponseEntity<CommonResponse<T>> ok(T data) {
-        return ResponseEntity.ok(new CommonResponse<>(true, "성공", data));
-    }
-    
-    // 실패 응답 (HTTP Status Code와 함께)
-    public static ResponseEntity<CommonResponse<Object>> fail(HttpStatus status, String message) {
-        return ResponseEntity.status(status).body(new CommonResponse<>(false, message, null));
-    }
-    
-    // 실패 응답 (기본 BAD_REQUEST)
-    public static ResponseEntity<CommonResponse<Object>> fail(String message) {
-        return ResponseEntity.badRequest().body(new CommonResponse<>(false, message, null));
-    }
-    
-    // 생성 응답 (201 Created)
-    public static <T> ResponseEntity<CommonResponse<T>> created(String message, T data) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(new CommonResponse<>(true, message, data));
-    }
-    
-    // Getters
+    // JSON 직렬화를 위한 Getter 메서드들
     public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
     public T getData() { return data; }
