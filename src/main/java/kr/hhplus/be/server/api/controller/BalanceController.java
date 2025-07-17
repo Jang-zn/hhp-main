@@ -1,27 +1,30 @@
 package kr.hhplus.be.server.api.controller;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import kr.hhplus.be.server.api.dto.request.BalanceChargeRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
+import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-
+/**
+ * 잔액 관리 Controller
+ * 사용자 잔액 충전 및 조회 기능을 제공합니다.
+ */
+@Tag(name = "잔액 관리", description = "사용자 잔액 충전 및 조회 API")
 @RestController
 @RequestMapping("/api/balance")
-@Validated
 public class BalanceController {
 
+    @ApiSuccess(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다.")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-    public void chargeBalance(
-            @NotNull(message = "사용자 ID는 필수입니다") @RequestParam Long userId,
-            @NotNull(message = "충전 금액은 필수입니다") @DecimalMin(value = "0.0", inclusive = false, message = "충전 금액은 0보다 커야 합니다") @RequestParam BigDecimal amount) {
-        // TODO: 잔액 충전 로직 구현 (userId, amount)
+    public void chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
+        // TODO: 잔액 충전 로직 구현 (request.getUserId(), request.getAmount())
     }
 
+    @ApiSuccess(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다.")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
         // TODO: 잔액 조회 로직 구현

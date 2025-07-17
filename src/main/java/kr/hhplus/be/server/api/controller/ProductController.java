@@ -1,14 +1,22 @@
 package kr.hhplus.be.server.api.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
+import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 상품 관리 Controller
+ * 상품 목록 조회 및 인기 상품 조회 기능을 제공합니다.
+ */
+@Tag(name = "상품 관리", description = "상품 목록 조회 및 인기 상품 조회 API")
 @RestController
 @RequestMapping("/api/product")
 public class ProductController {
 
+    @ApiSuccess(summary = "상품 목록 조회", description = "상품 목록을 페이징으로 조회합니다.")
     @GetMapping("/list")
     public List<ProductResponse> getProducts(
             @RequestParam(defaultValue = "10") int limit,
@@ -22,6 +30,7 @@ public class ProductController {
         );
     }
 
+    @ApiSuccess(summary = "인기 상품 조회", description = "최근 3일간 판매량 기준 상위 5개 인기 상품을 조회합니다.")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts() {
         // TODO: 인기 상품 조회 로직 구현 (최근 3일간 상위 5개)
