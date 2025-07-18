@@ -2,6 +2,7 @@ package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -9,7 +10,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 @Entity
 public class Coupon extends BaseEntity {
 
@@ -29,4 +30,11 @@ public class Coupon extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "product_id")
     private Product product;
+
+    public void decreaseStock(int quantity) {
+        if (this.issuedCount + quantity > this.maxIssuance) {
+            throw new RuntimeException("Coupon stock exceeded");
+        }
+        this.issuedCount += quantity;
+    }
 } 

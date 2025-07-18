@@ -9,8 +9,7 @@ import kr.hhplus.be.server.api.swagger.ApiCreate;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
-import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
+import kr.hhplus.be.server.domain.usecase.order.*;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.HashMap;

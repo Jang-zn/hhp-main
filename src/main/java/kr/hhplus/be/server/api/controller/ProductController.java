@@ -31,7 +31,7 @@ public class ProductController {
 
     @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
-    public List<ProductResponse> getProducts(@Valid ProductRequest request) {
+    public List<ProductResponse> getProductList(@Valid ProductRequest request) {
         List<Product> products = getProductListUseCase.execute(request.getLimit(), request.getOffset());
         return products.stream()
                 .map(product -> new ProductResponse(
