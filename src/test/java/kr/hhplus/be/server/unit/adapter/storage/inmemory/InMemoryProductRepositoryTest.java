@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("InMemoryProductRepository 단위 테스트")
 class InMemoryProductRepositoryTest {
@@ -140,12 +141,192 @@ class InMemoryProductRepositoryTest {
         assertThat(products).hasSize(5);
     }
 
+    @Test
+    @DisplayName("null 상품 ID로 조회 시 예외 발생")
+    void findById_WithNullId() {
+        // when & then
+        assertThatThrownBy(() -> productRepository.findById(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("음수 상품 ID로 조회")
+    void findById_WithNegativeId() {
+        // when
+        Optional<Product> foundProduct = productRepository.findById(-1L);
+
+        // then
+        assertThat(foundProduct).isEmpty();
+    }
+
+    @Test
+    @DisplayName("null 상품 객체 저장 시 예외 발생")
+    void save_WithNullProduct() {
+        // when & then
+        assertThatThrownBy(() -> productRepository.save(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("재고가 0인 상품 저장")
+    void save_WithZeroStock() {
+        // given
+        Product product = Product.builder()
+                .name("품절 상품")
+                .price(new BigDecimal("100000"))
+                .stock(0)
+                .reservedStock(0)
+                .build();
+
+        // when
+        Product savedProduct = productRepository.save(product);
+
+        // then
+        assertThat(savedProduct).isNotNull();
+        assertThat(savedProduct.getStock()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("재고보다 예약 재고가 많은 상품")
+    void save_WithReservedStockGreaterThanStock() {
+        // given
+        Product product = Product.builder()
+                .name("비정상 상품")
+                .price(new BigDecimal("50000"))
+                .stock(10)
+                .reservedStock(15)
+                .build();
+
+        // when
+        Product savedProduct = productRepository.save(product);
+
+        // then
+        assertThat(savedProduct).isNotNull();
+        assertThat(savedProduct.getReservedStock()).isGreaterThan(savedProduct.getStock());
+    }
+
+    @Test
+    @DisplayName("음수 재고를 가진 상품")
+    void save_WithNegativeStock() {
+        // given
+        Product product = Product.builder()
+                .name("음수 재고 상품")
+                .price(new BigDecimal("30000"))
+                .stock(-5)
+                .reservedStock(0)
+                .build();
+
+        // when
+        Product savedProduct = productRepository.save(product);
+
+        // then
+        assertThat(savedProduct).isNotNull();
+        assertThat(savedProduct.getStock()).isEqualTo(-5);
+    }
+
+    @Test
+    @DisplayName("대량 상품 저장 및 조회")
+    void save_AndRetrieve_LargeDataset() {
+        // given
+        int productCount = 1000;
+        for (int i = 1; i <= productCount; i++) {
+            Product product = Product.builder()
+                    .name("상품" + i)
+                    .price(new BigDecimal("10000"))
+                    .stock(100)
+                    .reservedStock(0)
+                    .build();
+            productRepository.save(product);
+        }
+
+        // when
+        List<Product> allProducts = productRepository.findAll(productCount, 0);
+
+        // then
+        assertThat(allProducts).hasSize(productCount);
+    }
+
+    @Test
+    @DisplayName("비정상적인 페이지네이션 파라미터")
+    void findAll_WithInvalidPagination() {
+        // given
+        Product product = Product.builder()
+                .name("테스트 상품")
+                .price(new BigDecimal("50000"))
+                .stock(10)
+                .reservedStock(0)
+                .build();
+        productRepository.save(product);
+
+        // when & then - 음수 limit
+        List<Product> result1 = productRepository.findAll(-1, 0);
+        assertThat(result1).isEmpty();
+
+        // when & then - 음수 offset
+        List<Product> result2 = productRepository.findAll(10, -1);
+        assertThat(result2).isEmpty();
+
+        // when & then - 0 limit
+        List<Product> result3 = productRepository.findAll(0, 0);
+        assertThat(result3).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidProductIds")
+    @DisplayName("유효하지 않은 상품 ID들로 조회")
+    void findById_WithInvalidIds(Long invalidId) {
+        // when
+        Optional<Product> foundProduct = productRepository.findById(invalidId);
+
+        // then
+        assertThat(foundProduct).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideEdgeCasePrices")
+    @DisplayName("극한값 가격으로 상품 저장")
+    void save_WithEdgeCasePrices(String description, String price) {
+        // given
+        Product product = Product.builder()
+                .name("극한값 가격 상품")
+                .price(new BigDecimal(price))
+                .stock(10)
+                .reservedStock(0)
+                .build();
+
+        // when
+        Product savedProduct = productRepository.save(product);
+
+        // then
+        assertThat(savedProduct).isNotNull();
+        assertThat(savedProduct.getPrice()).isEqualTo(new BigDecimal(price));
+    }
+
     private static Stream<Arguments> provideProductData() {
         return Stream.of(
                 Arguments.of("노트북", "1200000", 50),
                 Arguments.of("스마트폰", "800000", 100),
                 Arguments.of("태블릿", "600000", 30),
                 Arguments.of("무선이어폰", "200000", 200)
+        );
+    }
+
+    private static Stream<Arguments> provideInvalidProductIds() {
+        return Stream.of(
+                Arguments.of(0L),
+                Arguments.of(-1L),
+                Arguments.of(-999L),
+                Arguments.of(Long.MAX_VALUE),
+                Arguments.of(Long.MIN_VALUE)
+        );
+    }
+
+    private static Stream<Arguments> provideEdgeCasePrices() {
+        return Stream.of(
+                Arguments.of("무료 상품", "0"),
+                Arguments.of("소수점 포함", "999.99"),
+                Arguments.of("매우 비싼 상품", "999999999"),
+                Arguments.of("최소 단위", "0.01")
         );
     }
 } 

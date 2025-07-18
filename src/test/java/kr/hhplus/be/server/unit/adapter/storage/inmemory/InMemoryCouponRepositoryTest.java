@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("InMemoryCouponRepository 단위 테스트")
 class InMemoryCouponRepositoryTest {
@@ -115,11 +116,174 @@ class InMemoryCouponRepositoryTest {
         assertThat(savedCoupon.getMaxIssuance()).isEqualTo(maxIssuance);
     }
 
+    @Test
+    @DisplayName("null 쿠폰 ID로 조회 시 예외 발생")
+    void findById_WithNullId() {
+        // when & then
+        assertThatThrownBy(() -> couponRepository.findById(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("음수 쿠폰 ID로 조회")
+    void findById_WithNegativeId() {
+        // when
+        Optional<Coupon> foundCoupon = couponRepository.findById(-1L);
+
+        // then
+        assertThat(foundCoupon).isEmpty();
+    }
+
+    @Test
+    @DisplayName("null 쿠폰 객체 저장 시 예외 발생")
+    void save_WithNullCoupon() {
+        // when & then
+        assertThatThrownBy(() -> couponRepository.save(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("이미 만료된 쿠폰 저장")
+    void save_ExpiredCoupon() {
+        // given
+        Coupon expiredCoupon = Coupon.builder()
+                .code("EXPIRED")
+                .discountRate(new BigDecimal("0.20"))
+                .maxIssuance(100)
+                .issuedCount(50)
+                .startDate(LocalDateTime.now().minusDays(10))
+                .endDate(LocalDateTime.now().minusDays(1))
+                .build();
+
+        // when
+        Coupon savedCoupon = couponRepository.save(expiredCoupon);
+
+        // then
+        assertThat(savedCoupon).isNotNull();
+        assertThat(savedCoupon.getEndDate()).isBefore(LocalDateTime.now());
+    }
+
+    @Test
+    @DisplayName("발급 수량이 최대 발급 수를 초과한 쿠폰")
+    void save_CouponWithExceededIssuance() {
+        // given
+        Coupon overIssuedCoupon = Coupon.builder()
+                .code("OVERISSUED")
+                .discountRate(new BigDecimal("0.15"))
+                .maxIssuance(100)
+                .issuedCount(150) // 최대 발급 수 초과
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(30))
+                .build();
+
+        // when
+        Coupon savedCoupon = couponRepository.save(overIssuedCoupon);
+
+        // then
+        assertThat(savedCoupon).isNotNull();
+        assertThat(savedCoupon.getIssuedCount()).isGreaterThan(savedCoupon.getMaxIssuance());
+    }
+
+    @Test
+    @DisplayName("할인율이 100%를 초과하는 쿠폰")
+    void save_CouponWithExcessiveDiscountRate() {
+        // given
+        Coupon excessiveCoupon = Coupon.builder()
+                .code("EXCESSIVE")
+                .discountRate(new BigDecimal("1.50")) // 150% 할인
+                .maxIssuance(10)
+                .issuedCount(0)
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(7))
+                .build();
+
+        // when
+        Coupon savedCoupon = couponRepository.save(excessiveCoupon);
+
+        // then
+        assertThat(savedCoupon).isNotNull();
+        assertThat(savedCoupon.getDiscountRate()).isGreaterThan(new BigDecimal("1.0"));
+    }
+
+    @Test
+    @DisplayName("시작일이 종료일보다 늦은 쿠폰")
+    void save_CouponWithInvalidDateRange() {
+        // given
+        LocalDateTime now = LocalDateTime.now();
+        Coupon invalidDateCoupon = Coupon.builder()
+                .code("INVALIDDATE")
+                .discountRate(new BigDecimal("0.10"))
+                .maxIssuance(50)
+                .issuedCount(0)
+                .startDate(now.plusDays(10))
+                .endDate(now.plusDays(5)) // 시작일보다 빠른 종료일
+                .build();
+
+        // when
+        Coupon savedCoupon = couponRepository.save(invalidDateCoupon);
+
+        // then
+        assertThat(savedCoupon).isNotNull();
+        assertThat(savedCoupon.getStartDate()).isAfter(savedCoupon.getEndDate());
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidCouponIds")
+    @DisplayName("유효하지 않은 쿠폰 ID들로 조회")
+    void findById_WithInvalidIds(Long invalidId) {
+        // when
+        Optional<Coupon> foundCoupon = couponRepository.findById(invalidId);
+
+        // then
+        assertThat(foundCoupon).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideEdgeCaseDiscountRates")
+    @DisplayName("극한값 할인율으로 쿠폰 저장")
+    void save_WithEdgeCaseDiscountRates(String description, String discountRate) {
+        // given
+        Coupon coupon = Coupon.builder()
+                .code("EDGE_" + description)
+                .discountRate(new BigDecimal(discountRate))
+                .maxIssuance(100)
+                .issuedCount(0)
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(30))
+                .build();
+
+        // when
+        Coupon savedCoupon = couponRepository.save(coupon);
+
+        // then
+        assertThat(savedCoupon).isNotNull();
+        assertThat(savedCoupon.getDiscountRate()).isEqualTo(new BigDecimal(discountRate));
+    }
+
     private static Stream<Arguments> provideCouponData() {
         return Stream.of(
                 Arguments.of("WELCOME10", "0.10", 1000),
                 Arguments.of("SUMMER25", "0.25", 500),
                 Arguments.of("VIP30", "0.30", 100)
+        );
+    }
+
+    private static Stream<Arguments> provideInvalidCouponIds() {
+        return Stream.of(
+                Arguments.of(0L),
+                Arguments.of(-1L),
+                Arguments.of(-999L),
+                Arguments.of(Long.MAX_VALUE),
+                Arguments.of(Long.MIN_VALUE)
+        );
+    }
+
+    private static Stream<Arguments> provideEdgeCaseDiscountRates() {
+        return Stream.of(
+                Arguments.of("ZERO", "0"),
+                Arguments.of("SMALL", "0.01"),
+                Arguments.of("FULL", "1.00"),
+                Arguments.of("EXCESSIVE", "2.00")
         );
     }
 }
