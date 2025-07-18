@@ -24,6 +24,12 @@ public class BalanceController {
     private final ChargeBalanceUseCase chargeBalanceUseCase;
     private final GetBalanceUseCase getBalanceUseCase;
 
+    /**
+     * Handles a request to charge a specified amount to a user's balance.
+     *
+     * @param request the request containing the user ID and amount to charge
+     * @return a response with the user ID, charged amount, and the timestamp of the operation
+     */
     @ApiSuccess(summary = "잔액 충전")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
@@ -33,6 +39,12 @@ public class BalanceController {
         return new BalanceResponse(request.getUserId(), request.getAmount(), java.time.LocalDateTime.now());
     }
 
+    /**
+     * Retrieves the balance information for the specified user.
+     *
+     * @param userId the ID of the user whose balance is to be retrieved
+     * @return a {@link BalanceResponse} containing the user's ID, balance amount, and the retrieval timestamp
+     */
     @ApiSuccess(summary = "잔액 조회")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {

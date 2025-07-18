@@ -28,6 +28,12 @@ public class OrderController {
     private final CreateOrderUseCase createOrderUseCase;
     private final PayOrderUseCase payOrderUseCase;
 
+    /**
+     * Creates a new order based on the provided request data.
+     *
+     * @param request the order creation details
+     * @return the created order information
+     */
     @ApiCreate(summary = "주문 생성")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -40,6 +46,12 @@ public class OrderController {
                 List.of(new OrderResponse.OrderItemResponse(1L, "노트북", 1, new java.math.BigDecimal("1200000"))));
     }
 
+    /**
+     * Processes payment for the specified order and returns the payment result.
+     *
+     * @param orderId the ID of the order to be paid
+     * @return a response containing payment details for the order
+     */
     @ApiSuccess(summary = "주문 결제")
     @PostMapping("/{orderId}/pay")
     public PaymentResponse payOrder(@PathVariable Long orderId) {

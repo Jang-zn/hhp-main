@@ -17,6 +17,13 @@ public class AcquireCouponUseCase {
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     private final LockingPort lockingPort;
     
+    /**
+     * Initiates the process of acquiring a coupon for a user.
+     *
+     * @param userId   the ID of the user requesting the coupon
+     * @param couponId the ID of the coupon to be acquired
+     * @return the coupon history record if acquisition is successful, or {@code null} if not implemented
+     */
     public CouponHistory execute(Long userId, Long couponId) {
         // TODO: 쿠폰 발급 로직 구현
         return null;

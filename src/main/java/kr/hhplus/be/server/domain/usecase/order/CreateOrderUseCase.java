@@ -23,6 +23,13 @@ public class CreateOrderUseCase {
     private final LockingPort lockingPort;
     private final CachePort cachePort;
     
+    /**
+     * Initiates the creation of an order for the specified user with the given product quantities.
+     *
+     * @param userId the ID of the user placing the order
+     * @param productQuantities a map of product IDs to their requested quantities
+     * @return the created Order, or {@code null} if the order could not be created
+     */
     public Order execute(Long userId, Map<Long, Integer> productQuantities) {
         // TODO: 주문 생성 로직 구현
         return null;

@@ -17,6 +17,12 @@ public class GetBalanceUseCase {
     private final BalanceRepositoryPort balanceRepositoryPort;
     private final CachePort cachePort;
     
+    /**
+     * Retrieves the balance for the specified user.
+     *
+     * @param userId the ID of the user whose balance is to be retrieved
+     * @return an {@code Optional} containing the user's balance if found, or an empty {@code Optional} if not available
+     */
     public Optional<Balance> execute(Long userId) {
         // TODO: 잔액 조회 로직 구현
         return Optional.empty();

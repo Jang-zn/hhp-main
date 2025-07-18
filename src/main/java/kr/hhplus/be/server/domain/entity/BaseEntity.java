@@ -27,12 +27,18 @@ public abstract class BaseEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
+    /**
+     * Sets the creation and last updated timestamps to the current time before the entity is persisted.
+     */
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
     
+    /**
+     * Updates the {@code updatedAt} timestamp to the current time before the entity is updated in the database.
+     */
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

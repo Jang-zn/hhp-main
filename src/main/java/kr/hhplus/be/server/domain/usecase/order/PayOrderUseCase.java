@@ -27,6 +27,14 @@ public class PayOrderUseCase {
     private final CachePort cachePort;
     private final MessagingPort messagingPort;
     
+    /**
+     * Processes the payment for an order by a user, optionally applying a coupon.
+     *
+     * @param orderId  the ID of the order to be paid
+     * @param userId   the ID of the user making the payment
+     * @param couponId the ID of the coupon to apply, or {@code null} if no coupon is used
+     * @return the resulting Payment object after processing, or {@code null} if not implemented
+     */
     public Payment execute(Long orderId, Long userId, Long couponId) {
         // TODO: 주문 결제 로직 구현
         return null;

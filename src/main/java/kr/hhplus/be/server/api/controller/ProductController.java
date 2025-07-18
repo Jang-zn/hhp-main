@@ -23,6 +23,13 @@ public class ProductController {
     private final GetProductListUseCase getProductListUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
 
+    /**
+     * Retrieves a paginated list of products.
+     *
+     * @param limit  the maximum number of products to return (default is 10)
+     * @param offset the starting index for pagination (default is 0)
+     * @return a list of product responses representing the requested products
+     */
     @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
     public List<ProductResponse> getProducts(
@@ -37,6 +44,11 @@ public class ProductController {
         );
     }
 
+    /**
+     * Retrieves a list of the top 5 most popular products from the last 3 days.
+     *
+     * @return a list of popular product responses
+     */
     @ApiSuccess(summary = "인기 상품 조회")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts() {

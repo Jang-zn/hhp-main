@@ -19,6 +19,13 @@ public class ChargeBalanceUseCase {
     private final LockingPort lockingPort;
     private final CachePort cachePort;
     
+    /**
+     * Initiates a balance charge operation for the specified user and amount.
+     *
+     * @param userId the ID of the user whose balance will be charged
+     * @param amount the amount to add to the user's balance
+     * @return the updated Balance after charging, or null if not implemented
+     */
     public Balance execute(Long userId, BigDecimal amount) {
         // TODO: 잔액 충전 로직 구현
         return null;
