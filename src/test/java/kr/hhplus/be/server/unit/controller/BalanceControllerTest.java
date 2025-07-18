@@ -1,7 +1,7 @@
 package kr.hhplus.be.server.unit.controller;
 
 import kr.hhplus.be.server.api.controller.BalanceController;
-import kr.hhplus.be.server.api.dto.request.BalanceChargeRequest;
+import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
@@ -51,7 +51,7 @@ class BalanceControllerTest {
         // given
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, chargeAmount);
+        BalanceRequest request = new BalanceRequest(userId, chargeAmount);
         
         User user = User.builder().name("테스트 사용자").build();
         Balance balance = Balance.builder()
@@ -100,7 +100,7 @@ class BalanceControllerTest {
     @DisplayName("다양한 충전 금액으로 잔액 충전")
     void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
         // given
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, new BigDecimal(chargeAmount));
+        BalanceRequest request = new BalanceRequest(userId, new BigDecimal(chargeAmount));
         
         User user = User.builder().name("테스트 사용자").build();
         Balance balance = Balance.builder()
@@ -147,7 +147,7 @@ class BalanceControllerTest {
         // given
         Long userId = 999L;
         BigDecimal chargeAmount = new BigDecimal("50000");
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, chargeAmount);
+        BalanceRequest request = new BalanceRequest(userId, chargeAmount);
         
         when(chargeBalanceUseCase.execute(userId, chargeAmount))
                 .thenThrow(new BalanceException.InvalidUser());
@@ -164,7 +164,7 @@ class BalanceControllerTest {
         // given
         Long userId = 1L;
         BigDecimal invalidAmount = new BigDecimal("-10000");
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, invalidAmount);
+        BalanceRequest request = new BalanceRequest(userId, invalidAmount);
         
         when(chargeBalanceUseCase.execute(userId, invalidAmount))
                 .thenThrow(new BalanceException.InvalidAmount());
@@ -181,7 +181,7 @@ class BalanceControllerTest {
         // given
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, chargeAmount);
+        BalanceRequest request = new BalanceRequest(userId, chargeAmount);
         
         when(chargeBalanceUseCase.execute(userId, chargeAmount))
                 .thenThrow(new BalanceException.ConcurrencyConflict());
@@ -227,7 +227,7 @@ class BalanceControllerTest {
     @DisplayName("비정상 충전 데이터로 예외 발생")
     void chargeBalance_WithInvalidData(String description, Long userId, String amount, Class<? extends Exception> expectedException) {
         // given
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, new BigDecimal(amount));
+        BalanceRequest request = new BalanceRequest(userId, new BigDecimal(amount));
         
         when(chargeBalanceUseCase.execute(userId, new BigDecimal(amount)))
                 .thenThrow(expectedException);

@@ -61,7 +61,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(orderRepositoryPort.findByUserId(userId)).thenReturn(orders);
+        when(orderRepositoryPort.findByUser(user)).thenReturn(orders);
 
         // when
         List<Order> result = getOrderListUseCase.execute(userId);
@@ -107,7 +107,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(orderRepositoryPort.findByUserId(userId)).thenReturn(orders);
+        when(orderRepositoryPort.findByUser(user)).thenReturn(orders);
 
         // when
         List<Order> result = getOrderListUseCase.execute(userId);

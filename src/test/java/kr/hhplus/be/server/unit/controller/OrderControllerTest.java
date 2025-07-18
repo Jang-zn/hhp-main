@@ -2,7 +2,7 @@ package kr.hhplus.be.server.unit.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.controller.OrderController;
-import kr.hhplus.be.server.api.dto.request.CreateOrderRequest;
+import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.domain.entity.Order;
@@ -62,7 +62,7 @@ class OrderControllerTest {
         Long userId = 1L;
         List<Long> productIds = List.of(1L, 2L);
         List<Long> couponIds = List.of(1L);
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
         
         User user = User.builder().name("테스트 사용자").build();
         Order order = Order.builder()
@@ -86,7 +86,7 @@ class OrderControllerTest {
     @DisplayName("다양한 주문 데이터로 주문 생성")
     void createOrder_WithDifferentData(Long userId, List<Long> productIds, List<Long> couponIds) {
         // given
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
         
         User user = User.builder().name("테스트 사용자").build();
         Order order = Order.builder()
@@ -123,7 +123,8 @@ class OrderControllerTest {
         when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
 
         // when
-        PaymentResponse response = orderController.payOrder(orderId, 1L, null);
+        OrderRequest request = new OrderRequest(1L, null);
+        PaymentResponse response = orderController.payOrder(orderId, request);
 
         // then
         assertThat(response).isNotNull();
@@ -149,7 +150,8 @@ class OrderControllerTest {
         when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
         
         // when
-        PaymentResponse response = orderController.payOrder(orderId, 1L, null);
+        OrderRequest request = new OrderRequest(1L, null);
+        PaymentResponse response = orderController.payOrder(orderId, request);
 
         // then
         assertThat(response).isNotNull();
@@ -163,7 +165,7 @@ class OrderControllerTest {
         Long userId = 999L;
         List<Long> productIds = List.of(1L);
         List<Long> couponIds = List.of();
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
         
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new OrderException.InvalidUser());
@@ -181,7 +183,7 @@ class OrderControllerTest {
         Long userId = 1L;
         List<Long> productIds = Collections.emptyList();
         List<Long> couponIds = List.of();
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
         
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new IllegalArgumentException("Order must contain at least one item"));
@@ -199,7 +201,7 @@ class OrderControllerTest {
         Long userId = 1L;
         List<Long> productIds = List.of(1L);
         List<Long> couponIds = List.of();
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
         
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new ProductException.OutOfStock());
@@ -220,7 +222,8 @@ class OrderControllerTest {
                 .thenThrow(new PaymentException.OrderNotFound());
 
         // when & then
-        assertThatThrownBy(() -> orderController.payOrder(orderId, null, null))
+        OrderRequest request = new OrderRequest(null, null);
+        assertThatThrownBy(() -> orderController.payOrder(orderId, request))
                 .isInstanceOf(PaymentException.OrderNotFound.class)
                 .hasMessage("Order not found");
     }
@@ -235,7 +238,8 @@ class OrderControllerTest {
                 .thenThrow(new PaymentException.InsufficientBalance());
 
         // when & then
-        assertThatThrownBy(() -> orderController.payOrder(orderId, null, null))
+        OrderRequest request = new OrderRequest(null, null);
+        assertThatThrownBy(() -> orderController.payOrder(orderId, request))
                 .isInstanceOf(PaymentException.InsufficientBalance.class)
                 .hasMessage("Insufficient balance");
     }
@@ -252,7 +256,8 @@ class OrderControllerTest {
     @DisplayName("null 주문 ID로 결제")
     void payOrder_WithNullOrderId() {
         // when & then
-        assertThatThrownBy(() -> orderController.payOrder(null, null, null))
+        OrderRequest request = new OrderRequest(null, null);
+        assertThatThrownBy(() -> orderController.payOrder(null, request))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -265,7 +270,8 @@ class OrderControllerTest {
                 .thenThrow(new PaymentException.OrderNotFound());
 
         // when & then
-        assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, null, null))
+        OrderRequest request = new OrderRequest(null, null);
+        assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, request))
                 .isInstanceOf(PaymentException.OrderNotFound.class);
     }
 
