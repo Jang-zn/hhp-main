@@ -16,7 +16,6 @@ public class GetProductUseCase {
     private final CachePort cachePort;
     
     public Optional<Product> execute(Long productId) {
-        // TODO: 단일 상품 조회 로직 구현
-        return Optional.empty();
+        return productRepositoryPort.findById(productId);
     }
 } 
