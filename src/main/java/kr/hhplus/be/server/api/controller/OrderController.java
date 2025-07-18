@@ -7,8 +7,14 @@ import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.swagger.ApiCreate;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.entity.Order;
+import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -32,21 +38,49 @@ public class OrderController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
-        // TODO: 주문 생성 로직 구현
-        // Order order = createOrderUseCase.execute(request.getUserId(), request.getProductIds());
-        return new OrderResponse(1L, request.getUserId(), "PENDING", 
-                new java.math.BigDecimal("1200000"), 
-                java.time.LocalDateTime.now(),
-                List.of(new OrderResponse.OrderItemResponse(1L, "노트북", 1, new java.math.BigDecimal("1200000"))));
+        // productIds를 Map<Long, Integer> 형태로 변환 (각 상품의 수량을 1로 설정)
+        Map<Long, Integer> productQuantities = request.getProductIds().stream()
+                .collect(Collectors.toMap(
+                        productId -> productId,
+                        productId -> 1  // 기본 수량 1
+                ));
+        
+        Order order = createOrderUseCase.execute(request.getUserId(), productQuantities);
+        
+        // OrderItem들을 OrderItemResponse로 변환
+        List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
+                .map(item -> new OrderResponse.OrderItemResponse(
+                        item.getProduct().getId(),
+                        item.getProduct().getName(),
+                        item.getQuantity(),
+                        item.getProduct().getPrice()
+                ))
+                .collect(Collectors.toList());
+        
+        return new OrderResponse(
+                order.getId(),
+                order.getUser().getId(),
+                "PENDING",  // Order 엔티티에 status 필드가 없으므로 기본값 사용
+                order.getTotalAmount(),
+                order.getCreatedAt(),
+                itemResponses
+        );
     }
 
     @ApiSuccess(summary = "주문 결제")
     @PostMapping("/{orderId}/pay")
-    public PaymentResponse payOrder(@PathVariable Long orderId) {
-        // TODO: 결제 처리 로직 구현
-        // Payment payment = payOrderUseCase.execute(orderId, userId, couponId);
-        return new PaymentResponse(1L, orderId, "COMPLETED", 
-                new java.math.BigDecimal("1200000"), 
-                java.time.LocalDateTime.now());
+    public PaymentResponse payOrder(
+            @PathVariable Long orderId,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long couponId) {
+        Payment payment = payOrderUseCase.execute(orderId, userId, couponId);
+        
+        return new PaymentResponse(
+                payment.getId(),
+                payment.getOrder().getId(),
+                payment.getStatus().name(),
+                payment.getAmount(),
+                payment.getCreatedAt()  // paidAt 대신 createdAt 사용
+        );
     }
 } 
