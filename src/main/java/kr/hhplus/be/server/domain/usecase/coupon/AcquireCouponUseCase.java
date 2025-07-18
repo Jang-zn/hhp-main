@@ -1,7 +1,9 @@
 package kr.hhplus.be.server.domain.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.port.storage.StoragePort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -10,7 +12,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AcquireCouponUseCase {
     
-    private final StoragePort storagePort;
+    private final UserRepositoryPort userRepositoryPort;
+    private final CouponRepositoryPort couponRepositoryPort;
+    private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     private final LockingPort lockingPort;
     
     public CouponHistory execute(Long userId, Long couponId) {

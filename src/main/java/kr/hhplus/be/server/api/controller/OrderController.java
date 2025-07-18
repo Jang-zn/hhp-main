@@ -7,6 +7,9 @@ import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.swagger.ApiCreate;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
+import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,14 +22,18 @@ import java.util.List;
 @Tag(name = "주문/결제 관리")
 @RestController
 @RequestMapping("/api/order")
+@RequiredArgsConstructor
 public class OrderController {
+
+    private final CreateOrderUseCase createOrderUseCase;
+    private final PayOrderUseCase payOrderUseCase;
 
     @ApiCreate(summary = "주문 생성")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
-        // TODO: 주문 생성 로직 구현 (request)
-        // Order order = createOrderUseCase.execute(request);
+        // TODO: 주문 생성 로직 구현
+        // Order order = createOrderUseCase.execute(request.getUserId(), request.getProductIds());
         return new OrderResponse(1L, request.getUserId(), "PENDING", 
                 new java.math.BigDecimal("1200000"), 
                 java.time.LocalDateTime.now(),
@@ -36,8 +43,8 @@ public class OrderController {
     @ApiSuccess(summary = "주문 결제")
     @PostMapping("/{orderId}/pay")
     public PaymentResponse payOrder(@PathVariable Long orderId) {
-        // TODO: 결제 처리 로직 구현 (orderId)
-        // Payment payment = payOrderUseCase.execute(orderId);
+        // TODO: 결제 처리 로직 구현
+        // Payment payment = payOrderUseCase.execute(orderId, userId, couponId);
         return new PaymentResponse(1L, orderId, "COMPLETED", 
                 new java.math.BigDecimal("1200000"), 
                 java.time.LocalDateTime.now());

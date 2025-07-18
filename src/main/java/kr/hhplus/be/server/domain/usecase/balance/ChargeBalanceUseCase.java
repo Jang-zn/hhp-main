@@ -1,7 +1,8 @@
 package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.port.storage.StoragePort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +14,8 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class ChargeBalanceUseCase {
     
-    private final StoragePort storagePort;
+    private final UserRepositoryPort userRepositoryPort;
+    private final BalanceRepositoryPort balanceRepositoryPort;
     private final LockingPort lockingPort;
     private final CachePort cachePort;
     

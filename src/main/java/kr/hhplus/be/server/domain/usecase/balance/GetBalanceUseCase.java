@@ -1,7 +1,8 @@
 package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.port.storage.StoragePort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,7 +13,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class GetBalanceUseCase {
     
-    private final StoragePort storagePort;
+    private final UserRepositoryPort userRepositoryPort;
+    private final BalanceRepositoryPort balanceRepositoryPort;
     private final CachePort cachePort;
     
     public Optional<Balance> execute(Long userId) {
