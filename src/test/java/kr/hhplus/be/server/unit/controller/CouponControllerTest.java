@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.controller;
 
 import kr.hhplus.be.server.api.controller.CouponController;
+import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
@@ -39,7 +40,8 @@ class CouponControllerTest {
         Long couponId = 1L;
 
         // when
-        CouponResponse response = couponController.acquireCoupon(userId, couponId);
+        CouponRequest request = new CouponRequest(userId, couponId);
+        CouponResponse response = couponController.acquireCoupon(request);
 
         // then
         assertThat(response).isNotNull();
@@ -58,7 +60,8 @@ class CouponControllerTest {
         int offset = 0;
 
         // when
-        List<CouponResponse> response = couponController.getCoupons(userId, limit, offset);
+        CouponRequest request = new CouponRequest(limit, offset);
+        List<CouponResponse> response = couponController.getCoupons(userId, request);
 
         // then
         assertThat(response).isNotNull();
@@ -72,7 +75,8 @@ class CouponControllerTest {
     @DisplayName("다양한 쿠폰으로 발급 테스트")
     void acquireCoupon_WithDifferentCoupons(Long userId, Long couponId) {
         // when
-        CouponResponse response = couponController.acquireCoupon(userId, couponId);
+        CouponRequest request = new CouponRequest(userId, couponId);
+        CouponResponse response = couponController.acquireCoupon(request);
 
         // then
         assertThat(response).isNotNull();
@@ -86,7 +90,8 @@ class CouponControllerTest {
     @DisplayName("다양한 페이지네이션으로 쿠폰 조회")
     void getCoupons_WithDifferentPagination(Long userId, int limit, int offset) {
         // when
-        List<CouponResponse> response = couponController.getCoupons(userId, limit, offset);
+        CouponRequest request = new CouponRequest(limit, offset);
+        List<CouponResponse> response = couponController.getCoupons(userId, request);
 
         // then
         assertThat(response).isNotNull();

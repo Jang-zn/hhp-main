@@ -101,10 +101,11 @@ class InMemoryProductRepositoryTest {
 
     @Test
     @DisplayName("페이지네이션으로 상품 조회")
-    void findAll_WithPagination() {
+    void findAllWithPagination_Success() {
         // given
         for (int i = 1; i <= 15; i++) {
             Product product = Product.builder()
+                    .id((long) i)
                     .name("상품" + i)
                     .price(new BigDecimal("100000"))
                     .stock(10)
@@ -114,7 +115,7 @@ class InMemoryProductRepositoryTest {
         }
 
         // when
-        List<Product> products = productRepository.findAll(10, 0);
+        List<Product> products = productRepository.findAllWithPagination(10, 0);
 
         // then
         assertThat(products).hasSize(10);
@@ -122,10 +123,11 @@ class InMemoryProductRepositoryTest {
 
     @Test
     @DisplayName("오프셋이 있는 페이지네이션")
-    void findAll_WithOffset() {
+    void findAllWithPagination_WithOffset() {
         // given
         for (int i = 1; i <= 15; i++) {
             Product product = Product.builder()
+                    .id((long) i)
                     .name("상품" + i)
                     .price(new BigDecimal("100000"))
                     .stock(10)
@@ -135,7 +137,7 @@ class InMemoryProductRepositoryTest {
         }
 
         // when
-        List<Product> products = productRepository.findAll(5, 10);
+        List<Product> products = productRepository.findAllWithPagination(5, 10);
 
         // then
         assertThat(products).hasSize(5);
@@ -240,7 +242,7 @@ class InMemoryProductRepositoryTest {
         }
 
         // when
-        List<Product> allProducts = productRepository.findAll(productCount, 0);
+        List<Product> allProducts = productRepository.findAllWithPagination(productCount, 0);
 
         // then
         assertThat(allProducts).hasSize(productCount);
@@ -259,15 +261,15 @@ class InMemoryProductRepositoryTest {
         productRepository.save(product);
 
         // when & then - 음수 limit
-        List<Product> result1 = productRepository.findAll(-1, 0);
+        List<Product> result1 = productRepository.findAllWithPagination(-1, 0);
         assertThat(result1).isEmpty();
 
         // when & then - 음수 offset
-        List<Product> result2 = productRepository.findAll(10, -1);
+        List<Product> result2 = productRepository.findAllWithPagination(10, -1);
         assertThat(result2).isEmpty();
 
         // when & then - 0 limit
-        List<Product> result3 = productRepository.findAll(0, 0);
+        List<Product> result3 = productRepository.findAllWithPagination(0, 0);
         assertThat(result3).isEmpty();
     }
 

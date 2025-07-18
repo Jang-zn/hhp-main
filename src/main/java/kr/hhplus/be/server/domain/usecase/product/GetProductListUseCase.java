@@ -16,7 +16,6 @@ public class GetProductListUseCase {
     private final CachePort cachePort;
     
     public List<Product> execute(int limit, int offset) {
-        // TODO: 상품 목록 조회 로직 구현
-        return List.of();
+        return productRepositoryPort.findAllWithPagination(limit, offset);
     }
 } 

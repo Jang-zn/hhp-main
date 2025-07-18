@@ -1,7 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.api.dto.request.CreateOrderRequest;
+import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.controller.OrderController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ public class OrderTest {
         long userId = 1L;
         List<Long> productIds = List.of(1L, 2L);
         List<Long> couponIds = List.of(1L);
-        CreateOrderRequest request = new CreateOrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
 
         // when
         ResultActions resultActions = mockMvc.perform(post("/api/order")

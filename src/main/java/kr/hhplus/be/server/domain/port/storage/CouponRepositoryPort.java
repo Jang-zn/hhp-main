@@ -8,6 +8,4 @@ import java.util.Optional;
 public interface CouponRepositoryPort {
     Optional<Coupon> findById(Long id);
     Coupon save(Coupon coupon);
-    Coupon updateIssuedCount(Long couponId, int issuedCount);
-    List<Coupon> findApplicableProducts(Long couponId);
 } 

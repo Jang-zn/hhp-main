@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -62,46 +63,37 @@ class InMemoryCouponHistoryRepositoryTest {
     }
 
     @Test
-    @DisplayName("쿠폰 히스토리 ID로 조회 성공")
-    void findById_Success() {
+    @DisplayName("사용자 ID와 쿠폰 ID로 히스토리 존재 여부 확인")
+    void existsByUserAndCoupon_Success() {
         // given
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        
-        Coupon coupon = Coupon.builder()
-                .code("SALE20")
-                .discountRate(new BigDecimal("0.20"))
-                .maxIssuance(50)
-                .issuedCount(1)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusDays(15))
-                .build();
-        
-        CouponHistory couponHistory = CouponHistory.builder()
-                .user(user)
-                .coupon(coupon)
-                .issuedAt(LocalDateTime.now())
-                .build();
-        CouponHistory savedHistory = couponHistoryRepository.save(couponHistory);
+        User user = User.builder().id(1L).name("테스트 사용자").build();
+        Coupon coupon = Coupon.builder().id(1L).code("SALE20").discountRate(new BigDecimal("0.20")).maxIssuance(100).issuedCount(0).startDate(LocalDateTime.now()).endDate(LocalDateTime.now().plusDays(30)).build();
+        CouponHistory couponHistory = CouponHistory.builder().id(1L).user(user).coupon(coupon).issuedAt(LocalDateTime.now()).build();
+        couponHistoryRepository.save(couponHistory);
 
         // when
-        Optional<CouponHistory> foundHistory = couponHistoryRepository.findById(savedHistory.getId());
+        boolean exists = couponHistoryRepository.existsByUserAndCoupon(user, coupon);
 
         // then
-        assertThat(foundHistory).isPresent();
-        assertThat(foundHistory.get().getUser()).isEqualTo(user);
-        assertThat(foundHistory.get().getCoupon().getCode()).isEqualTo("SALE20");
+        assertThat(exists).isTrue();
     }
 
     @Test
-    @DisplayName("존재하지 않는 쿠폰 히스토리 조회")
-    void findById_NotFound() {
+    @DisplayName("사용자 ID로 쿠폰 히스토리 목록 조회")
+    void findByUserWithPagination_Success() {
+        // given
+        User user = User.builder().id(1L).name("테스트 사용자").build();
+        Coupon coupon1 = Coupon.builder().id(1L).code("SALE10").discountRate(new BigDecimal("0.10")).maxIssuance(100).issuedCount(0).startDate(LocalDateTime.now()).endDate(LocalDateTime.now().plusDays(30)).build();
+        Coupon coupon2 = Coupon.builder().id(2L).code("SALE20").discountRate(new BigDecimal("0.20")).maxIssuance(100).issuedCount(0).startDate(LocalDateTime.now()).endDate(LocalDateTime.now().plusDays(30)).build();
+        couponHistoryRepository.save(CouponHistory.builder().id(1L).user(user).coupon(coupon1).issuedAt(LocalDateTime.now()).build());
+        couponHistoryRepository.save(CouponHistory.builder().id(2L).user(user).coupon(coupon2).issuedAt(LocalDateTime.now()).build());
+
         // when
-        Optional<CouponHistory> foundHistory = couponHistoryRepository.findById(999L);
+        List<CouponHistory> histories = couponHistoryRepository.findByUserWithPagination(user, 1, 0);
 
         // then
-        assertThat(foundHistory).isEmpty();
+        assertThat(histories).hasSize(1);
+        assertThat(histories.get(0).getCoupon().getCode()).isEqualTo("SALE10");
     }
 
     @ParameterizedTest

@@ -76,7 +76,7 @@ class AcquireCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -109,7 +109,7 @@ class AcquireCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -207,7 +207,7 @@ class AcquireCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(outOfStockCoupon));
-        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, outOfStockCoupon)).thenReturn(false);
 
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
@@ -237,8 +237,7 @@ class AcquireCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(true); // 이미 발급받음
-
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(true); // 이미 발급받음
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.AlreadyAcquired.class)
@@ -291,8 +290,7 @@ class AcquireCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(futureStartCoupon));
-        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
-
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, futureStartCoupon)).thenReturn(false);
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalStateException.class)

@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.controller;
 
 import kr.hhplus.be.server.api.controller.ProductController;
+import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.domain.usecase.product.GetProductListUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
@@ -33,8 +34,11 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 목록 조회 API 성공")
     void getProducts_Success() {
-        // given & when
-        List<ProductResponse> response = productController.getProducts(10, 0);
+        // given
+        ProductRequest request = new ProductRequest(10, 0);
+        
+        // when
+        List<ProductResponse> response = productController.getProductList(request);
 
         // then
         assertThat(response).hasSize(3);
@@ -47,8 +51,11 @@ class ProductControllerTest {
     @MethodSource("providePaginationData")
     @DisplayName("다양한 페이지네이션으로 상품 조회")
     void getProducts_WithDifferentPagination(int limit, int offset) {
+        // given
+        ProductRequest request = new ProductRequest(limit, offset);
+        
         // when
-        List<ProductResponse> response = productController.getProducts(limit, offset);
+        List<ProductResponse> response = productController.getProductList(request);
 
         // then
         assertThat(response).hasSize(3); // 하드코딩된 응답이므로 항상 3개
@@ -57,8 +64,11 @@ class ProductControllerTest {
     @Test
     @DisplayName("인기 상품 조회 API 성공")
     void getPopularProducts_Success() {
-        // given & when
-        List<ProductResponse> response = productController.getPopularProducts(3);
+        // given
+        ProductRequest request = new ProductRequest(3);
+        
+        // when
+        List<ProductResponse> response = productController.getPopularProducts(request);
 
         // then
         assertThat(response).hasSize(5);
@@ -70,8 +80,11 @@ class ProductControllerTest {
     @Test
     @DisplayName("기본 페이지네이션으로 상품 조회")
     void getProducts_WithDefaultPagination() {
+        // given
+        ProductRequest request = new ProductRequest(10, 0);
+        
         // when
-        List<ProductResponse> response = productController.getProducts(10, 0);
+        List<ProductResponse> response = productController.getProductList(request);
 
         // then
         assertThat(response).hasSize(3);

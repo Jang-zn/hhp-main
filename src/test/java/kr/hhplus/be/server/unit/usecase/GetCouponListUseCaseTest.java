@@ -85,7 +85,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserId(userId, limit, offset)).thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(couponHistories);
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -122,7 +122,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserId(userId, limit, offset)).thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(couponHistories);
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -175,7 +175,7 @@ class GetCouponListUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserId(userId, limit, offset)).thenReturn(Collections.emptyList());
+        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(Collections.emptyList());
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);

@@ -1,7 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.api.dto.request.BalanceChargeRequest;
+import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.controller.BalanceController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class BalanceTest {
         // given
         long userId = 1L;
         BigDecimal amount = new BigDecimal("10000");
-        BalanceChargeRequest request = new BalanceChargeRequest(userId, amount);
+        BalanceRequest request = new BalanceRequest(userId, amount);
 
         // when
         ResultActions resultActions = mockMvc.perform(post("/api/balance/charge")

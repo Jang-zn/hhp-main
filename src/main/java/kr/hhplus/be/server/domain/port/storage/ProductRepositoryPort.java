@@ -7,8 +7,7 @@ import java.util.Optional;
 
 public interface ProductRepositoryPort {
     Optional<Product> findById(Long id);
-    List<Product> findAll(int limit, int offset);
     Product save(Product product);
-    Product updateStock(Long productId, int stock, int reservedStock);
     List<Product> findPopularProducts(int period);
+    List<Product> findAllWithPagination(int limit, int offset);
 } 

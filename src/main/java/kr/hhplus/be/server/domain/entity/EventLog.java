@@ -4,11 +4,12 @@ import jakarta.persistence.*;
 import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 @Entity
 public class EventLog extends BaseEntity {
 
