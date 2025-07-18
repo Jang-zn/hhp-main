@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepositoryPort {
-    Optional<Order> findById(Long id);
-    List<Order> findByUserId(Long userId);
     Order save(Order order);
-    Order updateStatus(Long orderId, String status);
+    List<Order> findByUser(kr.hhplus.be.server.domain.entity.User user);
+    Optional<Order> findByIdAndUser(Long orderId, kr.hhplus.be.server.domain.entity.User user);
+    Optional<Order> findById(Long orderId);
 } 

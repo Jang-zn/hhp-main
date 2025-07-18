@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CouponHistoryRepositoryPort {
-    Optional<CouponHistory> findById(Long id);
-    List<CouponHistory> findByUserId(Long userId, int limit, int offset);
+    boolean existsByUserAndCoupon(kr.hhplus.be.server.domain.entity.User user, kr.hhplus.be.server.domain.entity.Coupon coupon);
     CouponHistory save(CouponHistory couponHistory);
-    boolean existsByUserIdAndCouponId(Long userId, Long couponId);
+    List<CouponHistory> findByUserWithPagination(kr.hhplus.be.server.domain.entity.User user, int limit, int offset);
 } 
