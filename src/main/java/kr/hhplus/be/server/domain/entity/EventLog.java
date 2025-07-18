@@ -12,9 +12,6 @@ import lombok.*;
 @Entity
 public class EventLog extends BaseEntity {
 
-    @Id
-    private String id;
-
     @Enumerated(EnumType.STRING)
     private EventType eventType;
 

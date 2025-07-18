@@ -12,9 +12,6 @@ import java.time.LocalDateTime;
 @Entity
 public class CouponHistory extends BaseEntity {
 
-    @Id
-    private String id;
-
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

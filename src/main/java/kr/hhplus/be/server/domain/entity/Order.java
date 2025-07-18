@@ -15,9 +15,6 @@ import java.util.List;
 @Table(name = "orders")
 public class Order extends BaseEntity {
 
-    @Id
-    private String id;
-
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

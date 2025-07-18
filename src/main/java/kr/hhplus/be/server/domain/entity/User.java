@@ -14,9 +14,6 @@ import java.util.List;
 @Table(name = "users")
 public class User extends BaseEntity {
 
-    @Id
-    private String id;
-
     private String name;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)

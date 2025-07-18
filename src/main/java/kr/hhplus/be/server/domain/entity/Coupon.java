@@ -13,9 +13,6 @@ import java.time.LocalDateTime;
 @Entity
 public class Coupon extends BaseEntity {
 
-    @Id
-    private String id;
-
     private String code;
 
     @Column(nullable = false, precision = 5, scale = 2)

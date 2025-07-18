@@ -12,9 +12,6 @@ import java.math.BigDecimal;
 @Entity
 public class Balance extends BaseEntity {
 
-    @Id
-    private String id;
-
     @OneToOne
     @JoinColumn(name = "user_id")
     private User user;

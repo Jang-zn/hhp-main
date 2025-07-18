@@ -12,9 +12,6 @@ import java.math.BigDecimal;
 @Entity
 public class Product extends BaseEntity {
 
-    @Id
-    private String id;
-
     private String name;
 
     @Column(nullable = false, precision = 19, scale = 2)

@@ -13,9 +13,6 @@ import java.math.BigDecimal;
 @Entity
 public class Payment extends BaseEntity {
 
-    @Id
-    private String id;
-
     @ManyToOne
     @JoinColumn(name = "order_id")
     private Order order;
