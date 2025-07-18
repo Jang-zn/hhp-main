@@ -52,6 +52,7 @@ class BalanceControllerTest {
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         BalanceRequest request = new BalanceRequest(userId, chargeAmount);
+
         
         User user = User.builder().name("테스트 사용자").build();
         Balance balance = Balance.builder()
@@ -101,6 +102,7 @@ class BalanceControllerTest {
     void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
         // given
         BalanceRequest request = new BalanceRequest(userId, new BigDecimal(chargeAmount));
+
         
         User user = User.builder().name("테스트 사용자").build();
         Balance balance = Balance.builder()
@@ -148,6 +150,7 @@ class BalanceControllerTest {
         Long userId = 999L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         BalanceRequest request = new BalanceRequest(userId, chargeAmount);
+
         
         when(chargeBalanceUseCase.execute(userId, chargeAmount))
                 .thenThrow(new BalanceException.InvalidUser());
@@ -165,7 +168,7 @@ class BalanceControllerTest {
         Long userId = 1L;
         BigDecimal invalidAmount = new BigDecimal("-10000");
         BalanceRequest request = new BalanceRequest(userId, invalidAmount);
-        
+
         when(chargeBalanceUseCase.execute(userId, invalidAmount))
                 .thenThrow(new BalanceException.InvalidAmount());
 
@@ -182,6 +185,7 @@ class BalanceControllerTest {
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         BalanceRequest request = new BalanceRequest(userId, chargeAmount);
+
         
         when(chargeBalanceUseCase.execute(userId, chargeAmount))
                 .thenThrow(new BalanceException.ConcurrencyConflict());
@@ -228,6 +232,7 @@ class BalanceControllerTest {
     void chargeBalance_WithInvalidData(String description, Long userId, String amount, Class<? extends Exception> expectedException) {
         // given
         BalanceRequest request = new BalanceRequest(userId, new BigDecimal(amount));
+
         
         when(chargeBalanceUseCase.execute(userId, new BigDecimal(amount)))
                 .thenThrow(expectedException);

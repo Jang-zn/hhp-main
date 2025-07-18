@@ -63,6 +63,7 @@ class OrderControllerTest {
         List<Long> productIds = List.of(1L, 2L);
         List<Long> couponIds = List.of(1L);
         OrderRequest request = new OrderRequest(userId, productIds, couponIds);
+
         
         User user = User.builder().name("테스트 사용자").build();
         Order order = Order.builder()
@@ -166,6 +167,7 @@ class OrderControllerTest {
         List<Long> productIds = List.of(1L);
         List<Long> couponIds = List.of();
         OrderRequest request = new OrderRequest(userId, productIds, couponIds);
+
         
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new OrderException.InvalidUser());
@@ -184,7 +186,7 @@ class OrderControllerTest {
         List<Long> productIds = Collections.emptyList();
         List<Long> couponIds = List.of();
         OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-        
+
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new IllegalArgumentException("Order must contain at least one item"));
 
@@ -202,6 +204,7 @@ class OrderControllerTest {
         List<Long> productIds = List.of(1L);
         List<Long> couponIds = List.of();
         OrderRequest request = new OrderRequest(userId, productIds, couponIds);
+
         
         when(createOrderUseCase.execute(anyLong(), anyMap()))
                 .thenThrow(new ProductException.OutOfStock());
@@ -224,6 +227,7 @@ class OrderControllerTest {
         // when & then
         OrderRequest request = new OrderRequest(null, null);
         assertThatThrownBy(() -> orderController.payOrder(orderId, request))
+
                 .isInstanceOf(PaymentException.OrderNotFound.class)
                 .hasMessage("Order not found");
     }
@@ -240,6 +244,7 @@ class OrderControllerTest {
         // when & then
         OrderRequest request = new OrderRequest(null, null);
         assertThatThrownBy(() -> orderController.payOrder(orderId, request))
+
                 .isInstanceOf(PaymentException.InsufficientBalance.class)
                 .hasMessage("Insufficient balance");
     }

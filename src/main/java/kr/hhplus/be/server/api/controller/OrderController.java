@@ -12,6 +12,7 @@ import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.usecase.order.*;
 import org.springframework.validation.annotation.Validated;
 
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ public class OrderController {
     @ApiCreate(summary = "주문 생성")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+  
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
         // productIds를 Map<Long, Integer> 형태로 변환 (각 상품의 수량을 1로 설정)
         Map<Long, Integer> productQuantities = request.getProductIds().stream()

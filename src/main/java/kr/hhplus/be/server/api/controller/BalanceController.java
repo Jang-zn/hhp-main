@@ -30,6 +30,7 @@ public class BalanceController {
     @ApiSuccess(summary = "잔액 충전")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
+  
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
         return new BalanceResponse(

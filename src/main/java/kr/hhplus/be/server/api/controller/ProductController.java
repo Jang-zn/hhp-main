@@ -10,6 +10,7 @@ import kr.hhplus.be.server.domain.usecase.product.GetProductListUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.springframework.validation.annotation.Validated;
 
+
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

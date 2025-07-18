@@ -114,7 +114,6 @@ class GetProductListUseCaseTest {
         // given
         int limit = 10;
         int offset = 0;
-        
         when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(Collections.emptyList());
 
         // when
