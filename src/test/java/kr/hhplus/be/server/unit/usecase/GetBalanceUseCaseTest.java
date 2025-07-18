@@ -63,7 +63,7 @@ class GetBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(balance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
 
         // when
         Optional<Balance> result = getBalanceUseCase.execute(userId);
@@ -105,7 +105,7 @@ class GetBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(balance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
 
         // when
         Optional<Balance> result = getBalanceUseCase.execute(userId);
@@ -139,7 +139,7 @@ class GetBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.empty());
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.empty());
 
         // when
         Optional<Balance> result = getBalanceUseCase.execute(userId);
@@ -178,7 +178,7 @@ class GetBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(negativeBalance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(negativeBalance));
 
         // when
         Optional<Balance> result = getBalanceUseCase.execute(userId);
@@ -204,7 +204,7 @@ class GetBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(largeBalance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(largeBalance));
 
         // when
         Optional<Balance> result = getBalanceUseCase.execute(userId);

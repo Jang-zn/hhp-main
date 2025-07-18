@@ -69,7 +69,7 @@ class ChargeBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(existingBalance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -96,7 +96,7 @@ class ChargeBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(existingBalance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -226,7 +226,7 @@ class ChargeBalanceUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(existingBalance));
+        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenThrow(new BalanceException.ConcurrencyConflict());
 
         // when & then

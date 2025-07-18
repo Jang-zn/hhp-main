@@ -53,7 +53,7 @@ class GetProductListUseCaseTest {
                 createProduct(3L, "태블릿", "600000", 30)
         );
         
-        when(productRepositoryPort.findAll(limit, offset)).thenReturn(products);
+        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(products);
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -73,7 +73,7 @@ class GetProductListUseCaseTest {
                 createProduct(2L, "상품2", "200000", 20)
         );
         
-        when(productRepositoryPort.findAll(limit, offset)).thenReturn(products);
+        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(products);
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -115,7 +115,7 @@ class GetProductListUseCaseTest {
         int limit = 10;
         int offset = 0;
         
-        when(productRepositoryPort.findAll(limit, offset)).thenReturn(Collections.emptyList());
+        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(Collections.emptyList());
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -154,7 +154,7 @@ class GetProductListUseCaseTest {
         int limit = 10;
         int largeOffset = 999999;
         
-        when(productRepositoryPort.findAll(limit, largeOffset)).thenReturn(Collections.emptyList());
+        when(productRepositoryPort.findAllWithPagination(limit, largeOffset)).thenReturn(Collections.emptyList());
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, largeOffset);
