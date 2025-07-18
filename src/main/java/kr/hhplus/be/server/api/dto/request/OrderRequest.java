@@ -3,31 +3,43 @@ package kr.hhplus.be.server.api.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.util.List;
 
-@Schema(description = "주문 생성 요청")
-public class CreateOrderRequest {
+@Schema(description = "주문 관련 요청")
+public class OrderRequest {
     
-    @Schema(description = "사용자 ID", example = "1", required = true)
+    @Schema(description = "사용자 ID", example = "1")
     @NotNull(message = "사용자 ID는 필수입니다")
+    @Positive(message = "사용자 ID는 양수여야 합니다")
     private Long userId;
     
-    @Schema(description = "상품 ID 목록", example = "[1, 2, 3]", required = true)
+    @Schema(description = "상품 ID 목록", example = "[1, 2, 3]")
     @NotEmpty(message = "상품 목록은 필수입니다")
     private List<Long> productIds;
     
     @Schema(description = "쿠폰 ID 목록", example = "[1, 2]")
     private List<Long> couponIds;
+    
+    @Schema(description = "쿠폰 ID (결제 시 사용)", example = "1")
+    @Positive(message = "쿠폰 ID는 양수여야 합니다")
+    private Long couponId;
 
     // 기본 생성자
-    public CreateOrderRequest() {}
+    public OrderRequest() {}
 
-    // 생성자
-    public CreateOrderRequest(Long userId, List<Long> productIds, List<Long> couponIds) {
+    // 주문 생성용 생성자
+    public OrderRequest(Long userId, List<Long> productIds, List<Long> couponIds) {
         this.userId = userId;
         this.productIds = productIds;
         this.couponIds = couponIds;
+    }
+    
+    // 결제용 생성자
+    public OrderRequest(Long userId, Long couponId) {
+        this.userId = userId;
+        this.couponId = couponId;
     }
 
     // Getters and Setters
@@ -37,4 +49,6 @@ public class CreateOrderRequest {
     public void setProductIds(List<Long> productIds) { this.productIds = productIds; }
     public List<Long> getCouponIds() { return couponIds; }
     public void setCouponIds(List<Long> couponIds) { this.couponIds = couponIds; }
-} 
+    public Long getCouponId() { return couponId; }
+    public void setCouponId(Long couponId) { this.couponId = couponId; }
+}

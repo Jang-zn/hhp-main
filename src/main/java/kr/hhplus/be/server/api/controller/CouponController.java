@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
@@ -28,10 +30,8 @@ public class CouponController {
 
     @ApiSuccess(summary = "쿠폰 발급")
     @PostMapping("/acquire")
-    public CouponResponse acquireCoupon(
-            @RequestParam Long userId,
-            @RequestParam Long couponId) {
-        CouponHistory couponHistory = acquireCouponUseCase.execute(userId, couponId);
+    public CouponResponse acquireCoupon(@Valid @RequestBody CouponRequest request) {
+        CouponHistory couponHistory = acquireCouponUseCase.execute(request.getUserId(), request.getCouponId());
         return new CouponResponse(
                 couponHistory.getCoupon().getId(),
                 couponHistory.getCoupon().getCode(),
@@ -44,9 +44,8 @@ public class CouponController {
     @GetMapping("/{userId}")
     public List<CouponResponse> getCoupons(
             @PathVariable Long userId,
-            @RequestParam(defaultValue = "10") int limit,
-            @RequestParam(defaultValue = "0") int offset) {
-        List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
+            @Valid CouponRequest request) {
+        List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
                 .map(history -> new CouponResponse(
                         history.getCoupon().getId(),

@@ -2,7 +2,7 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import kr.hhplus.be.server.api.dto.request.CreateOrderRequest;
+import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.swagger.ApiCreate;
@@ -11,6 +11,7 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,7 @@ public class OrderController {
     @ApiCreate(summary = "주문 생성")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
+    public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
         // productIds를 Map<Long, Integer> 형태로 변환 (각 상품의 수량을 1로 설정)
         Map<Long, Integer> productQuantities = request.getProductIds().stream()
                 .collect(Collectors.toMap(
@@ -71,9 +72,8 @@ public class OrderController {
     @PostMapping("/{orderId}/pay")
     public PaymentResponse payOrder(
             @PathVariable Long orderId,
-            @RequestParam(required = false) Long userId,
-            @RequestParam(required = false) Long couponId) {
-        Payment payment = payOrderUseCase.execute(orderId, userId, couponId);
+            @Valid @RequestBody OrderRequest request) {
+        Payment payment = payOrderUseCase.execute(orderId, request.getUserId(), request.getCouponId());
         
         return new PaymentResponse(
                 payment.getId(),

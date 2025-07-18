@@ -2,7 +2,7 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import kr.hhplus.be.server.api.dto.request.BalanceChargeRequest;
+import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Balance;
@@ -30,7 +30,7 @@ public class BalanceController {
     @ApiSuccess(summary = "잔액 충전")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-    public BalanceResponse chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
+    public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUser().getId(),
