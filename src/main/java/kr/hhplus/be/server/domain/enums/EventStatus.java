@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.domain.enum;
+package kr.hhplus.be.server.domain.enums;
 
 public enum EventStatus {
     PENDING,
