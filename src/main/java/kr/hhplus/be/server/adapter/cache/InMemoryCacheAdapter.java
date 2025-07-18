@@ -4,35 +4,34 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 @Component
 public class InMemoryCacheAdapter implements CachePort {
-    
+
     private final Map<String, Object> cache = new ConcurrentHashMap<>();
-    
+
     @Override
-    public <T> Optional<T> get(String key, Class<T> type) {
+    public <T> T get(String key, Class<T> type, Supplier<T> supplier) {
         Object value = cache.get(key);
         if (value != null && type.isInstance(value)) {
-            return Optional.of(type.cast(value));
+            return type.cast(value);
         }
-        return Optional.empty();
+        T suppliedValue = supplier.get();
+        if (suppliedValue != null) {
+            cache.put(key, suppliedValue);
+        }
+        return suppliedValue;
     }
-    
+
     @Override
-    public void set(String key, Object value) {
+    public void put(String key, Object value, int ttlSeconds) {
         cache.put(key, value);
     }
-    
+
     @Override
-    public void delete(String key) {
+    public void evict(String key) {
         cache.remove(key);
-    }
-    
-    @Override
-    public boolean exists(String key) {
-        return cache.containsKey(key);
     }
 } 

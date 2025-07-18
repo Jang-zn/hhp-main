@@ -12,29 +12,27 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryPort {
-    
+
     private final Map<Long, CouponHistory> couponHistories = new ConcurrentHashMap<>();
-    
+
     @Override
-    public Optional<CouponHistory> findById(Long id) {
-        return Optional.ofNullable(couponHistories.get(id));
+    public boolean existsByUserAndCoupon(kr.hhplus.be.server.domain.entity.User user, kr.hhplus.be.server.domain.entity.Coupon coupon) {
+        return couponHistories.values().stream()
+                .anyMatch(history -> history.getUser().equals(user) && history.getCoupon().equals(coupon));
     }
-    
-    @Override
-    public List<CouponHistory> findByUserId(Long userId, int limit, int offset) {
-        // TODO: 사용자별 쿠폰 히스토리 조회 로직 구현
-        return new ArrayList<>();
-    }
-    
+
     @Override
     public CouponHistory save(CouponHistory couponHistory) {
         couponHistories.put(couponHistory.getId(), couponHistory);
         return couponHistory;
     }
-    
+
     @Override
-    public boolean existsByUserIdAndCouponId(Long userId, Long couponId) {
-        // TODO: 사용자-쿠폰 조합 존재 여부 확인 로직 구현
-        return false;
+    public List<CouponHistory> findByUserWithPagination(kr.hhplus.be.server.domain.entity.User user, int limit, int offset) {
+        return couponHistories.values().stream()
+                .filter(history -> history.getUser().equals(user))
+                .skip(offset)
+                .limit(limit)
+                .toList();
     }
 } 

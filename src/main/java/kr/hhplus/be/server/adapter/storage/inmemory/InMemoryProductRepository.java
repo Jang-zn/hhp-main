@@ -12,38 +12,31 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class InMemoryProductRepository implements ProductRepositoryPort {
-    
+
     private final Map<Long, Product> products = new ConcurrentHashMap<>();
-    
+
     @Override
     public Optional<Product> findById(Long id) {
         return Optional.ofNullable(products.get(id));
     }
-    
-    @Override
-    public List<Product> findAll(int limit, int offset) {
-        // TODO: 페이징 로직 구현
-        return new ArrayList<>(products.values());
-    }
-    
+
     @Override
     public Product save(Product product) {
         products.put(product.getId(), product);
         return product;
     }
-    
-    @Override
-    public Product updateStock(Long productId, int stock, int reservedStock) {
-        Product product = products.get(productId);
-        if (product != null) {
-            // TODO: 실제 업데이트 로직 구현
-        }
-        return product;
-    }
-    
+
     @Override
     public List<Product> findPopularProducts(int period) {
-        // TODO: 인기 상품 조회 로직 구현
-        return new ArrayList<>();
+        // Not supported in in-memory repository
+        return List.of();
+    }
+
+    @Override
+    public List<Product> findAllWithPagination(int limit, int offset) {
+        return products.values().stream()
+                .skip(offset)
+                .limit(limit)
+                .toList();
     }
 } 

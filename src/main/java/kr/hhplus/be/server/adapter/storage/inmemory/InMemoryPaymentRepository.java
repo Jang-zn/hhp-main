@@ -1,14 +1,15 @@
 package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Payment;
+import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.PaymentRepositoryPort;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Repository
 public class InMemoryPaymentRepository implements PaymentRepositoryPort {
@@ -22,8 +23,9 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     
     @Override
     public List<Payment> findByOrderId(Long orderId) {
-        // TODO: 주문별 결제 조회 로직 구현
-        return new ArrayList<>();
+        return payments.values().stream()
+                .filter(payment -> payment.getOrder() != null && payment.getOrder().getId().equals(orderId))
+                .collect(Collectors.toList());
     }
     
     @Override
@@ -33,11 +35,12 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     }
     
     @Override
-    public Payment updateStatus(Long paymentId, String status) {
+    public Payment updateStatus(Long paymentId, PaymentStatus status) {
         Payment payment = payments.get(paymentId);
         if (payment != null) {
-            // TODO: 실제 상태 업데이트 로직 구현
+            payment.changeStatus(status);
+            payments.put(paymentId, payment);
         }
         return payment;
     }
-} 
+}
