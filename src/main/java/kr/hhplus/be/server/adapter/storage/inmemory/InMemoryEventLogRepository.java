@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     
-    private final Map<String, EventLog> eventLogs = new ConcurrentHashMap<>();
+    private final Map<Long, EventLog> eventLogs = new ConcurrentHashMap<>();
     
     @Override
     public EventLog save(EventLog eventLog) {

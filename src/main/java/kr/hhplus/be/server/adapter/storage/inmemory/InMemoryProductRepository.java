@@ -13,10 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryProductRepository implements ProductRepositoryPort {
     
-    private final Map<String, Product> products = new ConcurrentHashMap<>();
+    private final Map<Long, Product> products = new ConcurrentHashMap<>();
     
     @Override
-    public Optional<Product> findById(String id) {
+    public Optional<Product> findById(Long id) {
         return Optional.ofNullable(products.get(id));
     }
     
@@ -33,7 +33,7 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
     }
     
     @Override
-    public Product updateStock(String productId, int stock, int reservedStock) {
+    public Product updateStock(Long productId, int stock, int reservedStock) {
         Product product = products.get(productId);
         if (product != null) {
             // TODO: 실제 업데이트 로직 구현

@@ -13,15 +13,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryOrderRepository implements OrderRepositoryPort {
     
-    private final Map<String, Order> orders = new ConcurrentHashMap<>();
+    private final Map<Long, Order> orders = new ConcurrentHashMap<>();
     
     @Override
-    public Optional<Order> findById(String id) {
+    public Optional<Order> findById(Long id) {
         return Optional.ofNullable(orders.get(id));
     }
     
     @Override
-    public List<Order> findByUserId(String userId) {
+    public List<Order> findByUserId(Long userId) {
         // TODO: 사용자별 주문 조회 로직 구현
         return new ArrayList<>();
     }
@@ -33,7 +33,7 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     }
     
     @Override
-    public Order updateStatus(String orderId, String status) {
+    public Order updateStatus(Long orderId, String status) {
         Order order = orders.get(orderId);
         if (order != null) {
             // TODO: 실제 상태 업데이트 로직 구현

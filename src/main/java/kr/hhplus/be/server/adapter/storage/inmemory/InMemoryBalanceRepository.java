@@ -12,10 +12,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     
-    private final Map<String, Balance> balances = new ConcurrentHashMap<>();
+    private final Map<Long, Balance> balances = new ConcurrentHashMap<>();
     
     @Override
-    public Optional<Balance> findByUserId(String userId) {
+    public Optional<Balance> findByUserId(Long userId) {
         return Optional.ofNullable(balances.get(userId));
     }
     
@@ -26,7 +26,7 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     }
     
     @Override
-    public Balance updateAmount(String userId, BigDecimal amount) {
+    public Balance updateAmount(Long userId, BigDecimal amount) {
         Balance balance = balances.get(userId);
         if (balance != null) {
             // TODO: 실제 업데이트 로직 구현

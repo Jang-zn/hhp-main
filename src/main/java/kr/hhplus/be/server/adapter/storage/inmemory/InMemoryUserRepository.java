@@ -11,10 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryUserRepository implements UserRepositoryPort {
     
-    private final Map<String, User> users = new ConcurrentHashMap<>();
+    private final Map<Long, User> users = new ConcurrentHashMap<>();
     
     @Override
-    public Optional<User> findById(String id) {
+    public Optional<User> findById(Long id) {
         return Optional.ofNullable(users.get(id));
     }
     
@@ -25,7 +25,7 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     }
     
     @Override
-    public boolean existsById(String id) {
+    public boolean existsById(Long id) {
         return users.containsKey(id);
     }
 } 

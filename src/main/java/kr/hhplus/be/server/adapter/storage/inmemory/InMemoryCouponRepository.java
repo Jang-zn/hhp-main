@@ -13,10 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class InMemoryCouponRepository implements CouponRepositoryPort {
     
-    private final Map<String, Coupon> coupons = new ConcurrentHashMap<>();
+    private final Map<Long, Coupon> coupons = new ConcurrentHashMap<>();
     
     @Override
-    public Optional<Coupon> findById(String id) {
+    public Optional<Coupon> findById(Long id) {
         return Optional.ofNullable(coupons.get(id));
     }
     
@@ -27,7 +27,7 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
     }
     
     @Override
-    public Coupon updateIssuedCount(String couponId, int issuedCount) {
+    public Coupon updateIssuedCount(Long couponId, int issuedCount) {
         Coupon coupon = coupons.get(couponId);
         if (coupon != null) {
             // TODO: 실제 업데이트 로직 구현
@@ -36,7 +36,7 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
     }
     
     @Override
-    public List<Coupon> findApplicableProducts(String couponId) {
+    public List<Coupon> findApplicableProducts(Long couponId) {
         // TODO: 적용 가능한 상품 조회 로직 구현
         return new ArrayList<>();
     }
