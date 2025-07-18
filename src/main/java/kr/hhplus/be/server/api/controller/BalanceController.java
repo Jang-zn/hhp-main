@@ -5,8 +5,11 @@ import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.dto.request.BalanceChargeRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
+
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -28,16 +31,28 @@ public class BalanceController {
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceChargeRequest request) {
-        // TODO: 잔액 충전 로직 구현
-        // Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
-        return new BalanceResponse(request.getUserId(), request.getAmount(), java.time.LocalDateTime.now());
+        Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
+        return new BalanceResponse(
+                balance.getUser().getId(),
+                balance.getAmount(),
+                balance.getUpdatedAt()
+        );
     }
 
     @ApiSuccess(summary = "잔액 조회")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
-        // TODO: 잔액 조회 로직 구현
-        // Optional<Balance> balance = getBalanceUseCase.execute(userId);
-        return new BalanceResponse(userId, new java.math.BigDecimal("50000"), java.time.LocalDateTime.now());
+        Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
+        
+        if (balanceOpt.isEmpty()) {
+            throw new kr.hhplus.be.server.domain.exception.BalanceException.InvalidUser();
+        }
+        
+        Balance balance = balanceOpt.get();
+        return new BalanceResponse(
+                balance.getUser().getId(),
+                balance.getAmount(),
+                balance.getUpdatedAt()
+        );
     }
 } 

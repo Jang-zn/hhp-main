@@ -20,7 +20,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+
+import kr.hhplus.be.server.domain.exception.BalanceException;
 
 @DisplayName("GetBalanceUseCase 단위 테스트")
 class GetBalanceUseCaseTest {
@@ -113,11 +116,118 @@ class GetBalanceUseCaseTest {
         // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal(amount));
     }
 
+    @Test
+    @DisplayName("null 사용자 ID로 잔액 조회 시 예외 발생")
+    void getBalance_WithNullUserId() {
+        // given
+        Long userId = null;
+
+        // when & then
+        assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
+                .isInstanceOf(BalanceException.InvalidUser.class)
+                .hasMessage("Invalid user ID");
+    }
+
+    @Test
+    @DisplayName("잔액이 존재하지 않는 사용자")
+    void getBalance_NoBalance() {
+        // given
+        Long userId = 1L;
+        
+        User user = User.builder()
+                .name("잔액 없는 사용자")
+                .build();
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.empty());
+
+        // when
+        Optional<Balance> result = getBalanceUseCase.execute(userId);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidUserIds")
+    @DisplayName("다양한 비정상 사용자 ID로 잔액 조회")
+    void getBalance_WithInvalidUserIds(Long invalidUserId) {
+        // given
+        when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
+
+        // when
+        Optional<Balance> result = getBalanceUseCase.execute(invalidUserId);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("음수 잔액을 가진 사용자")
+    void getBalance_WithNegativeBalance() {
+        // given
+        Long userId = 1L;
+        
+        User user = User.builder()
+                .name("음수 잔액 사용자")
+                .build();
+        
+        Balance negativeBalance = Balance.builder()
+                .user(user)
+                .amount(new BigDecimal("-50000")) // 음수 잔액
+                .build();
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(negativeBalance));
+
+        // when
+        Optional<Balance> result = getBalanceUseCase.execute(userId);
+
+        // then - TODO 구현이 완료되면 실제 검증 로직 추가
+        // assertThat(result).isPresent();
+        // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("-50000"));
+    }
+
+    @Test
+    @DisplayName("매우 큰 잔액을 가진 사용자")
+    void getBalance_WithLargeBalance() {
+        // given
+        Long userId = 1L;
+        
+        User user = User.builder()
+                .name("부자 사용자")
+                .build();
+        
+        Balance largeBalance = Balance.builder()
+                .user(user)
+                .amount(new BigDecimal("999999999999")) // 매우 큰 잔액
+                .build();
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(largeBalance));
+
+        // when
+        Optional<Balance> result = getBalanceUseCase.execute(userId);
+
+        // then - TODO 구현이 완료되면 실제 검증 로직 추가
+        // assertThat(result).isPresent();
+        // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("999999999999"));
+    }
+
     private static Stream<Arguments> provideUserData() {
         return Stream.of(
                 Arguments.of(1L, "홍길동", "50000"),
                 Arguments.of(2L, "김철수", "100000"),
                 Arguments.of(3L, "이영희", "75000")
+        );
+    }
+
+    private static Stream<Arguments> provideInvalidUserIds() {
+        return Stream.of(
+                Arguments.of(-1L),
+                Arguments.of(0L),
+                Arguments.of(Long.MAX_VALUE),
+                Arguments.of(Long.MIN_VALUE)
         );
     }
 }

@@ -3,8 +3,11 @@ package kr.hhplus.be.server.api.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,9 +31,13 @@ public class CouponController {
     public CouponResponse acquireCoupon(
             @RequestParam Long userId,
             @RequestParam Long couponId) {
-        // TODO: 쿠폰 발급 로직 구현
-        // CouponHistory couponHistory = acquireCouponUseCase.execute(userId, couponId);
-        return new CouponResponse(couponId, "COUPON123", new java.math.BigDecimal("0.1"), java.time.LocalDateTime.now().plusDays(30));
+        CouponHistory couponHistory = acquireCouponUseCase.execute(userId, couponId);
+        return new CouponResponse(
+                couponHistory.getCoupon().getId(),
+                couponHistory.getCoupon().getCode(),
+                couponHistory.getCoupon().getDiscountRate(),
+                couponHistory.getCoupon().getEndDate()
+        );
     }
 
     @ApiSuccess(summary = "보유 쿠폰 조회")
@@ -39,11 +46,14 @@ public class CouponController {
             @PathVariable Long userId,
             @RequestParam(defaultValue = "10") int limit,
             @RequestParam(defaultValue = "0") int offset) {
-        // TODO: 보유 쿠폰 조회 로직 구현
-        // List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
-        return List.of(
-                new CouponResponse(1L, "COUPON123", new java.math.BigDecimal("0.1"), java.time.LocalDateTime.now().plusDays(30)),
-                new CouponResponse(2L, "COUPON456", new java.math.BigDecimal("0.2"), java.time.LocalDateTime.now().plusDays(60))
-        );
+        List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
+        return couponHistories.stream()
+                .map(history -> new CouponResponse(
+                        history.getCoupon().getId(),
+                        history.getCoupon().getCode(),
+                        history.getCoupon().getDiscountRate(),
+                        history.getCoupon().getEndDate()
+                ))
+                .collect(Collectors.toList());
     }
 } 

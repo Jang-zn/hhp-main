@@ -58,7 +58,7 @@ class ProductControllerTest {
     @DisplayName("인기 상품 조회 API 성공")
     void getPopularProducts_Success() {
         // given & when
-        List<ProductResponse> response = productController.getPopularProducts();
+        List<ProductResponse> response = productController.getPopularProducts(3);
 
         // then
         assertThat(response).hasSize(5);
