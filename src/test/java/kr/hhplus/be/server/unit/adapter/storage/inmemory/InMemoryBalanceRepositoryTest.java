@@ -50,19 +50,21 @@ class InMemoryBalanceRepositoryTest {
 
     @Test
     @DisplayName("사용자 ID로 잔액 조회 성공")
-    void findByUserId_Success() {
+    void findByUser_Success() {
         // given
         User user = User.builder()
+                .id(1L)
                 .name("테스트 사용자")
                 .build();
         Balance balance = Balance.builder()
+                .id(1L)
                 .user(user)
                 .amount(new BigDecimal("50000"))
                 .build();
         balanceRepository.save(balance);
 
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(user.getId());
+        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
         // then
         assertThat(foundBalance).isPresent();
@@ -71,9 +73,12 @@ class InMemoryBalanceRepositoryTest {
 
     @Test
     @DisplayName("존재하지 않는 사용자 잔액 조회")
-    void findByUserId_NotFound() {
+    void findByUser_NotFound() {
+        // given
+        User user = User.builder().id(999L).build();
+
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(999L);
+        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
         // then
         assertThat(foundBalance).isEmpty();
@@ -105,15 +110,18 @@ class InMemoryBalanceRepositoryTest {
     @DisplayName("null 사용자 ID로 조회 시 예외 발생")
     void findByUserId_WithNullUserId() {
         // when & then
-        assertThatThrownBy(() -> balanceRepository.findByUserId(null))
+        assertThatThrownBy(() -> balanceRepository.findByUser(null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("음수 사용자 ID로 조회")
     void findByUserId_WithNegativeUserId() {
+        // given
+        User user = User.builder().id(-1L).name("테스트 사용자").build();
+        
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(-1L);
+        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
         // then
         assertThat(foundBalance).isEmpty();
@@ -164,7 +172,7 @@ class InMemoryBalanceRepositoryTest {
 
         // then
         assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(user.getId());
+        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
         assertThat(foundBalance).isPresent();
         assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("100000"));
     }
@@ -173,8 +181,11 @@ class InMemoryBalanceRepositoryTest {
     @MethodSource("provideInvalidUserIds")
     @DisplayName("유효하지 않은 사용자 ID들로 조회")
     void findByUserId_WithInvalidUserIds(Long invalidUserId) {
+        // given
+        User user = User.builder().id(invalidUserId).name("테스트 사용자").build();
+        
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(invalidUserId);
+        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
         // then
         assertThat(foundBalance).isEmpty();
