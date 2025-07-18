@@ -5,7 +5,7 @@ import kr.hhplus.be.server.domain.entity.User;
 import java.util.Optional;
 
 public interface UserRepositoryPort {
-    Optional<User> findById(String id);
+    Optional<User> findById(Long id);
     User save(User user);
-    boolean existsById(String id);
+    boolean existsById(Long id);
 } 

@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepositoryPort {
-    Optional<Order> findById(String id);
-    List<Order> findByUserId(String userId);
+    Optional<Order> findById(Long id);
+    List<Order> findByUserId(Long userId);
     Order save(Order order);
-    Order updateStatus(String orderId, String status);
+    Order updateStatus(Long orderId, String status);
 } 

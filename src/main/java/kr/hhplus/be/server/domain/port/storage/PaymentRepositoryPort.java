@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PaymentRepositoryPort {
-    Optional<Payment> findById(String id);
-    List<Payment> findByOrderId(String orderId);
+    Optional<Payment> findById(Long id);
+    List<Payment> findByOrderId(Long orderId);
     Payment save(Payment payment);
-    Payment updateStatus(String paymentId, String status);
+    Payment updateStatus(Long paymentId, String status);
 } 

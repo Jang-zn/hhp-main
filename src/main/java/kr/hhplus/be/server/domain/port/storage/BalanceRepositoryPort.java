@@ -5,7 +5,7 @@ import kr.hhplus.be.server.domain.entity.Balance;
 import java.util.Optional;
 
 public interface BalanceRepositoryPort {
-    Optional<Balance> findByUserId(String userId);
+    Optional<Balance> findByUserId(Long userId);
     Balance save(Balance balance);
-    Balance updateAmount(String userId, java.math.BigDecimal amount);
+    Balance updateAmount(Long userId, java.math.BigDecimal amount);
 } 
