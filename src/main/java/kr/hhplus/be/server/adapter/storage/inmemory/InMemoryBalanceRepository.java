@@ -17,6 +17,9 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
 
     @Override
     public Optional<Balance> findByUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
         return balances.values().stream().filter(balance -> balance.getUser().equals(user)).findFirst();
     }
 

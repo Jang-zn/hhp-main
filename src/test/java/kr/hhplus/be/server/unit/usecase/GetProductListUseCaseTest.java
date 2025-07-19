@@ -53,7 +53,8 @@ class GetProductListUseCaseTest {
                 createProduct(3L, "태블릿", "600000", 30)
         );
         
-        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(products);
+        when(cachePort.get("product_list_" + limit + "_" + offset, List.class, () -> 
+            productRepositoryPort.findAllWithPagination(limit, offset))).thenReturn(products);
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -73,7 +74,8 @@ class GetProductListUseCaseTest {
                 createProduct(2L, "상품2", "200000", 20)
         );
         
-        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(products);
+        when(cachePort.get("product_list_" + limit + "_" + offset, List.class, () -> 
+            productRepositoryPort.findAllWithPagination(limit, offset))).thenReturn(products);
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -96,7 +98,7 @@ class GetProductListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getProductListUseCase.execute(-1, 0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("limit");
+                .hasMessage("Limit must be greater than 0");
     }
 
     @Test
@@ -105,7 +107,7 @@ class GetProductListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getProductListUseCase.execute(10, -1))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("offset");
+                .hasMessage("Offset must be non-negative");
     }
 
     @Test
@@ -114,7 +116,8 @@ class GetProductListUseCaseTest {
         // given
         int limit = 10;
         int offset = 0;
-        when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(Collections.emptyList());
+        when(cachePort.get("product_list_" + limit + "_" + offset, List.class, () -> 
+            productRepositoryPort.findAllWithPagination(limit, offset))).thenReturn(Collections.emptyList());
 
         // when
         List<Product> result = getProductListUseCase.execute(limit, offset);
@@ -130,7 +133,7 @@ class GetProductListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getProductListUseCase.execute(0, 0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("limit must be positive");
+                .hasMessage("Limit must be greater than 0");
     }
 
     @Test

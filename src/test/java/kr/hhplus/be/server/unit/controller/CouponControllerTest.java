@@ -28,7 +28,7 @@ class CouponControllerTest {
     @BeforeEach
     void setUp() {
         acquireCouponUseCase = new AcquireCouponUseCase(null, null, null, null);
-        getCouponListUseCase = new GetCouponListUseCase(null, null);
+        getCouponListUseCase = new GetCouponListUseCase(null, null, null);
         couponController = new CouponController(acquireCouponUseCase, getCouponListUseCase);
     }
 
