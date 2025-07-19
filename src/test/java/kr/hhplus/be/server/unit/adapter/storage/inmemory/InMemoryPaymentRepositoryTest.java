@@ -7,6 +7,7 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -28,9 +29,13 @@ class InMemoryPaymentRepositoryTest {
         paymentRepository = new InMemoryPaymentRepository();
     }
 
-    @Test
-    @DisplayName("결제 저장 성공")
-    void save_Success() {
+    @Nested
+    @DisplayName("결제 저장 테스트")
+    class SaveTests {
+        
+        @Test
+        @DisplayName("성공케이스: 정상 결제 저장")
+        void save_Success() {
         // given
         User user = User.builder()
                 .name("테스트 사용자")
@@ -59,9 +64,73 @@ class InMemoryPaymentRepositoryTest {
         assertThat(savedPayment.getAmount()).isEqualTo(new BigDecimal("120000"));
     }
 
-    @Test
-    @DisplayName("결제 ID로 조회 성공")
-    void findById_Success() {
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryPaymentRepositoryTest#providePaymentData")
+        @DisplayName("성공케이스: 다양한 결제 데이터로 저장")
+        void save_WithDifferentPaymentData(String userName, String amount, PaymentStatus status) {
+            // given
+            User user = User.builder()
+                    .name(userName)
+                    .build();
+            
+            Order order = Order.builder()
+                    .user(user)
+                    .totalAmount(new BigDecimal(amount))
+                    .build();
+            
+            Payment payment = Payment.builder()
+                    .order(order)
+                    .user(user)
+                    .status(status)
+                    .amount(new BigDecimal(amount))
+                    .build();
+
+            // when
+            Payment savedPayment = paymentRepository.save(payment);
+
+            // then
+            assertThat(savedPayment).isNotNull();
+            assertThat(savedPayment.getUser().getName()).isEqualTo(userName);
+            assertThat(savedPayment.getAmount()).isEqualTo(new BigDecimal(amount));
+            assertThat(savedPayment.getStatus()).isEqualTo(status);
+        }
+
+        @Test
+        @DisplayName("성공케이스: 영액 결제 저장")
+        void save_ZeroAmountPayment() {
+            // given
+            User user = User.builder()
+                    .name("영액 결제 사용자")
+                    .build();
+            
+            Order order = Order.builder()
+                    .user(user)
+                    .totalAmount(BigDecimal.ZERO)
+                    .build();
+            
+            Payment payment = Payment.builder()
+                    .order(order)
+                    .user(user)
+                    .status(PaymentStatus.PAID)
+                    .amount(BigDecimal.ZERO)
+                    .build();
+
+            // when
+            Payment savedPayment = paymentRepository.save(payment);
+
+            // then
+            assertThat(savedPayment).isNotNull();
+            assertThat(savedPayment.getAmount()).isEqualTo(BigDecimal.ZERO);
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 조회 테스트")
+    class FindTests {
+        
+        @Test
+        @DisplayName("성공케이스: 결제 ID로 조회")
+        void findById_Success() {
         // given
         User user = User.builder()
                 .name("테스트 사용자")
@@ -86,48 +155,38 @@ class InMemoryPaymentRepositoryTest {
         // then
         assertThat(foundPayment).isPresent();
         assertThat(foundPayment.get().getStatus()).isEqualTo(PaymentStatus.PAID);
-        assertThat(foundPayment.get().getAmount()).isEqualTo(new BigDecimal("50000"));
-    }
+            assertThat(foundPayment.get().getAmount()).isEqualTo(new BigDecimal("50000"));
+        }
 
-    @Test
-    @DisplayName("존재하지 않는 결제 조회")
-    void findById_NotFound() {
-        // when
-        Optional<Payment> foundPayment = paymentRepository.findById(999L);
+        @Test
+        @DisplayName("실패케이스: 존재하지 않는 결제 조회")
+        void findById_NotFound() {
+            // when
+            Optional<Payment> foundPayment = paymentRepository.findById(999L);
 
-        // then
-        assertThat(foundPayment).isEmpty();
-    }
+            // then
+            assertThat(foundPayment).isEmpty();
+        }
 
-    @ParameterizedTest
-    @MethodSource("providePaymentData")
-    @DisplayName("다양한 결제 데이터로 저장")
-    void save_WithDifferentPaymentData(String userName, String amount, PaymentStatus status) {
-        // given
-        User user = User.builder()
-                .name(userName)
-                .build();
-        
-        Order order = Order.builder()
-                .user(user)
-                .totalAmount(new BigDecimal(amount))
-                .build();
-        
-        Payment payment = Payment.builder()
-                .order(order)
-                .user(user)
-                .status(status)
-                .amount(new BigDecimal(amount))
-                .build();
+        @Test
+        @DisplayName("실패케이스: null ID로 결제 조회")
+        void findById_WithNullId() {
+            // when
+            Optional<Payment> foundPayment = paymentRepository.findById(null);
 
-        // when
-        Payment savedPayment = paymentRepository.save(payment);
+            // then
+            assertThat(foundPayment).isEmpty();
+        }
 
-        // then
-        assertThat(savedPayment).isNotNull();
-        assertThat(savedPayment.getUser().getName()).isEqualTo(userName);
-        assertThat(savedPayment.getAmount()).isEqualTo(new BigDecimal(amount));
-        assertThat(savedPayment.getStatus()).isEqualTo(status);
+        @Test
+        @DisplayName("실패케이스: 음수 ID로 결제 조회")
+        void findById_WithNegativeId() {
+            // when
+            Optional<Payment> foundPayment = paymentRepository.findById(-1L);
+
+            // then
+            assertThat(foundPayment).isEmpty();
+        }
     }
 
     private static Stream<Arguments> providePaymentData() {

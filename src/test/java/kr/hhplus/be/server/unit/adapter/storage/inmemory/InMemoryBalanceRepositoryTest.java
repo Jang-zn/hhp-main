@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,9 +28,13 @@ class InMemoryBalanceRepositoryTest {
         balanceRepository = new InMemoryBalanceRepository();
     }
 
-    @Test
-    @DisplayName("잔액 저장 성공")
-    void save_Success() {
+    @Nested
+    @DisplayName("잔액 저장 테스트")
+    class SaveTests {
+        
+        @Test
+        @DisplayName("성공케이스: 정상 잔액 저장")
+        void save_Success() {
         // given
         User user = User.builder()
                 .name("테스트 사용자")
@@ -48,9 +53,107 @@ class InMemoryBalanceRepositoryTest {
         assertThat(savedBalance.getUser()).isEqualTo(user);
     }
 
-    @Test
-    @DisplayName("사용자 ID로 잔액 조회 성공")
-    void findByUser_Success() {
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideBalanceData")
+        @DisplayName("성공케이스: 다양한 잔액 데이터로 저장")
+        void save_WithDifferentBalanceData(String userName, String amount) {
+            // given
+            User user = User.builder()
+                    .name(userName)
+                    .build();
+            Balance balance = Balance.builder()
+                    .user(user)
+                    .amount(new BigDecimal(amount))
+                    .build();
+
+            // when
+            Balance savedBalance = balanceRepository.save(balance);
+
+            // then
+            assertThat(savedBalance).isNotNull();
+            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
+            assertThat(savedBalance.getUser().getName()).isEqualTo(userName);
+        }
+
+        @Test
+        @DisplayName("성공케이스: 동일 사용자 잔액 업데이트")
+        void save_UpdateExistingBalance() {
+            // given
+            User user = User.builder()
+                    .name("테스트 사용자")
+                    .build();
+            Balance originalBalance = Balance.builder()
+                    .user(user)
+                    .amount(new BigDecimal("50000"))
+                    .build();
+            balanceRepository.save(originalBalance);
+
+            Balance updatedBalance = Balance.builder()
+                    .user(user)
+                    .amount(new BigDecimal("100000"))
+                    .build();
+
+            // when
+            Balance savedBalance = balanceRepository.save(updatedBalance);
+
+            // then
+            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
+            Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+            assertThat(foundBalance).isPresent();
+            assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("100000"));
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideEdgeCaseAmounts")
+        @DisplayName("성공케이스: 극한값 잔액으로 저장")
+        void save_WithEdgeCaseAmounts(String description, String amount) {
+            // given
+            User user = User.builder()
+                    .name("엣지케이스 사용자")
+                    .build();
+            Balance balance = Balance.builder()
+                    .user(user)
+                    .amount(new BigDecimal(amount))
+                    .build();
+
+            // when
+            Balance savedBalance = balanceRepository.save(balance);
+
+            // then
+            assertThat(savedBalance).isNotNull();
+            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
+        }
+
+        @Test
+        @DisplayName("실패케이스: null 잔액 객체 저장")
+        void save_WithNullBalance() {
+            // when & then
+            assertThatThrownBy(() -> balanceRepository.save(null))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("실패케이스: null 사용자가 포함된 잔액 저장")
+        void save_WithNullUser() {
+            // given
+            Balance balance = Balance.builder()
+                    .user(null)
+                    .amount(new BigDecimal("100000"))
+                    .build();
+
+            // when & then
+            assertThatThrownBy(() -> balanceRepository.save(balance))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("잔액 조회 테스트")
+    class FindByUserTests {
+        
+        @Test
+        @DisplayName("성공케이스: 사용자 ID로 잔액 조회")
+        void findByUser_Success() {
         // given
         User user = User.builder()
                 .id(1L)
@@ -71,145 +174,53 @@ class InMemoryBalanceRepositoryTest {
         assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("50000"));
     }
 
-    @Test
-    @DisplayName("존재하지 않는 사용자 잔액 조회")
-    void findByUser_NotFound() {
+        @Test
+        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
+        void findByUser_NotFound() {
         // given
         User user = User.builder().id(999L).build();
 
         // when
         Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
-        // then
-        assertThat(foundBalance).isEmpty();
-    }
+            // then
+            assertThat(foundBalance).isEmpty();
+        }
 
-    @ParameterizedTest
-    @MethodSource("provideBalanceData")
-    @DisplayName("다양한 잔액 데이터로 저장")
-    void save_WithDifferentBalanceData(String userName, String amount) {
-        // given
-        User user = User.builder()
-                .name(userName)
-                .build();
-        Balance balance = Balance.builder()
-                .user(user)
-                .amount(new BigDecimal(amount))
-                .build();
+        @Test
+        @DisplayName("실패케이스: null 사용자 ID로 조회")
+        void findByUserId_WithNullUserId() {
+            // when & then
+            assertThatThrownBy(() -> balanceRepository.findByUser(null))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
 
-        // when
-        Balance savedBalance = balanceRepository.save(balance);
-
-        // then
-        assertThat(savedBalance).isNotNull();
-        assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-        assertThat(savedBalance.getUser().getName()).isEqualTo(userName);
-    }
-
-    @Test
-    @DisplayName("null 사용자 ID로 조회 시 예외 발생")
-    void findByUserId_WithNullUserId() {
-        // when & then
-        assertThatThrownBy(() -> balanceRepository.findByUser(null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("음수 사용자 ID로 조회")
-    void findByUserId_WithNegativeUserId() {
+        @Test
+        @DisplayName("실패케이스: 음수 사용자 ID로 조회")
+        void findByUserId_WithNegativeUserId() {
         // given
         User user = User.builder().id(-1L).name("테스트 사용자").build();
         
         // when
         Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
-        // then
-        assertThat(foundBalance).isEmpty();
-    }
+            // then
+            assertThat(foundBalance).isEmpty();
+        }
 
-    @Test
-    @DisplayName("null 잔액 객체 저장 시 예외 발생")
-    void save_WithNullBalance() {
-        // when & then
-        assertThatThrownBy(() -> balanceRepository.save(null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("null 사용자가 포함된 잔액 저장 시 예외 발생")
-    void save_WithNullUser() {
-        // given
-        Balance balance = Balance.builder()
-                .user(null)
-                .amount(new BigDecimal("100000"))
-                .build();
-
-        // when & then
-        assertThatThrownBy(() -> balanceRepository.save(balance))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("동일 사용자 잔액 업데이트")
-    void save_UpdateExistingBalance() {
-        // given
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        Balance originalBalance = Balance.builder()
-                .user(user)
-                .amount(new BigDecimal("50000"))
-                .build();
-        balanceRepository.save(originalBalance);
-
-        Balance updatedBalance = Balance.builder()
-                .user(user)
-                .amount(new BigDecimal("100000"))
-                .build();
-
-        // when
-        Balance savedBalance = balanceRepository.save(updatedBalance);
-
-        // then
-        assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
-        assertThat(foundBalance).isPresent();
-        assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("100000"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidUserIds")
-    @DisplayName("유효하지 않은 사용자 ID들로 조회")
-    void findByUserId_WithInvalidUserIds(Long invalidUserId) {
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideInvalidUserIds")
+        @DisplayName("실패케이스: 유효하지 않은 사용자 ID들로 조회")
+        void findByUserId_WithInvalidUserIds(Long invalidUserId) {
         // given
         User user = User.builder().id(invalidUserId).name("테스트 사용자").build();
         
         // when
         Optional<Balance> foundBalance = balanceRepository.findByUser(user);
 
-        // then
-        assertThat(foundBalance).isEmpty();
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideEdgeCaseAmounts")
-    @DisplayName("극한값 잔액으로 저장")
-    void save_WithEdgeCaseAmounts(String description, String amount) {
-        // given
-        User user = User.builder()
-                .name("엣지케이스 사용자")
-                .build();
-        Balance balance = Balance.builder()
-                .user(user)
-                .amount(new BigDecimal(amount))
-                .build();
-
-        // when
-        Balance savedBalance = balanceRepository.save(balance);
-
-        // then
-        assertThat(savedBalance).isNotNull();
-        assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
+            // then
+            assertThat(foundBalance).isEmpty();
+        }
     }
 
     private static Stream<Arguments> provideBalanceData() {
