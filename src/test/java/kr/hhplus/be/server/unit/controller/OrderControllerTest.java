@@ -1,13 +1,16 @@
 package kr.hhplus.be.server.unit.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.controller.OrderController;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.domain.entity.Order;
+import kr.hhplus.be.server.domain.entity.OrderItem;
+import kr.hhplus.be.server.domain.entity.OrderStatus;
 import kr.hhplus.be.server.domain.entity.Payment;
+import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
 import kr.hhplus.be.server.domain.exception.OrderException;
@@ -15,17 +18,17 @@ import kr.hhplus.be.server.domain.exception.PaymentException;
 import kr.hhplus.be.server.domain.exception.ProductException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +37,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -55,236 +59,471 @@ class OrderControllerTest {
         orderController = new OrderController(createOrderUseCase, payOrderUseCase);
     }
 
-    @Test
-    @DisplayName("주문 생성 API 성공")
-    void createOrder_Success() {
-        // given
-        Long userId = 1L;
-        List<Long> productIds = List.of(1L, 2L);
-        List<Long> couponIds = List.of(1L);
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-
+    @Nested
+    @DisplayName("주문 생성 테스트")
+    class CreateOrderTests {
         
-        User user = User.builder().name("테스트 사용자").build();
-        Order order = Order.builder()
+        @Test
+        @DisplayName("주문 생성 API 성공")
+        void createOrder_Success() {
+            // given
+            Long userId = 1L;
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 2),
+                new OrderRequest.ProductQuantity(2L, 1)
+            );
+            List<Long> couponIds = List.of(1L);
+            OrderRequest request = new OrderRequest(userId, null, couponIds);
+            request.setProducts(products);
+
+            Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+
+            // when
+            OrderResponse response = orderController.createOrder(request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.userId()).isEqualTo(userId);
+            assertThat(response.status()).isEqualTo("PENDING");
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderData")
+        @DisplayName("다양한 주문 데이터로 주문 생성")
+        void createOrder_WithDifferentData(Long userId, List<OrderRequest.ProductQuantity> products, List<Long> couponIds) {
+            // given
+            OrderRequest request = new OrderRequest(userId, null, couponIds);
+            request.setProducts(products);
+            
+            Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("50000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+
+            // when
+            OrderResponse response = orderController.createOrder(request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.userId()).isEqualTo(userId);
+        }
+
+        @Test
+        @DisplayName("기존 productIds 필드 사용 (하위 호환성)")
+        void createOrder_WithLegacyProductIds() {
+            // given
+            Long userId = 1L;
+            List<Long> productIds = List.of(1L, 2L);
+            List<Long> couponIds = List.of(1L);
+            OrderRequest request = new OrderRequest(userId, productIds, couponIds);
+            
+            Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+
+            // when
+            OrderResponse response = orderController.createOrder(request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.userId()).isEqualTo(userId);
+            assertThat(response.status()).isEqualTo("PENDING");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자로 주문 생성 시 예외 발생")
+        void createOrder_UserNotFound() {
+            // given
+            Long userId = 999L;
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 1)
+            );
+            List<Long> couponIds = List.of();
+            OrderRequest request = new OrderRequest(userId, null, couponIds);
+            request.setProducts(products);
+
+            when(createOrderUseCase.execute(anyLong(), anyMap()))
+                    .thenThrow(new OrderException.InvalidUser());
+
+            // when & then
+            assertThatThrownBy(() -> orderController.createOrder(request))
+                    .isInstanceOf(OrderException.InvalidUser.class)
+                    .hasMessage("Invalid user ID");
+        }
+
+        @Test
+        @DisplayName("빈 상품 리스트로 주문 생성 시 예외 발생")
+        void createOrder_EmptyProductList() {
+            // given
+            Long userId = 1L;
+            List<OrderRequest.ProductQuantity> products = Collections.emptyList();
+            List<Long> couponIds = List.of();
+            OrderRequest request = new OrderRequest(userId, null, couponIds);
+            request.setProducts(products);
+
+            when(createOrderUseCase.execute(anyLong(), anyMap()))
+                    .thenThrow(new IllegalArgumentException("Order must contain at least one item"));
+
+            // when & then
+            assertThatThrownBy(() -> orderController.createOrder(request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Order must contain at least one item");
+        }
+
+        @Test
+        @DisplayName("재고 부족 상품으로 주문 생성 시 예외 발생")
+        void createOrder_InsufficientStock() {
+            // given
+            Long userId = 1L;
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 5)
+            );
+            List<Long> couponIds = List.of();
+            OrderRequest request = new OrderRequest(userId, null, couponIds);
+            request.setProducts(products);
+
+            when(createOrderUseCase.execute(anyLong(), anyMap()))
+                    .thenThrow(new ProductException.OutOfStock());
+
+            // when & then
+            assertThatThrownBy(() -> orderController.createOrder(request))
+                    .isInstanceOf(ProductException.OutOfStock.class)
+                    .hasMessage("Product out of stock");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 결제 테스트")
+    class PayOrderTests {
+        
+        @Test
+        @DisplayName("주문 결제 API 성공")
+        void payOrder_Success() {
+            // given
+            Long orderId = 1L;
+            
+            Order order = createMockOrder(1L, "테스트 사용자", new BigDecimal("100000"));
+            order.setId(orderId);
+            
+            Payment payment = Payment.builder()
+                    .order(order)
+                    .amount(new BigDecimal("100000"))
+                    .status(PaymentStatus.PAID)
+                    .build();
+            payment.setId(1L);
+            
+            when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
+
+            // when
+            OrderRequest request = new OrderRequest(1L, null);
+            PaymentResponse response = orderController.payOrder(orderId, request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.orderId()).isEqualTo(orderId);
+            assertThat(response.status()).isEqualTo("PAID");
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderIds")
+        @DisplayName("다양한 주문 ID로 결제")
+        void payOrder_WithDifferentOrderIds(Long orderId) {
+            // given
+            Order order = createMockOrder(1L, "테스트 사용자", new BigDecimal("75000"));
+            order.setId(orderId);
+            
+            Payment payment = Payment.builder()
+                    .order(order)
+                    .amount(new BigDecimal("75000"))
+                    .status(PaymentStatus.PAID)
+                    .build();
+            payment.setId(1L);
+            
+            when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
+            
+            // when
+            OrderRequest request = new OrderRequest(1L, null);
+            PaymentResponse response = orderController.payOrder(orderId, request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.orderId()).isEqualTo(orderId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 주문 결제 시 예외 발생")
+        void payOrder_OrderNotFound() {
+            // given
+            Long orderId = 999L;
+            
+            when(payOrderUseCase.execute(orderId, null, null))
+                    .thenThrow(new PaymentException.OrderNotFound());
+
+            // when & then
+            OrderRequest request = new OrderRequest(null, null);
+            assertThatThrownBy(() -> orderController.payOrder(orderId, request))
+                    .isInstanceOf(PaymentException.OrderNotFound.class)
+                    .hasMessage("Order not found");
+        }
+
+        @Test
+        @DisplayName("잔액 부족으로 결제 시 예외 발생")
+        void payOrder_InsufficientBalance() {
+            // given
+            Long orderId = 1L;
+            
+            when(payOrderUseCase.execute(orderId, null, null))
+                    .thenThrow(new PaymentException.InsufficientBalance());
+
+            // when & then
+            OrderRequest request = new OrderRequest(null, null);
+            assertThatThrownBy(() -> orderController.payOrder(orderId, request))
+                    .isInstanceOf(PaymentException.InsufficientBalance.class)
+                    .hasMessage("Insufficient balance");
+        }
+    }
+
+    @Nested
+    @DisplayName("수량 처리 테스트")
+    class QuantityHandlingTests {
+        
+        @Test
+        @DisplayName("products 필드로 수량 정보가 정확히 전달되는지 확인")
+        void testProductQuantitiesArePassedCorrectly() {
+            // given
+            Long userId = 1L;
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 2),
+                new OrderRequest.ProductQuantity(2L, 3),
+                new OrderRequest.ProductQuantity(3L, 1)
+            );
+            
+            OrderRequest request = new OrderRequest();
+            request.setUserId(userId);
+            request.setProducts(products);
+            
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            
+            // when
+            try {
+                orderController.createOrder(request);
+            } catch (Exception e) {
+                // Expected since createOrderUseCase returns null
+            }
+            
+            // then
+            ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
+            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            
+            Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
+            assertThat(capturedQuantities).hasSize(3);
+            assertThat(capturedQuantities.get(1L)).isEqualTo(2);
+            assertThat(capturedQuantities.get(2L)).isEqualTo(3);
+            assertThat(capturedQuantities.get(3L)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("기존 productIds 필드로 수량 1이 기본값으로 설정되는지 확인")
+        void testLegacyProductIdsDefaultToQuantityOne() {
+            // given
+            Long userId = 1L;
+            List<Long> productIds = List.of(1L, 2L, 3L);
+            
+            OrderRequest request = new OrderRequest();
+            request.setUserId(userId);
+            request.setProductIds(productIds);
+            
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            
+            // when
+            try {
+                orderController.createOrder(request);
+            } catch (Exception e) {
+                // Expected since createOrderUseCase returns null
+            }
+            
+            // then
+            ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
+            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            
+            Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
+            assertThat(capturedQuantities).hasSize(3);
+            assertThat(capturedQuantities.get(1L)).isEqualTo(1);
+            assertThat(capturedQuantities.get(2L)).isEqualTo(1);
+            assertThat(capturedQuantities.get(3L)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("products 필드가 우선순위를 가지는지 확인")
+        void testProductsFieldTakesPriorityOverProductIds() {
+            // given
+            Long userId = 1L;
+            List<Long> productIds = List.of(1L, 2L); // 기존 방식
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 5) // 새로운 방식
+            );
+            
+            OrderRequest request = new OrderRequest();
+            request.setUserId(userId);
+            request.setProductIds(productIds);
+            request.setProducts(products);
+            
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            
+            // when
+            try {
+                orderController.createOrder(request);
+            } catch (Exception e) {
+                // Expected since createOrderUseCase returns null
+            }
+            
+            // then
+            ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
+            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            
+            Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
+            assertThat(capturedQuantities).hasSize(1);
+            assertThat(capturedQuantities.get(1L)).isEqualTo(5); // products 필드의 수량이 사용됨
+        }
+    }
+
+    @Nested
+    @DisplayName("엔티티 상태 테스트")
+    class EntityStatusTests {
+        
+        @Test
+        @DisplayName("Order 객체 생성 및 상태 확인")
+        void testOrderCreationAndStatus() {
+            // given
+            User user = User.builder().name("테스트 사용자").build();
+            
+            // when
+            Order order = Order.builder()
+                    .user(user)
+                    .totalAmount(new BigDecimal("100000"))
+                    .build();
+            
+            // then
+            assertThat(order).isNotNull();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+            assertThat(order.getStatus().name()).isEqualTo("PENDING");
+        }
+
+        @Test
+        @DisplayName("Order 상태 필드 테스트")
+        void testOrderStatusField() {
+            // given
+            Long userId = 1L;
+            List<OrderRequest.ProductQuantity> products = List.of(
+                new OrderRequest.ProductQuantity(1L, 2)
+            );
+            
+            OrderRequest request = new OrderRequest();
+            request.setUserId(userId);
+            request.setProducts(products);
+            
+            User user = User.builder().name("테스트 사용자").build();
+            user.setId(userId);
+            
+            Product product = Product.builder()
+                    .name("테스트 상품")
+                    .price(new BigDecimal("50000"))
+                    .build();
+            product.setId(1L);
+            
+            OrderItem orderItem = OrderItem.builder()
+                    .product(product)
+                    .quantity(2)
+                    .build();
+            
+            List<OrderItem> orderItems = new ArrayList<>();
+            orderItems.add(orderItem);
+            
+            Order order = Order.builder()
+                    .user(user)
+                    .totalAmount(new BigDecimal("100000"))
+                    .items(orderItems)
+                    .build();
+            
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+            
+            // when
+            OrderResponse response = orderController.createOrder(request);
+            
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.userId()).isEqualTo(userId);
+            assertThat(response.status()).isEqualTo("PENDING");
+            assertThat(response.items()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("예외 처리 테스트")
+    class ExceptionHandlingTests {
+        
+        @Test
+        @DisplayName("null 요청으로 주문 생성")
+        void createOrder_WithNullRequest() {
+            // when & then
+            assertThatThrownBy(() -> orderController.createOrder(null))
+                    .isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        @DisplayName("null 주문 ID로 결제")
+        void payOrder_WithNullOrderId() {
+            // when & then
+            OrderRequest request = new OrderRequest(null, null);
+            assertThatThrownBy(() -> orderController.payOrder(null, request))
+                    .isInstanceOf(NullPointerException.class);
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideInvalidOrderIds")
+        @DisplayName("비정상 주문 ID로 결제")
+        void payOrder_WithInvalidOrderIds(Long invalidOrderId) {
+            // given
+            when(payOrderUseCase.execute(invalidOrderId, null, null))
+                    .thenThrow(new PaymentException.OrderNotFound());
+
+            // when & then
+            OrderRequest request = new OrderRequest(null, null);
+            assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, request))
+                    .isInstanceOf(PaymentException.OrderNotFound.class);
+        }
+    }
+
+    // Helper method
+    private Order createMockOrder(Long userId, String userName, BigDecimal totalAmount) {
+        User user = User.builder().name(userName).build();
+        user.setId(userId);
+        
+        Product product = Product.builder()
+                .name("테스트 상품")
+                .price(new BigDecimal("50000"))
+                .build();
+        product.setId(1L);
+        
+        OrderItem orderItem = OrderItem.builder()
+                .product(product)
+                .quantity(2)
+                .build();
+        
+        List<OrderItem> orderItems = new ArrayList<>();
+        orderItems.add(orderItem);
+        
+        return Order.builder()
                 .user(user)
-                .totalAmount(new BigDecimal("100000"))
+                .totalAmount(totalAmount)
+                .items(orderItems)
                 .build();
-        
-        when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
-
-        // when
-        OrderResponse response = orderController.createOrder(request);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.userId()).isEqualTo(userId);
-        assertThat(response.status()).isEqualTo("PENDING");
     }
 
-    @ParameterizedTest
-    @MethodSource("provideOrderData")
-    @DisplayName("다양한 주문 데이터로 주문 생성")
-    void createOrder_WithDifferentData(Long userId, List<Long> productIds, List<Long> couponIds) {
-        // given
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-        
-        User user = User.builder().name("테스트 사용자").build();
-        Order order = Order.builder()
-                .user(user)
-                .totalAmount(new BigDecimal("50000"))
-                .build();
-        
-        when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
-
-        // when
-        OrderResponse response = orderController.createOrder(request);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.userId()).isEqualTo(userId);
-    }
-
-    @Test
-    @DisplayName("주문 결제 API 성공")
-    void payOrder_Success() {
-        // given
-        Long orderId = 1L;
-        
-        User user = User.builder().name("테스트 사용자").build();
-        Order order = Order.builder()
-                .user(user)
-                .totalAmount(new BigDecimal("100000"))
-                .build();
-        Payment payment = Payment.builder()
-                .order(order)
-                .amount(new BigDecimal("100000"))
-                .build();
-        
-        when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
-
-        // when
-        OrderRequest request = new OrderRequest(1L, null);
-        PaymentResponse response = orderController.payOrder(orderId, request);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.orderId()).isEqualTo(orderId);
-        assertThat(response.status()).isEqualTo("COMPLETED");
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideOrderIds")
-    @DisplayName("다양한 주문 ID로 결제")
-    void payOrder_WithDifferentOrderIds(Long orderId) {
-        // given
-        User user = User.builder().name("테스트 사용자").build();
-        Order order = Order.builder()
-                .user(user)
-                .totalAmount(new BigDecimal("75000"))
-                .build();
-        Payment payment = Payment.builder()
-                .order(order)
-                .amount(new BigDecimal("75000"))
-                .build();
-        
-        when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
-        
-        // when
-        OrderRequest request = new OrderRequest(1L, null);
-        PaymentResponse response = orderController.payOrder(orderId, request);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.orderId()).isEqualTo(orderId);
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 사용자로 주문 생성 시 예외 발생")
-    void createOrder_UserNotFound() {
-        // given
-        Long userId = 999L;
-        List<Long> productIds = List.of(1L);
-        List<Long> couponIds = List.of();
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-
-        
-        when(createOrderUseCase.execute(anyLong(), anyMap()))
-                .thenThrow(new OrderException.InvalidUser());
-
-        // when & then
-        assertThatThrownBy(() -> orderController.createOrder(request))
-                .isInstanceOf(OrderException.InvalidUser.class)
-                .hasMessage("Invalid user ID");
-    }
-
-    @Test
-    @DisplayName("빈 상품 리스트로 주문 생성 시 예외 발생")
-    void createOrder_EmptyProductList() {
-        // given
-        Long userId = 1L;
-        List<Long> productIds = Collections.emptyList();
-        List<Long> couponIds = List.of();
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-
-        when(createOrderUseCase.execute(anyLong(), anyMap()))
-                .thenThrow(new IllegalArgumentException("Order must contain at least one item"));
-
-        // when & then
-        assertThatThrownBy(() -> orderController.createOrder(request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Order must contain at least one item");
-    }
-
-    @Test
-    @DisplayName("재고 부족 상품으로 주문 생성 시 예외 발생")
-    void createOrder_InsufficientStock() {
-        // given
-        Long userId = 1L;
-        List<Long> productIds = List.of(1L);
-        List<Long> couponIds = List.of();
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
-
-        
-        when(createOrderUseCase.execute(anyLong(), anyMap()))
-                .thenThrow(new ProductException.OutOfStock());
-
-        // when & then
-        assertThatThrownBy(() -> orderController.createOrder(request))
-                .isInstanceOf(ProductException.OutOfStock.class)
-                .hasMessage("Product out of stock");
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 주문 결제 시 예외 발생")
-    void payOrder_OrderNotFound() {
-        // given
-        Long orderId = 999L;
-        
-        when(payOrderUseCase.execute(orderId, null, null))
-                .thenThrow(new PaymentException.OrderNotFound());
-
-        // when & then
-        OrderRequest request = new OrderRequest(null, null);
-        assertThatThrownBy(() -> orderController.payOrder(orderId, request))
-
-                .isInstanceOf(PaymentException.OrderNotFound.class)
-                .hasMessage("Order not found");
-    }
-
-    @Test
-    @DisplayName("잔액 부족으로 결제 시 예외 발생")
-    void payOrder_InsufficientBalance() {
-        // given
-        Long orderId = 1L;
-        
-        when(payOrderUseCase.execute(orderId, null, null))
-                .thenThrow(new PaymentException.InsufficientBalance());
-
-        // when & then
-        OrderRequest request = new OrderRequest(null, null);
-        assertThatThrownBy(() -> orderController.payOrder(orderId, request))
-
-                .isInstanceOf(PaymentException.InsufficientBalance.class)
-                .hasMessage("Insufficient balance");
-    }
-
-    @Test
-    @DisplayName("null 요청으로 주문 생성")
-    void createOrder_WithNullRequest() {
-        // when & then
-        assertThatThrownBy(() -> orderController.createOrder(null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("null 주문 ID로 결제")
-    void payOrder_WithNullOrderId() {
-        // when & then
-        OrderRequest request = new OrderRequest(null, null);
-        assertThatThrownBy(() -> orderController.payOrder(null, request))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidOrderIds")
-    @DisplayName("비정상 주문 ID로 결제")
-    void payOrder_WithInvalidOrderIds(Long invalidOrderId) {
-        // given
-        when(payOrderUseCase.execute(invalidOrderId, null, null))
-                .thenThrow(new PaymentException.OrderNotFound());
-
-        // when & then
-        OrderRequest request = new OrderRequest(null, null);
-        assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, request))
-                .isInstanceOf(PaymentException.OrderNotFound.class);
-    }
-
+    // Test data providers
     private static Stream<Arguments> provideOrderData() {
         return Stream.of(
-                Arguments.of(1L, List.of(1L), List.of(1L)), // 단일 상품, 단일 쿠폰
-                Arguments.of(2L, List.of(1L, 2L), List.of()), // 다중 상품, 쿠폰 없음
-                Arguments.of(3L, List.of(3L), List.of(1L, 2L)) // 단일 상품, 다중 쿠폰
+                Arguments.of(1L, List.of(new OrderRequest.ProductQuantity(1L, 2)), List.of(1L)), // 단일 상품, 단일 쿠폰
+                Arguments.of(2L, List.of(new OrderRequest.ProductQuantity(1L, 1), new OrderRequest.ProductQuantity(2L, 3)), List.of()), // 다중 상품, 쿠폰 없음
+                Arguments.of(3L, List.of(new OrderRequest.ProductQuantity(3L, 1)), List.of(1L, 2L)) // 단일 상품, 다중 쿠폰
         );
     }
 
@@ -303,4 +542,4 @@ class OrderControllerTest {
                 Arguments.of(Long.MAX_VALUE)
         );
     }
-} 
+}

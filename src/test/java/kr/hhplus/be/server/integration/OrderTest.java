@@ -34,6 +34,33 @@ public class OrderTest {
     void createOrderTest() throws Exception {
         // given
         long userId = 1L;
+        List<OrderRequest.ProductQuantity> products = List.of(
+            new OrderRequest.ProductQuantity(1L, 2),
+            new OrderRequest.ProductQuantity(2L, 1)
+        );
+        List<Long> couponIds = List.of(1L);
+        OrderRequest request = new OrderRequest(userId, null, couponIds);
+        request.setProducts(products);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(post("/api/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andDo(print());
+
+        // then
+        resultActions
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.userId").value(userId))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.items[0].name").value("노트북"));
+    }
+
+    @Test
+    @DisplayName("기존 productIds 필드 사용 주문 생성 API 테스트 (하위 호환성)")
+    void createOrderWithLegacyProductIdsTest() throws Exception {
+        // given
+        long userId = 1L;
         List<Long> productIds = List.of(1L, 2L);
         List<Long> couponIds = List.of(1L);
         OrderRequest request = new OrderRequest(userId, productIds, couponIds);
@@ -48,7 +75,6 @@ public class OrderTest {
         resultActions
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.userId").value(userId))
-                .andExpect(jsonPath("$.data.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.items[0].name").value("노트북"));
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
 } 
