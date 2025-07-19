@@ -31,6 +31,13 @@ public class CouponController {
     @ApiSuccess(summary = "쿠폰 발급")
     @PostMapping("/acquire")
     public CouponResponse acquireCoupon(@Valid @RequestBody CouponRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        if (request.getUserId() == null || request.getCouponId() == null) {
+            throw new IllegalArgumentException("UserId and CouponId are required");
+        }
+        
         CouponHistory couponHistory = acquireCouponUseCase.execute(request.getUserId(), request.getCouponId());
         return new CouponResponse(
                 couponHistory.getCoupon().getId(),
@@ -45,6 +52,16 @@ public class CouponController {
     public List<CouponResponse> getCoupons(
             @PathVariable Long userId,
             @Valid CouponRequest request) {
+        if (userId == null) {
+            throw new IllegalArgumentException("UserId cannot be null");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        if (request.getLimit() < 0 || request.getOffset() < 0) {
+            throw new IllegalArgumentException("Invalid pagination parameters");
+        }
+        
         List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
                 .map(history -> new CouponResponse(
