@@ -64,7 +64,7 @@ class OrderControllerTest {
     class CreateOrderTests {
         
         @Test
-        @DisplayName("주문 생성 API 성공")
+        @DisplayName("성공케이스: 정상 주문 생성")
         void createOrder_Success() {
             // given
             Long userId = 1L;
@@ -90,7 +90,7 @@ class OrderControllerTest {
 
         @ParameterizedTest
         @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderData")
-        @DisplayName("다양한 주문 데이터로 주문 생성")
+        @DisplayName("성공케이스: 다양한 주문 데이터로 주문 생성")
         void createOrder_WithDifferentData(Long userId, List<OrderRequest.ProductQuantity> products, List<Long> couponIds) {
             // given
             OrderRequest request = new OrderRequest(userId, null, couponIds);
@@ -108,7 +108,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("기존 productIds 필드 사용 (하위 호환성)")
+        @DisplayName("성공케이스: 기존 productIds 필드 사용 (하위 호환성)")
         void createOrder_WithLegacyProductIds() {
             // given
             Long userId = 1L;
@@ -129,7 +129,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자로 주문 생성 시 예외 발생")
+        @DisplayName("실패케이스: 존재하지 않는 사용자로 주문 생성")
         void createOrder_UserNotFound() {
             // given
             Long userId = 999L;
@@ -150,7 +150,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("빈 상품 리스트로 주문 생성 시 예외 발생")
+        @DisplayName("실패케이스: 빈 상품 리스트로 주문 생성")
         void createOrder_EmptyProductList() {
             // given
             Long userId = 1L;
@@ -169,7 +169,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("재고 부족 상품으로 주문 생성 시 예외 발생")
+        @DisplayName("실패케이스: 재고 부족 상품으로 주문 생성")
         void createOrder_InsufficientStock() {
             // given
             Long userId = 1L;
@@ -195,7 +195,7 @@ class OrderControllerTest {
     class PayOrderTests {
         
         @Test
-        @DisplayName("주문 결제 API 성공")
+        @DisplayName("성공케이스: 정상 주문 결제")
         void payOrder_Success() {
             // given
             Long orderId = 1L;
@@ -224,7 +224,7 @@ class OrderControllerTest {
 
         @ParameterizedTest
         @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderIds")
-        @DisplayName("다양한 주문 ID로 결제")
+        @DisplayName("성공케이스: 다양한 주문 ID로 결제")
         void payOrder_WithDifferentOrderIds(Long orderId) {
             // given
             Order order = createMockOrder(1L, "테스트 사용자", new BigDecimal("75000"));
@@ -249,7 +249,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 주문 결제 시 예외 발생")
+        @DisplayName("실패케이스: 존재하지 않는 주문 결제")
         void payOrder_OrderNotFound() {
             // given
             Long orderId = 999L;
@@ -265,7 +265,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("잔액 부족으로 결제 시 예외 발생")
+        @DisplayName("실패케이스: 잔액 부족으로 결제")
         void payOrder_InsufficientBalance() {
             // given
             Long orderId = 1L;
@@ -286,7 +286,7 @@ class OrderControllerTest {
     class QuantityHandlingTests {
         
         @Test
-        @DisplayName("products 필드로 수량 정보가 정확히 전달되는지 확인")
+        @DisplayName("성공케이스: products 필드로 수량 정보 전달 확인")
         void testProductQuantitiesArePassedCorrectly() {
             // given
             Long userId = 1L;
@@ -321,7 +321,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("기존 productIds 필드로 수량 1이 기본값으로 설정되는지 확인")
+        @DisplayName("성공케이스: 기존 productIds 필드로 기본 수량 1 설정 확인")
         void testLegacyProductIdsDefaultToQuantityOne() {
             // given
             Long userId = 1L;
@@ -352,7 +352,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("products 필드가 우선순위를 가지는지 확인")
+        @DisplayName("성공케이스: products 필드 우선순위 확인")
         void testProductsFieldTakesPriorityOverProductIds() {
             // given
             Long userId = 1L;
@@ -390,7 +390,7 @@ class OrderControllerTest {
     class EntityStatusTests {
         
         @Test
-        @DisplayName("Order 객체 생성 및 상태 확인")
+        @DisplayName("성공케이스: Order 객체 생성 및 상태 확인")
         void testOrderCreationAndStatus() {
             // given
             User user = User.builder().name("테스트 사용자").build();
@@ -408,7 +408,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("Order 상태 필드 테스트")
+        @DisplayName("성공케이스: Order 상태 필드 테스트")
         void testOrderStatusField() {
             // given
             Long userId = 1L;
@@ -461,7 +461,7 @@ class OrderControllerTest {
     class ExceptionHandlingTests {
         
         @Test
-        @DisplayName("null 요청으로 주문 생성")
+        @DisplayName("실패케이스: null 요청으로 주문 생성")
         void createOrder_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(null))
@@ -469,7 +469,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("null 주문 ID로 결제")
+        @DisplayName("실패케이스: null 주문 ID로 결제")
         void payOrder_WithNullOrderId() {
             // when & then
             OrderRequest request = new OrderRequest(null, null);
@@ -479,7 +479,7 @@ class OrderControllerTest {
 
         @ParameterizedTest
         @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideInvalidOrderIds")
-        @DisplayName("비정상 주문 ID로 결제")
+        @DisplayName("실패케이스: 비정상 주문 ID로 결제")
         void payOrder_WithInvalidOrderIds(Long invalidOrderId) {
             // given
             when(payOrderUseCase.execute(invalidOrderId, null, null))

@@ -9,6 +9,7 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -52,9 +53,13 @@ class ChargeBalanceUseCaseTest {
         );
     }
 
-    @Test
-    @DisplayName("잔액 충전 성공")
-    void chargeBalance_Success() {
+    @Nested
+    @DisplayName("잔액 충전 성공 테스트")
+    class SuccessTests {
+        
+        @Test
+        @DisplayName("성공케이스: 정상 잔액 충전")
+        void chargeBalance_Success() {
         // given
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
@@ -75,16 +80,16 @@ class ChargeBalanceUseCaseTest {
         // when
         Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isNotNull();
-        // assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
-    }
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
+            // assertThat(result).isNotNull();
+            // assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
+        }
 
-    @ParameterizedTest
-    @MethodSource("provideChargeData")
-    @DisplayName("다양한 충전 금액으로 테스트")
-    void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.ChargeBalanceUseCaseTest#provideChargeData")
+        @DisplayName("성공케이스: 다양한 충전 금액으로 테스트")
+        void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
         // given
         User user = User.builder()
                 .name("테스트 사용자")
@@ -97,42 +102,47 @@ class ChargeBalanceUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
-        when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // when
-        Balance result = chargeBalanceUseCase.execute(userId, new BigDecimal(chargeAmount));
+            // when
+            Balance result = chargeBalanceUseCase.execute(userId, new BigDecimal(chargeAmount));
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isNotNull();
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
+            // assertThat(result).isNotNull();
+        }
     }
 
-    @Test
-    @DisplayName("존재하지 않는 사용자 잔액 충전 시 예외 발생")
-    void chargeBalance_UserNotFound() {
+    @Nested
+    @DisplayName("잔액 충전 실패 테스트")
+    class FailureTests {
+        
+        @Test
+        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 충전")
+        void chargeBalance_UserNotFound() {
         // given
         Long userId = 999L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidUser.class)
-                .hasMessage("Invalid user ID");
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidUser.class)
+                    .hasMessage("Invalid user ID");
+        }
 
-    @Test
-    @DisplayName("null 사용자 ID로 잔액 충전 시 예외 발생")
-    void chargeBalance_WithNullUserId() {
-        // given
-        Long userId = null;
-        BigDecimal chargeAmount = new BigDecimal("50000");
+        @Test
+        @DisplayName("실패케이스: null 사용자 ID로 잔액 충전")
+        void chargeBalance_WithNullUserId() {
+            // given
+            Long userId = null;
+            BigDecimal chargeAmount = new BigDecimal("50000");
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidUser.class);
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidUser.class);
+        }
 
     @Test
     @DisplayName("유효하지 않은 충전 금액 - 음수")
@@ -147,14 +157,14 @@ class ChargeBalanceUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidAmount.class)
-                .hasMessage("Amount must be between 1,000 and 1,000,000");
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidAmount.class)
+                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+        }
 
-    @Test
-    @DisplayName("유효하지 않은 충전 금액 - 최대 한도 초과")
+        @Test
+        @DisplayName("실패케이스: 유효하지 않은 충전 금액 - 최대 한도 초과")
     void chargeBalance_WithExcessiveAmount() {
         // given
         Long userId = 1L;
@@ -167,13 +177,13 @@ class ChargeBalanceUseCaseTest {
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
         // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidAmount.class)
-                .hasMessage("Amount must be between 1,000 and 1,000,000");
-    }
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidAmount.class)
+                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+        }
 
-    @Test
-    @DisplayName("유효하지 않은 충전 금액 - 최소 한도 미만")
+        @Test
+        @DisplayName("실패케이스: 유효하지 않은 충전 금액 - 최소 한도 미만")
     void chargeBalance_WithTooSmallAmount() {
         // given
         Long userId = 1L;
@@ -185,29 +195,29 @@ class ChargeBalanceUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidAmount.class)
-                .hasMessage("Amount must be between 1,000 and 1,000,000");
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidAmount.class)
+                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+        }
 
-    @Test
-    @DisplayName("null 충전 금액")
-    void chargeBalance_WithNullAmount() {
-        // given
-        Long userId = 1L;
-        BigDecimal chargeAmount = null;
-        
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        @Test
+        @DisplayName("실패케이스: null 충전 금액")
+        void chargeBalance_WithNullAmount() {
+            // given
+            Long userId = 1L;
+            BigDecimal chargeAmount = null;
+            
+            User user = User.builder()
+                    .name("테스트 사용자")
+                    .build();
+            
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidAmount.class);
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
+        }
 
     @Test
     @DisplayName("동시성 충돌 시나리오")
@@ -229,43 +239,44 @@ class ChargeBalanceUseCaseTest {
         when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenThrow(new BalanceException.ConcurrencyConflict());
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                .hasMessage("Concurrent balance update conflict");
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.ConcurrencyConflict.class)
+                    .hasMessage("Concurrent balance update conflict");
+        }
 
-    @ParameterizedTest
-    @MethodSource("provideInvalidUserIds")
-    @DisplayName("다양한 비정상 사용자 ID 테스트")
-    void chargeBalance_WithInvalidUserIds(Long invalidUserId) {
-        // given
-        BigDecimal chargeAmount = new BigDecimal("50000");
-        
-        when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.ChargeBalanceUseCaseTest#provideInvalidUserIds")
+        @DisplayName("실패케이스: 다양한 비정상 사용자 ID 테스트")
+        void chargeBalance_WithInvalidUserIds(Long invalidUserId) {
+            // given
+            BigDecimal chargeAmount = new BigDecimal("50000");
+            
+            when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidUserId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidUser.class);
-    }
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidUserId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidUser.class);
+        }
 
-    @ParameterizedTest
-    @MethodSource("provideInvalidAmounts")
-    @DisplayName("다양한 비정상 충전 금액 테스트")
-    void chargeBalance_WithInvalidAmounts(String description, String invalidAmount) {
-        // given
-        Long userId = 1L;
-        BigDecimal chargeAmount = new BigDecimal(invalidAmount);
-        
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.ChargeBalanceUseCaseTest#provideInvalidAmounts")
+        @DisplayName("실패케이스: 다양한 비정상 충전 금액 테스트")
+        void chargeBalance_WithInvalidAmounts(String description, String invalidAmount) {
+            // given
+            Long userId = 1L;
+            BigDecimal chargeAmount = new BigDecimal(invalidAmount);
+            
+            User user = User.builder()
+                    .name("테스트 사용자")
+                    .build();
+            
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
-        // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
-                .isInstanceOf(BalanceException.InvalidAmount.class);
+            // when & then
+            assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
+        }
     }
 
     private static Stream<Arguments> provideChargeData() {
