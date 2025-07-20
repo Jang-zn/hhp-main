@@ -275,22 +275,17 @@ class InMemoryEventLogRepositoryTest {
 
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-            // 읽기 작업들 (EventLog는 findById 메서드가 없어서 간접적으로 확인)
+            // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
                         
                         for (int j = 0; j < 50; j++) {
-                            // EventLog 저장 후 즉시 저장된 것을 확인하는 방식으로 읽기 시뮬레이션
-                            EventLog readTestLog = EventLog.builder()
-                                    .id(600L)
-                                    .eventType(EventType.ORDER_CREATED)
-                                    .payload("{\"read_test\": " + j + "}")
-                                    .status(EventStatus.PUBLISHED)
-                                    .build();
-                            eventLogRepository.save(readTestLog);
-                            successfulReads.incrementAndGet();
+                            List<EventLog> logs = eventLogRepository.findByStatus(EventStatus.PUBLISHED);
+                            if (!logs.isEmpty()) {
+                                successfulReads.incrementAndGet();
+                            }
                         }
                     } catch (Exception e) {
                         System.err.println("Reader error: " + e.getMessage());
