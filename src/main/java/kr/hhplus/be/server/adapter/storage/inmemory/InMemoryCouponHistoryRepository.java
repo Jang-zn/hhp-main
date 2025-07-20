@@ -86,8 +86,8 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
         if (user.getId() == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }
-        if (limit < 0) {
-            throw new IllegalArgumentException("Limit cannot be negative");
+        if (limit <= 0) {
+            throw new IllegalArgumentException("Limit must be greater than 0");
         }
         if (offset < 0) {
             throw new IllegalArgumentException("Offset cannot be negative");

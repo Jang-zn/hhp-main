@@ -88,8 +88,15 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
         
         return payments.compute(paymentId, (key, existingPayment) -> {
             if (existingPayment != null) {
-                existingPayment.changeStatus(status);
-                return existingPayment;
+                return Payment.builder()
+                        .id(existingPayment.getId())
+                        .order(existingPayment.getOrder())
+                        .user(existingPayment.getUser())
+                        .amount(existingPayment.getAmount())
+                        .status(status)
+                        .createdAt(existingPayment.getCreatedAt())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
             }
             return null;
         });
