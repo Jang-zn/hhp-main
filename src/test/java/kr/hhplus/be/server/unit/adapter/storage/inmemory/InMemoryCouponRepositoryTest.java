@@ -346,7 +346,8 @@ class InMemoryCouponRepositoryTest {
                 assertThat(coupon.get().getCode()).isEqualTo("CONCURRENT" + i);
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -415,7 +416,8 @@ class InMemoryCouponRepositoryTest {
             assertThat(finalCoupon).isPresent();
             assertThat(finalCoupon.get().getDiscountRate()).isEqualTo(new BigDecimal("0.15"));
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -507,7 +509,8 @@ class InMemoryCouponRepositoryTest {
             Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
             assertThat(finalCoupon).isPresent();
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

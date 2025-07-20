@@ -275,7 +275,8 @@ class InMemoryPaymentRepositoryTest {
                 assertThat(payment.get().getAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -343,7 +344,8 @@ class InMemoryPaymentRepositoryTest {
             assertThat(finalPayment).isPresent();
             assertThat(finalPayment.get().getStatus()).isIn(PaymentStatus.PAID, PaymentStatus.FAILED);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -444,7 +446,8 @@ class InMemoryPaymentRepositoryTest {
             Optional<Payment> finalPayment = paymentRepository.findById(600L);
             assertThat(finalPayment).isPresent();
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

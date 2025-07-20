@@ -252,7 +252,8 @@ class InMemoryOrderRepositoryTest {
                 assertThat(order.get().getTotalAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -307,7 +308,8 @@ class InMemoryOrderRepositoryTest {
             List<Order> userOrders = orderRepository.findByUser(user);
             assertThat(userOrders).hasSize(numberOfOrders);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -396,7 +398,8 @@ class InMemoryOrderRepositoryTest {
             List<Order> userOrders = orderRepository.findByUser(testUser);
             assertThat(userOrders.size()).isGreaterThan(1);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

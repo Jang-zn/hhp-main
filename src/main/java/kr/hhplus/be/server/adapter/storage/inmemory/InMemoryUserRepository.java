@@ -18,7 +18,7 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     @Override
     public Optional<User> findById(Long id) {
         if (id == null) {
-            return Optional.empty();
+            throw new IllegalArgumentException("User ID cannot be null");
         }
         return Optional.ofNullable(users.get(id));
     }
@@ -55,7 +55,7 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     @Override
     public boolean existsById(Long id) {
         if (id == null) {
-            return false;
+            throw new IllegalArgumentException("User ID cannot be null");
         }
         return users.containsKey(id);
     }

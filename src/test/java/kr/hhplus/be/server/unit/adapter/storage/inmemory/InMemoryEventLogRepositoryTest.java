@@ -189,7 +189,8 @@ class InMemoryEventLogRepositoryTest {
             // then - 모든 이벤트 로그가 성공적으로 저장되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfLogs);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -247,7 +248,8 @@ class InMemoryEventLogRepositoryTest {
             // then
             assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -333,7 +335,8 @@ class InMemoryEventLogRepositoryTest {
             assertThat(successfulReads.get()).isGreaterThan(0);
             assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

@@ -69,10 +69,10 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
     @Override
     public List<Product> findAllWithPagination(int limit, int offset) {
         if (limit < 0) {
-            return List.of();
+            throw new IllegalArgumentException("Limit cannot be negative");
         }
         if (offset < 0) {
-            return List.of();
+            throw new IllegalArgumentException("Offset cannot be negative");
         }
         
         return products.values().stream()

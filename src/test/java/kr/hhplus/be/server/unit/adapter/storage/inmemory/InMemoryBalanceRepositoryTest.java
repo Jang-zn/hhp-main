@@ -318,6 +318,8 @@ class InMemoryBalanceRepositoryTest {
             assertThat(finalBalance.get().getUser().getId()).isEqualTo(100L);
 
             executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -378,6 +380,8 @@ class InMemoryBalanceRepositoryTest {
             }
 
             executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -468,6 +472,8 @@ class InMemoryBalanceRepositoryTest {
             assertThat(finalBalance).isPresent();
 
             executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

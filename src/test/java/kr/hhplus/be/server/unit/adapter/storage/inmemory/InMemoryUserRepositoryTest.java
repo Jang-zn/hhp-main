@@ -264,7 +264,8 @@ class InMemoryUserRepositoryTest {
                 assertThat(userRepository.existsById((long) i)).isTrue();
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -324,7 +325,8 @@ class InMemoryUserRepositoryTest {
             assertThat(finalUser.get().getName()).startsWith("업데이트된 사용자_");
             assertThat(userRepository.existsById(userId)).isTrue();
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -412,7 +414,8 @@ class InMemoryUserRepositoryTest {
             assertThat(finalUser).isPresent();
             assertThat(userRepository.existsById(600L)).isTrue();
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

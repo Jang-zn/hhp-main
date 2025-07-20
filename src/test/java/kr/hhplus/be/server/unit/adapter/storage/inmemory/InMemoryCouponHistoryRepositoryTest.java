@@ -250,7 +250,8 @@ class InMemoryCouponHistoryRepositoryTest {
                 assertThat(exists).isTrue();
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -316,7 +317,8 @@ class InMemoryCouponHistoryRepositoryTest {
             List<CouponHistory> userHistories = couponHistoryRepository.findByUserWithPagination(user, numberOfCoupons, 0);
             assertThat(userHistories).hasSize(numberOfCoupons);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -427,7 +429,8 @@ class InMemoryCouponHistoryRepositoryTest {
             List<CouponHistory> finalHistories = couponHistoryRepository.findByUserWithPagination(testUser, 200, 0);
             assertThat(finalHistories.size()).isGreaterThan(1);
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

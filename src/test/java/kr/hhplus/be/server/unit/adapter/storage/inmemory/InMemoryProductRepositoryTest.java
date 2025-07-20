@@ -408,7 +408,8 @@ class InMemoryProductRepositoryTest {
                 assertThat(product.get().getName()).isEqualTo("동시성상품" + i);
             }
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -473,7 +474,8 @@ class InMemoryProductRepositoryTest {
             assertThat(finalProduct).isPresent();
             assertThat(finalProduct.get().getPrice()).isEqualTo(new BigDecimal("150000"));
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
 
         @Test
@@ -560,7 +562,8 @@ class InMemoryProductRepositoryTest {
             Optional<Product> finalProduct = productRepository.findById(600L);
             assertThat(finalProduct).isPresent();
 
-            executor.shutdown();
+            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            assertThat(terminated).isTrue();
         }
     }
 

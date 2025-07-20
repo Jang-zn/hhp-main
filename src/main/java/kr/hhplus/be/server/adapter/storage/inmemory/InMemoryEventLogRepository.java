@@ -60,7 +60,7 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     @Override
     public List<EventLog> findByStatus(EventStatus status) {
         if (status == null) {
-            return List.of();
+            throw new IllegalArgumentException("EventStatus cannot be null");
         }
         return eventLogs.values().stream()
                 .filter(eventLog -> eventLog.getStatus() == status)
@@ -70,7 +70,7 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     @Override
     public List<EventLog> findByEventType(EventType eventType) {
         if (eventType == null) {
-            return List.of();
+            throw new IllegalArgumentException("EventType cannot be null");
         }
         return eventLogs.values().stream()
                 .filter(eventLog -> eventLog.getEventType() == eventType)

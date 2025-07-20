@@ -21,7 +21,7 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public Optional<Payment> findById(Long id) {
         if (id == null) {
-            return Optional.empty();
+            throw new IllegalArgumentException("Payment ID cannot be null");
         }
         return Optional.ofNullable(payments.get(id));
     }
@@ -29,7 +29,7 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public List<Payment> findByOrderId(Long orderId) {
         if (orderId == null) {
-            return List.of();
+            throw new IllegalArgumentException("Order ID cannot be null");
         }
         return payments.values().stream()
                 .filter(payment -> payment.getOrder() != null && payment.getOrder().getId().equals(orderId))
