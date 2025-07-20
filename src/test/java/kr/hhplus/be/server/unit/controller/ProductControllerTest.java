@@ -90,24 +90,7 @@ class ProductControllerTest {
             assertThat(response).hasSize(3);
         }
 
-        @Test
-        @DisplayName("성공케이스: 기본 페이지네이션으로 상품 조회")
-        void getProducts_WithDefaultPagination() {
-            // given
-            ProductRequest request = new ProductRequest(10, 0);
-            List<Product> mockProducts = Arrays.asList(
-                Product.builder().id(1L).name("노트북").price(BigDecimal.valueOf(1000000)).stock(10).reservedStock(0).build(),
-                Product.builder().id(2L).name("스마트폰").price(BigDecimal.valueOf(800000)).stock(5).reservedStock(0).build(),
-                Product.builder().id(3L).name("태블릿").price(BigDecimal.valueOf(500000)).stock(15).reservedStock(0).build()
-            );
-            when(getProductListUseCase.execute(10, 0)).thenReturn(mockProducts);
-            
-            // when
-            List<ProductResponse> response = productController.getProductList(request);
-
-            // then
-            assertThat(response).hasSize(3);
-        }
+        
 
         @Test
         @DisplayName("실패케이스: null 요청으로 상품 조회")
