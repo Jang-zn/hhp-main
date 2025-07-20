@@ -70,7 +70,7 @@ class GetProductUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideProductData")
+        @MethodSource("provideProductData")
         @DisplayName("성공케이스: 다양한 상품 조회")
         void getProduct_WithDifferentProducts(Long productId, String name, String price) {
             // given
@@ -126,7 +126,7 @@ class GetProductUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideInvalidProductIds")
+        @MethodSource("provideInvalidProductIds")
         @DisplayName("실패케이스: 다양한 비정상 상품 ID로 조회")
         void getProduct_WithInvalidProductIds(Long invalidProductId) {
             // given
@@ -214,7 +214,7 @@ class GetProductUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideEdgeCaseProducts")
+        @MethodSource("provideEdgeCaseProducts")
         @DisplayName("성공케이스: 극한값 상품 데이터로 조회")
         void getProduct_WithEdgeCaseData(String description, String price, int stock, int reservedStock) {
             // given
