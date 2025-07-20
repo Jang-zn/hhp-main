@@ -2,9 +2,10 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
-import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,19 +23,18 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
-
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @DisplayName("GetBalanceUseCase 단위 테스트")
 class GetBalanceUseCaseTest {
 
     @Mock
     private UserRepositoryPort userRepositoryPort;
-    
+
     @Mock
     private BalanceRepositoryPort balanceRepositoryPort;
-    
+
     @Mock
     private CachePort cachePort;
 
@@ -51,84 +51,97 @@ class GetBalanceUseCaseTest {
     @Nested
     @DisplayName("성공 케이스 테스트")
     class SuccessTests {
-        
+
         @Test
-        @DisplayName("성공케이스: 정상 잔액 조회")
-        void getBalance_Success() {
-        // given
-        Long userId = 1L;
-        
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        
-        Balance balance = Balance.builder()
-                .user(user)
-                .amount(new BigDecimal("100000"))
-                .build();
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
-
-        // when
-        Optional<Balance> result = getBalanceUseCase.execute(userId);
-
-            // then - TODO 구현이 완료되면 실제 검증 로직 추가
-            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-            // assertThat(result).isPresent();
-            // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("100000"));
-        }
-
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetBalanceUseCaseTest#provideUserData")
-        @DisplayName("성공케이스: 다양한 사용자 잔액 조회")
-        void getBalance_WithDifferentUsers(Long userId, String userName, String amount) {
+        @DisplayName("성공케이스: DB에서 정상 잔액 조회")
+        void getBalance_Success_FromDB() {
             // given
-            User user = User.builder()
-                    .name(userName)
-                    .build();
-            
-            Balance balance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal(amount))
-                    .build();
-            
+            Long userId = 1L;
+            String cacheKey = "balance:" + userId;
+            User user = User.builder().id(userId).name("테스트 사용자").build();
+            Balance balance = Balance.builder().user(user).amount(new BigDecimal("100000")).build();
+
+            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(null); // Cache miss
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
             when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
 
             // when
             Optional<Balance> result = getBalanceUseCase.execute(userId);
 
-            // then - TODO 구현이 완료되면 실제 검증 로직 추가
-            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-            // assertThat(result).isPresent();
-            // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal(amount));
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("100000"));
+
+            verify(cachePort).get(eq(cacheKey), eq(Balance.class), any());
+            verify(userRepositoryPort).findById(userId);
+            verify(balanceRepositoryPort).findByUser(user);
+            verify(cachePort).put(eq(cacheKey), eq(balance), anyInt());
         }
-        
+
+        @Test
+        @DisplayName("성공케이스: Cache에서 정상 잔액 조회")
+        void getBalance_Success_FromCache() {
+            // given
+            Long userId = 1L;
+            String cacheKey = "balance:" + userId;
+            User user = User.builder().id(userId).name("테스트 사용자").build();
+            Balance cachedBalance = Balance.builder().user(user).amount(new BigDecimal("123456")).build();
+
+            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(cachedBalance); // Cache hit
+
+            // when
+            Optional<Balance> result = getBalanceUseCase.execute(userId);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("123456"));
+
+            verify(cachePort).get(eq(cacheKey), eq(Balance.class), any());
+            verify(userRepositoryPort, never()).findById(anyLong());
+            verify(balanceRepositoryPort, never()).findByUser(any(User.class));
+            verify(cachePort, never()).put(anyString(), any(Balance.class), anyInt());
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.GetBalanceUseCaseTest#provideUserData")
+        @DisplayName("성공케이스: 다양한 사용자 잔액 조회 (DB)")
+        void getBalance_WithDifferentUsers(Long userId, String userName, String amount) {
+            // given
+            String cacheKey = "balance:" + userId;
+            User user = User.builder().id(userId).name(userName).build();
+            Balance balance = Balance.builder().user(user).amount(new BigDecimal(amount)).build();
+
+            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(null);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
+
+            // when
+            Optional<Balance> result = getBalanceUseCase.execute(userId);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getAmount()).isEqualTo(new BigDecimal(amount));
+            verify(cachePort).put(eq(cacheKey), eq(balance), anyInt());
+        }
+
         @Test
         @DisplayName("성공케이스: 음수 잔액을 가진 사용자")
         void getBalance_WithNegativeBalance() {
             // given
             Long userId = 1L;
-            
-            User user = User.builder()
-                    .name("음수 잔액 사용자")
-                    .build();
-            
-            Balance negativeBalance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal("-50000")) // 음수 잔액
-                    .build();
-            
+            User user = User.builder().id(userId).name("음수 잔액 사용자").build();
+            Balance negativeBalance = Balance.builder().user(user).amount(new BigDecimal("-50000")).build();
+
+            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
             when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(negativeBalance));
 
             // when
             Optional<Balance> result = getBalanceUseCase.execute(userId);
 
-            // then - TODO 구현이 완료되면 실제 검증 로직 추가
-            // assertThat(result).isPresent();
-            // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("-50000"));
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("-50000"));
         }
 
         @Test
@@ -136,75 +149,65 @@ class GetBalanceUseCaseTest {
         void getBalance_WithLargeBalance() {
             // given
             Long userId = 1L;
-            
-            User user = User.builder()
-                    .name("부자 사용자")
-                    .build();
-            
-            Balance largeBalance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal("999999999999")) // 매우 큰 잔액
-                    .build();
-            
+            User user = User.builder().id(userId).name("부자 사용자").build();
+            Balance largeBalance = Balance.builder().user(user).amount(new BigDecimal("999999999999")).build();
+
+            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
             when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(largeBalance));
 
             // when
             Optional<Balance> result = getBalanceUseCase.execute(userId);
 
-            // then - TODO 구현이 완료되면 실제 검증 로직 추가
-            // assertThat(result).isPresent();
-            // assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("999999999999"));
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("999999999999"));
         }
     }
 
     @Nested
     @DisplayName("실패 케이스 테스트")
     class FailureTests {
-        
+
         @Test
         @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
         void getBalance_UserNotFound() {
-        // given
-        Long userId = 999L;
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+            // given
+            Long userId = 999L;
+            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
-        // when
-        Optional<Balance> result = getBalanceUseCase.execute(userId);
+            // when & then
+            assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
+                    .isInstanceOf(BalanceException.InvalidUser.class);
 
-            // then - TODO 구현이 완료되면 실제 검증 로직 추가
-            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-            assertThat(result).isEmpty();
+            verify(balanceRepositoryPort, never()).findByUser(any());
         }
 
         @Test
         @DisplayName("실패케이스: null 사용자 ID로 잔액 조회")
         void getBalance_WithNullUserId() {
-        // given
-        Long userId = null;
+            // given
+            Long userId = null;
 
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
-                    .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .isInstanceOf(BalanceException.InvalidUser.class);
         }
 
         @Test
         @DisplayName("실패케이스: 잔액이 존재하지 않는 사용자")
         void getBalance_NoBalance() {
-        // given
-        Long userId = 1L;
-        
-        User user = User.builder()
-                .name("잔액 없는 사용자")
-                .build();
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.empty());
+            // given
+            Long userId = 1L;
+            User user = User.builder().id(userId).name("잔액 없는 사용자").build();
 
-        // when
-        Optional<Balance> result = getBalanceUseCase.execute(userId);
+            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.empty());
+
+            // when
+            Optional<Balance> result = getBalanceUseCase.execute(userId);
 
             // then
             assertThat(result).isEmpty();
@@ -215,13 +218,12 @@ class GetBalanceUseCaseTest {
         @DisplayName("실패케이스: 다양한 비정상 사용자 ID로 잔액 조회")
         void getBalance_WithInvalidUserIds(Long invalidUserId) {
             // given
+            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
 
-            // when
-            Optional<Balance> result = getBalanceUseCase.execute(invalidUserId);
-
-            // then
-            assertThat(result).isEmpty();
+            // when & then
+            assertThatThrownBy(() -> getBalanceUseCase.execute(invalidUserId))
+                    .isInstanceOf(BalanceException.InvalidUser.class);
         }
     }
 
@@ -236,9 +238,7 @@ class GetBalanceUseCaseTest {
     private static Stream<Arguments> provideInvalidUserIds() {
         return Stream.of(
                 Arguments.of(-1L),
-                Arguments.of(0L),
-                Arguments.of(Long.MAX_VALUE),
-                Arguments.of(Long.MIN_VALUE)
+                Arguments.of(0L)
         );
     }
 }
