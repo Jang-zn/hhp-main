@@ -300,14 +300,11 @@ class OrderControllerTest {
             request.setUserId(userId);
             request.setProducts(products);
             
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            Order mockOrder = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(mockOrder);
             
             // when
-            try {
-                orderController.createOrder(request);
-            } catch (Exception e) {
-                // Expected since createOrderUseCase returns null
-            }
+            orderController.createOrder(request);
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
@@ -331,14 +328,11 @@ class OrderControllerTest {
             request.setUserId(userId);
             request.setProductIds(productIds);
             
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            Order mockOrder = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(mockOrder);
             
             // when
-            try {
-                orderController.createOrder(request);
-            } catch (Exception e) {
-                // Expected since createOrderUseCase returns null
-            }
+            orderController.createOrder(request);
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
@@ -366,14 +360,11 @@ class OrderControllerTest {
             request.setProductIds(productIds);
             request.setProducts(products);
             
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(null);
+            Order mockOrder = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
+            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(mockOrder);
             
             // when
-            try {
-                orderController.createOrder(request);
-            } catch (Exception e) {
-                // Expected since createOrderUseCase returns null
-            }
+            orderController.createOrder(request);
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
