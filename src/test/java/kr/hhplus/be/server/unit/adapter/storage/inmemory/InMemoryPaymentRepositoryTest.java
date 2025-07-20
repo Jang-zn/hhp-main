@@ -16,8 +16,16 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.stream.Stream;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("InMemoryPaymentRepository 단위 테스트")
 class InMemoryPaymentRepositoryTest {
@@ -38,15 +46,18 @@ class InMemoryPaymentRepositoryTest {
         void save_Success() {
         // given
         User user = User.builder()
+                .id(1L)
                 .name("테스트 사용자")
                 .build();
         
         Order order = Order.builder()
+                .id(1L)
                 .user(user)
                 .totalAmount(new BigDecimal("120000"))
                 .build();
         
         Payment payment = Payment.builder()
+                .id(1L)
                 .order(order)
                 .user(user)
                 .status(PaymentStatus.PENDING)
@@ -70,15 +81,18 @@ class InMemoryPaymentRepositoryTest {
         void save_WithDifferentPaymentData(String userName, String amount, PaymentStatus status) {
             // given
             User user = User.builder()
+                    .id(2L)
                     .name(userName)
                     .build();
             
             Order order = Order.builder()
+                    .id(2L)
                     .user(user)
                     .totalAmount(new BigDecimal(amount))
                     .build();
             
             Payment payment = Payment.builder()
+                    .id(2L)
                     .order(order)
                     .user(user)
                     .status(status)
@@ -100,15 +114,18 @@ class InMemoryPaymentRepositoryTest {
         void save_ZeroAmountPayment() {
             // given
             User user = User.builder()
+                    .id(3L)
                     .name("영액 결제 사용자")
                     .build();
             
             Order order = Order.builder()
+                    .id(3L)
                     .user(user)
                     .totalAmount(BigDecimal.ZERO)
                     .build();
             
             Payment payment = Payment.builder()
+                    .id(3L)
                     .order(order)
                     .user(user)
                     .status(PaymentStatus.PAID)
@@ -133,15 +150,18 @@ class InMemoryPaymentRepositoryTest {
         void findById_Success() {
         // given
         User user = User.builder()
+                .id(4L)
                 .name("테스트 사용자")
                 .build();
         
         Order order = Order.builder()
+                .id(4L)
                 .user(user)
                 .totalAmount(new BigDecimal("50000"))
                 .build();
         
         Payment payment = Payment.builder()
+                .id(4L)
                 .order(order)
                 .user(user)
                 .status(PaymentStatus.PAID)
@@ -186,6 +206,245 @@ class InMemoryPaymentRepositoryTest {
 
             // then
             assertThat(foundPayment).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("동시성 테스트: 서로 다른 결제 동시 생성")
+        void save_ConcurrentSaveForDifferentPayments() throws Exception {
+            // given
+            int numberOfPayments = 100;
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfPayments);
+            AtomicInteger successCount = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 서로 다른 결제들을 동시에 생성
+            for (int i = 0; i < numberOfPayments; i++) {
+                final int paymentIndex = i + 1;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        User user = User.builder()
+                                .id((long) paymentIndex)
+                                .name("동시성사용자" + paymentIndex)
+                                .build();
+                        
+                        Order order = Order.builder()
+                                .id((long) paymentIndex)
+                                .user(user)
+                                .totalAmount(new BigDecimal(String.valueOf(paymentIndex * 1000)))
+                                .build();
+                        
+                        Payment payment = Payment.builder()
+                                .id((long) paymentIndex)
+                                .order(order)
+                                .user(user)
+                                .status(PaymentStatus.PENDING)
+                                .amount(new BigDecimal(String.valueOf(paymentIndex * 1000)))
+                                .build();
+                        
+                        paymentRepository.save(payment);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("Error for payment " + paymentIndex + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then - 모든 결제가 성공적으로 생성되었는지 확인
+            assertThat(successCount.get()).isEqualTo(numberOfPayments);
+            
+            // 각 결제가 올바르게 저장되었는지 확인
+            for (int i = 1; i <= numberOfPayments; i++) {
+                Optional<Payment> payment = paymentRepository.findById((long) i);
+                assertThat(payment).isPresent();
+                assertThat(payment.get().getAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
+            }
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동일 결제 동시 업데이트")
+        void save_ConcurrentUpdateForSamePayment() throws Exception {
+            // given
+            Long paymentId = 500L;
+            User user = User.builder().id(500L).name("동시성 사용자").build();
+            Order order = Order.builder().id(500L).user(user).totalAmount(new BigDecimal("100000")).build();
+            
+            Payment initialPayment = Payment.builder()
+                    .id(paymentId)
+                    .order(order)
+                    .user(user)
+                    .status(PaymentStatus.PENDING)
+                    .amount(new BigDecimal("100000"))
+                    .build();
+            paymentRepository.save(initialPayment);
+
+            int numberOfThreads = 10;
+            int updatesPerThread = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
+            AtomicInteger successfulUpdates = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 동일한 결제를 동시에 업데이트
+            for (int i = 0; i < numberOfThreads; i++) {
+                final int threadId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < updatesPerThread; j++) {
+                            Payment updatedPayment = Payment.builder()
+                                    .id(paymentId)
+                                    .order(order)
+                                    .user(user)
+                                    .status(threadId % 2 == 0 ? PaymentStatus.PAID : PaymentStatus.FAILED)
+                                    .amount(new BigDecimal(String.valueOf(100000 + threadId * 1000 + j)))
+                                    .build();
+                            
+                            paymentRepository.save(updatedPayment);
+                            successfulUpdates.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Update error for thread " + threadId + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
+            
+            // 최종 상태 확인
+            Optional<Payment> finalPayment = paymentRepository.findById(paymentId);
+            assertThat(finalPayment).isPresent();
+            assertThat(finalPayment.get().getStatus()).isIn(PaymentStatus.PAID, PaymentStatus.FAILED);
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동시 조회와 저장")
+        void concurrentReadAndWrite() throws Exception {
+            // given
+            User baseUser = User.builder().id(600L).name("읽기쓰기 테스트 사용자").build();
+            Order baseOrder = Order.builder().id(600L).user(baseUser).totalAmount(new BigDecimal("50000")).build();
+            
+            Payment basePayment = Payment.builder()
+                    .id(600L)
+                    .order(baseOrder)
+                    .user(baseUser)
+                    .status(PaymentStatus.PAID)
+                    .amount(new BigDecimal("50000"))
+                    .build();
+            paymentRepository.save(basePayment);
+
+            int numberOfReaders = 5;
+            int numberOfWriters = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
+            
+            AtomicInteger successfulReads = new AtomicInteger(0);
+            AtomicInteger successfulWrites = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // 읽기 작업들
+            for (int i = 0; i < numberOfReaders; i++) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 50; j++) {
+                            Optional<Payment> payment = paymentRepository.findById(600L);
+                            if (payment.isPresent()) {
+                                successfulReads.incrementAndGet();
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Reader error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            // 쓰기 작업들
+            for (int i = 0; i < numberOfWriters; i++) {
+                final int writerId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 20; j++) {
+                            User newUser = User.builder()
+                                    .id((long) (700 + writerId * 20 + j))
+                                    .name("쓰기테스트" + writerId + "_" + j)
+                                    .build();
+                            
+                            Order newOrder = Order.builder()
+                                    .id((long) (700 + writerId * 20 + j))
+                                    .user(newUser)
+                                    .totalAmount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
+                                    .build();
+                            
+                            Payment newPayment = Payment.builder()
+                                    .id((long) (700 + writerId * 20 + j))
+                                    .order(newOrder)
+                                    .user(newUser)
+                                    .status(PaymentStatus.PENDING)
+                                    .amount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
+                                    .build();
+                            
+                            paymentRepository.save(newPayment);
+                            successfulWrites.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Writer error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulReads.get()).isGreaterThan(0);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            
+            // 최종 상태 확인
+            Optional<Payment> finalPayment = paymentRepository.findById(600L);
+            assertThat(finalPayment).isPresent();
+
+            executor.shutdown();
         }
     }
 

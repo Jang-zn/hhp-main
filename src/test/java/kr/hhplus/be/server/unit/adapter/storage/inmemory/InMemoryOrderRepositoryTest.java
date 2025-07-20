@@ -13,9 +13,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("InMemoryOrderRepository 단위 테스트")
 class InMemoryOrderRepositoryTest {
@@ -36,10 +44,12 @@ class InMemoryOrderRepositoryTest {
         void save_Success() {
         // given
         User user = User.builder()
+                .id(1L)
                 .name("테스트 사용자")
                 .build();
         
         Order order = Order.builder()
+                .id(1L)
                 .user(user)
                 .totalAmount(new BigDecimal("120000"))
                 .build();
@@ -59,10 +69,12 @@ class InMemoryOrderRepositoryTest {
         void save_WithDifferentOrderData(String userName, String totalAmount) {
             // given
             User user = User.builder()
+                    .id(2L)
                     .name(userName)
                     .build();
             
             Order order = Order.builder()
+                    .id(2L)
                     .user(user)
                     .totalAmount(new BigDecimal(totalAmount))
                     .build();
@@ -81,10 +93,12 @@ class InMemoryOrderRepositoryTest {
         void save_ZeroAmountOrder() {
             // given
             User user = User.builder()
+                    .id(3L)
                     .name("영액 주문 사용자")
                     .build();
             
             Order order = Order.builder()
+                    .id(3L)
                     .user(user)
                     .totalAmount(BigDecimal.ZERO)
                     .build();
@@ -102,10 +116,12 @@ class InMemoryOrderRepositoryTest {
         void save_LargeAmountOrder() {
             // given
             User user = User.builder()
+                    .id(4L)
                     .name("대금액 주문 사용자")
                     .build();
             
             Order order = Order.builder()
+                    .id(4L)
                     .user(user)
                     .totalAmount(new BigDecimal("999999999"))
                     .build();
@@ -128,10 +144,12 @@ class InMemoryOrderRepositoryTest {
         void findById_Success() {
         // given
         User user = User.builder()
+                .id(5L)
                 .name("테스트 사용자")
                 .build();
         
         Order order = Order.builder()
+                .id(5L)
                 .user(user)
                 .totalAmount(new BigDecimal("50000"))
                 .build();
@@ -159,11 +177,10 @@ class InMemoryOrderRepositoryTest {
         @Test
         @DisplayName("실패케이스: null ID로 주문 조회")
         void findById_WithNullId() {
-            // when
-            Optional<Order> foundOrder = orderRepository.findById(null);
-
-            // then
-            assertThat(foundOrder).isEmpty();
+            // when & then
+            assertThatThrownBy(() -> orderRepository.findById(null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Order ID cannot be null");
         }
 
         @Test
@@ -174,6 +191,212 @@ class InMemoryOrderRepositoryTest {
 
             // then
             assertThat(foundOrder).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("동시성 테스트: 서로 다른 주문 동시 생성")
+        void save_ConcurrentSaveForDifferentOrders() throws Exception {
+            // given
+            int numberOfOrders = 100;
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfOrders);
+            AtomicInteger successCount = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 서로 다른 주문들을 동시에 생성
+            for (int i = 0; i < numberOfOrders; i++) {
+                final int orderIndex = i + 1;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        User user = User.builder()
+                                .id((long) orderIndex)
+                                .name("사용자" + orderIndex)
+                                .build();
+                        
+                        Order order = Order.builder()
+                                .id((long) orderIndex)
+                                .user(user)
+                                .totalAmount(new BigDecimal(String.valueOf(orderIndex * 1000)))
+                                .build();
+                        
+                        orderRepository.save(order);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("Error for order " + orderIndex + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then - 모든 주문이 성공적으로 생성되었는지 확인
+            assertThat(successCount.get()).isEqualTo(numberOfOrders);
+            
+            // 각 주문이 올바르게 저장되었는지 확인
+            for (int i = 1; i <= numberOfOrders; i++) {
+                Optional<Order> order = orderRepository.findById((long) i);
+                assertThat(order).isPresent();
+                assertThat(order.get().getTotalAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
+            }
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동일 사용자 여러 주문 동시 생성")
+        void save_ConcurrentOrdersForSameUser() throws Exception {
+            // given
+            Long userId = 500L;
+            User user = User.builder()
+                    .id(userId)
+                    .name("동시성 테스트 사용자")
+                    .build();
+
+            int numberOfOrders = 50;
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfOrders);
+            AtomicInteger successfulOrders = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 동일한 사용자가 여러 주문을 동시에 생성
+            for (int i = 0; i < numberOfOrders; i++) {
+                final int orderIndex = i + 1;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        Order order = Order.builder()
+                                .id((long) (500 + orderIndex))
+                                .user(user)
+                                .totalAmount(new BigDecimal(String.valueOf(orderIndex * 5000)))
+                                .build();
+                        
+                        orderRepository.save(order);
+                        successfulOrders.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("Order error for order " + orderIndex + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulOrders.get()).isEqualTo(numberOfOrders);
+            
+            // 사용자의 주문 목록 확인
+            List<Order> userOrders = orderRepository.findByUser(user);
+            assertThat(userOrders).hasSize(numberOfOrders);
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동시 조회와 저장")
+        void concurrentReadAndWrite() throws Exception {
+            // given
+            User testUser = User.builder()
+                    .id(600L)
+                    .name("읽기쓰기 테스트 사용자")
+                    .build();
+            
+            // 초기 주문 생성
+            Order initialOrder = Order.builder()
+                    .id(600L)
+                    .user(testUser)
+                    .totalAmount(new BigDecimal("100000"))
+                    .build();
+            orderRepository.save(initialOrder);
+
+            int numberOfReaders = 5;
+            int numberOfWriters = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
+            
+            AtomicInteger successfulReads = new AtomicInteger(0);
+            AtomicInteger successfulWrites = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // 읽기 작업들
+            for (int i = 0; i < numberOfReaders; i++) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 50; j++) {
+                            Optional<Order> order = orderRepository.findById(600L);
+                            if (order.isPresent()) {
+                                successfulReads.incrementAndGet();
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Reader error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            // 쓰기 작업들
+            for (int i = 0; i < numberOfWriters; i++) {
+                final int writerId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 20; j++) {
+                            Order newOrder = Order.builder()
+                                    .id((long) (700 + writerId * 20 + j))
+                                    .user(testUser)
+                                    .totalAmount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
+                                    .build();
+                            
+                            orderRepository.save(newOrder);
+                            successfulWrites.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Writer error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulReads.get()).isGreaterThan(0);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            
+            // 최종 상태 확인
+            List<Order> userOrders = orderRepository.findByUser(testUser);
+            assertThat(userOrders.size()).isGreaterThan(1);
+
+            executor.shutdown();
         }
     }
 

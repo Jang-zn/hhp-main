@@ -13,7 +13,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +45,7 @@ class InMemoryCouponRepositoryTest {
         void save_Success() {
         // given
         Product product = Product.builder()
+                .id(1L)
                 .name("노트북")
                 .price(new BigDecimal("1200000"))
                 .stock(10)
@@ -45,6 +53,7 @@ class InMemoryCouponRepositoryTest {
                 .build();
         
         Coupon coupon = Coupon.builder()
+                .id(1L)
                 .code("DISCOUNT10")
                 .discountRate(new BigDecimal("0.10"))
                 .maxIssuance(100)
@@ -70,6 +79,7 @@ class InMemoryCouponRepositoryTest {
         void save_WithDifferentCouponData(String code, String discountRate, int maxIssuance) {
             // given
             Coupon coupon = Coupon.builder()
+                    .id(2L)
                     .code(code)
                     .discountRate(new BigDecimal(discountRate))
                     .maxIssuance(maxIssuance)
@@ -93,6 +103,7 @@ class InMemoryCouponRepositoryTest {
         void save_ExpiredCoupon() {
             // given
             Coupon expiredCoupon = Coupon.builder()
+                    .id(3L)
                     .code("EXPIRED")
                     .discountRate(new BigDecimal("0.20"))
                     .maxIssuance(100)
@@ -114,6 +125,7 @@ class InMemoryCouponRepositoryTest {
         void save_CouponWithExceededIssuance() {
             // given
             Coupon overIssuedCoupon = Coupon.builder()
+                    .id(4L)
                     .code("OVERISSUED")
                     .discountRate(new BigDecimal("0.15"))
                     .maxIssuance(100)
@@ -135,6 +147,7 @@ class InMemoryCouponRepositoryTest {
         void save_CouponWithExcessiveDiscountRate() {
             // given
             Coupon excessiveCoupon = Coupon.builder()
+                    .id(5L)
                     .code("EXCESSIVE")
                     .discountRate(new BigDecimal("1.50")) // 150% 할인
                     .maxIssuance(10)
@@ -157,6 +170,7 @@ class InMemoryCouponRepositoryTest {
             // given
             LocalDateTime now = LocalDateTime.now();
             Coupon invalidDateCoupon = Coupon.builder()
+                    .id(6L)
                     .code("INVALIDDATE")
                     .discountRate(new BigDecimal("0.10"))
                     .maxIssuance(50)
@@ -179,6 +193,7 @@ class InMemoryCouponRepositoryTest {
         void save_WithEdgeCaseDiscountRates(String description, String discountRate) {
             // given
             Coupon coupon = Coupon.builder()
+                    .id(7L)
                     .code("EDGE_" + description)
                     .discountRate(new BigDecimal(discountRate))
                     .maxIssuance(100)
@@ -200,7 +215,8 @@ class InMemoryCouponRepositoryTest {
         void save_WithNullCoupon() {
             // when & then
             assertThatThrownBy(() -> couponRepository.save(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Coupon cannot be null");
         }
     }
 
@@ -213,6 +229,7 @@ class InMemoryCouponRepositoryTest {
         void findById_Success() {
         // given
         Coupon coupon = Coupon.builder()
+                .id(10L)
                 .code("SALE20")
                 .discountRate(new BigDecimal("0.20"))
                 .maxIssuance(50)
@@ -246,7 +263,8 @@ class InMemoryCouponRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> couponRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Coupon ID cannot be null");
         }
 
         @Test
@@ -268,6 +286,228 @@ class InMemoryCouponRepositoryTest {
 
             // then
             assertThat(foundCoupon).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("동시성 테스트: 서로 다른 쿠폰 동시 저장")
+        void save_ConcurrentSaveForDifferentCoupons() throws Exception {
+            // given
+            int numberOfCoupons = 100;
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfCoupons);
+            AtomicInteger successCount = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 서로 다른 쿠폰들을 동시에 저장
+            for (int i = 0; i < numberOfCoupons; i++) {
+                final int couponIndex = i + 1;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        Coupon coupon = Coupon.builder()
+                                .id((long) couponIndex)
+                                .code("CONCURRENT" + couponIndex)
+                                .discountRate(new BigDecimal("0.10"))
+                                .maxIssuance(100)
+                                .issuedCount(0)
+                                .startDate(LocalDateTime.now())
+                                .endDate(LocalDateTime.now().plusDays(30))
+                                .build();
+                        
+                        couponRepository.save(coupon);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("Error for coupon " + couponIndex + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then - 모든 쿠폰이 성공적으로 저장되었는지 확인
+            assertThat(successCount.get()).isEqualTo(numberOfCoupons);
+            
+            // 각 쿠폰이 올바르게 저장되었는지 확인
+            for (int i = 1; i <= numberOfCoupons; i++) {
+                Optional<Coupon> coupon = couponRepository.findById((long) i);
+                assertThat(coupon).isPresent();
+                assertThat(coupon.get().getCode()).isEqualTo("CONCURRENT" + i);
+            }
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동일 쿠폰 동시 업데이트")
+        void save_ConcurrentUpdateForSameCoupon() throws Exception {
+            // given
+            Long couponId = 500L;
+            Coupon initialCoupon = Coupon.builder()
+                    .id(couponId)
+                    .code("CONCURRENT_UPDATE")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(1000)
+                    .issuedCount(0)
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusDays(30))
+                    .build();
+            couponRepository.save(initialCoupon);
+
+            int numberOfThreads = 10;
+            int updatesPerThread = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
+            AtomicInteger successfulUpdates = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 동일한 쿠폰을 동시에 업데이트
+            for (int i = 0; i < numberOfThreads; i++) {
+                final int threadId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < updatesPerThread; j++) {
+                            Coupon updatedCoupon = Coupon.builder()
+                                    .id(couponId)
+                                    .code("CONCURRENT_UPDATE")
+                                    .discountRate(new BigDecimal("0.15"))
+                                    .maxIssuance(1000)
+                                    .issuedCount(threadId * updatesPerThread + j + 1)
+                                    .startDate(LocalDateTime.now())
+                                    .endDate(LocalDateTime.now().plusDays(30))
+                                    .build();
+                            
+                            couponRepository.save(updatedCoupon);
+                            successfulUpdates.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Update error for thread " + threadId + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
+            
+            // 최종 상태 확인
+            Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
+            assertThat(finalCoupon).isPresent();
+            assertThat(finalCoupon.get().getDiscountRate()).isEqualTo(new BigDecimal("0.15"));
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동시 조회와 저장")
+        void concurrentReadAndWrite() throws Exception {
+            // given
+            Long couponId = 600L;
+            Coupon baseCoupon = Coupon.builder()
+                    .id(couponId)
+                    .code("READ_WRITE_TEST")
+                    .discountRate(new BigDecimal("0.20"))
+                    .maxIssuance(500)
+                    .issuedCount(0)
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusDays(30))
+                    .build();
+            couponRepository.save(baseCoupon);
+
+            int numberOfReaders = 5;
+            int numberOfWriters = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
+            
+            AtomicInteger successfulReads = new AtomicInteger(0);
+            AtomicInteger successfulWrites = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // 읽기 작업들
+            for (int i = 0; i < numberOfReaders; i++) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 50; j++) {
+                            Optional<Coupon> coupon = couponRepository.findById(couponId);
+                            if (coupon.isPresent()) {
+                                successfulReads.incrementAndGet();
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Reader error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            // 쓰기 작업들
+            for (int i = 0; i < numberOfWriters; i++) {
+                final int writerId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 20; j++) {
+                            Coupon updatedCoupon = Coupon.builder()
+                                    .id(couponId)
+                                    .code("READ_WRITE_TEST")
+                                    .discountRate(new BigDecimal("0.20"))
+                                    .maxIssuance(500)
+                                    .issuedCount(writerId * 20 + j + 1)
+                                    .startDate(LocalDateTime.now())
+                                    .endDate(LocalDateTime.now().plusDays(30))
+                                    .build();
+                            
+                            couponRepository.save(updatedCoupon);
+                            successfulWrites.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Writer error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulReads.get()).isGreaterThan(0);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            
+            // 최종 상태 확인
+            Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
+            assertThat(finalCoupon).isPresent();
+
+            executor.shutdown();
         }
     }
 

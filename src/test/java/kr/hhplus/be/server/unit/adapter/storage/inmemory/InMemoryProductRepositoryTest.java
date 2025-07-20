@@ -14,6 +14,12 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +43,7 @@ class InMemoryProductRepositoryTest {
         void save_Success() {
         // given
         Product product = Product.builder()
+                .id(1L)
                 .name("노트북")
                 .price(new BigDecimal("1200000"))
                 .stock(50)
@@ -58,6 +65,7 @@ class InMemoryProductRepositoryTest {
         void save_WithDifferentProductData(String name, String price, int stock) {
             // given
             Product product = Product.builder()
+                    .id(2L)
                     .name(name)
                     .price(new BigDecimal(price))
                     .stock(stock)
@@ -79,6 +87,7 @@ class InMemoryProductRepositoryTest {
         void save_WithZeroStock() {
             // given
             Product product = Product.builder()
+                    .id(3L)
                     .name("품절 상품")
                     .price(new BigDecimal("100000"))
                     .stock(0)
@@ -98,6 +107,7 @@ class InMemoryProductRepositoryTest {
         void save_WithReservedStockGreaterThanStock() {
             // given
             Product product = Product.builder()
+                    .id(4L)
                     .name("비정상 상품")
                     .price(new BigDecimal("50000"))
                     .stock(10)
@@ -117,6 +127,7 @@ class InMemoryProductRepositoryTest {
         void save_WithNegativeStock() {
             // given
             Product product = Product.builder()
+                    .id(5L)
                     .name("음수 재고 상품")
                     .price(new BigDecimal("30000"))
                     .stock(-5)
@@ -137,6 +148,7 @@ class InMemoryProductRepositoryTest {
         void save_WithEdgeCasePrices(String description, String price) {
             // given
             Product product = Product.builder()
+                    .id(6L)
                     .name("극한값 가격 상품")
                     .price(new BigDecimal(price))
                     .stock(10)
@@ -169,6 +181,7 @@ class InMemoryProductRepositoryTest {
         void findById_Success() {
         // given
         Product product = Product.builder()
+                .id(7L)
                 .name("스마트폰")
                 .price(new BigDecimal("800000"))
                 .stock(100)
@@ -299,6 +312,7 @@ class InMemoryProductRepositoryTest {
         void findAll_WithInvalidPagination() {
         // given
         Product product = Product.builder()
+                .id(8L)
                 .name("테스트 상품")
                 .price(new BigDecimal("50000"))
                 .stock(10)
@@ -337,6 +351,217 @@ class InMemoryProductRepositoryTest {
                 Arguments.of(Long.MAX_VALUE),
                 Arguments.of(Long.MIN_VALUE)
         );
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("동시성 테스트: 서로 다른 상품 동시 저장")
+        void save_ConcurrentSaveForDifferentProducts() throws Exception {
+            // given
+            int numberOfProducts = 100;
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfProducts);
+            AtomicInteger successCount = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 서로 다른 상품들을 동시에 저장
+            for (int i = 0; i < numberOfProducts; i++) {
+                final int productIndex = i + 1;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        Product product = Product.builder()
+                                .id((long) productIndex)
+                                .name("동시성상품" + productIndex)
+                                .price(new BigDecimal(String.valueOf(productIndex * 1000)))
+                                .stock(productIndex * 10)
+                                .reservedStock(0)
+                                .build();
+                        
+                        productRepository.save(product);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("Error for product " + productIndex + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then - 모든 상품이 성공적으로 저장되었는지 확인
+            assertThat(successCount.get()).isEqualTo(numberOfProducts);
+            
+            // 각 상품이 올바르게 저장되었는지 확인
+            for (int i = 1; i <= numberOfProducts; i++) {
+                Optional<Product> product = productRepository.findById((long) i);
+                assertThat(product).isPresent();
+                assertThat(product.get().getName()).isEqualTo("동시성상품" + i);
+            }
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동일 상품 동시 업데이트")
+        void save_ConcurrentUpdateForSameProduct() throws Exception {
+            // given
+            Long productId = 500L;
+            Product initialProduct = Product.builder()
+                    .id(productId)
+                    .name("동시성 업데이트 상품")
+                    .price(new BigDecimal("100000"))
+                    .stock(1000)
+                    .reservedStock(0)
+                    .build();
+            productRepository.save(initialProduct);
+
+            int numberOfThreads = 10;
+            int updatesPerThread = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
+            AtomicInteger successfulUpdates = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // when - 동일한 상품을 동시에 업데이트
+            for (int i = 0; i < numberOfThreads; i++) {
+                final int threadId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < updatesPerThread; j++) {
+                            Product updatedProduct = Product.builder()
+                                    .id(productId)
+                                    .name("동시성 업데이트 상품")
+                                    .price(new BigDecimal("150000"))
+                                    .stock(1000 - (threadId * updatesPerThread + j))
+                                    .reservedStock(threadId * updatesPerThread + j)
+                                    .build();
+                            
+                            productRepository.save(updatedProduct);
+                            successfulUpdates.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Update error for thread " + threadId + ": " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
+            
+            // 최종 상태 확인
+            Optional<Product> finalProduct = productRepository.findById(productId);
+            assertThat(finalProduct).isPresent();
+            assertThat(finalProduct.get().getPrice()).isEqualTo(new BigDecimal("150000"));
+
+            executor.shutdown();
+        }
+
+        @Test
+        @DisplayName("동시성 테스트: 동시 조회와 저장")
+        void concurrentReadAndWrite() throws Exception {
+            // given
+            Product baseProduct = Product.builder()
+                    .id(600L)
+                    .name("읽기쓰기 테스트 상품")
+                    .price(new BigDecimal("50000"))
+                    .stock(100)
+                    .reservedStock(0)
+                    .build();
+            productRepository.save(baseProduct);
+
+            int numberOfReaders = 5;
+            int numberOfWriters = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
+            
+            AtomicInteger successfulReads = new AtomicInteger(0);
+            AtomicInteger successfulWrites = new AtomicInteger(0);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            // 읽기 작업들
+            for (int i = 0; i < numberOfReaders; i++) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 50; j++) {
+                            Optional<Product> product = productRepository.findById(600L);
+                            if (product.isPresent()) {
+                                successfulReads.incrementAndGet();
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Reader error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            // 쓰기 작업들
+            for (int i = 0; i < numberOfWriters; i++) {
+                final int writerId = i;
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        for (int j = 0; j < 20; j++) {
+                            Product newProduct = Product.builder()
+                                    .id((long) (700 + writerId * 20 + j))
+                                    .name("쓰기테스트" + writerId + "_" + j)
+                                    .price(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
+                                    .stock(100)
+                                    .reservedStock(0)
+                                    .build();
+                            
+                            productRepository.save(newProduct);
+                            successfulWrites.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Writer error: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                futures.add(future);
+            }
+
+            startLatch.countDown();
+            doneLatch.await();
+
+            // then
+            assertThat(successfulReads.get()).isGreaterThan(0);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            
+            // 최종 상태 확인
+            Optional<Product> finalProduct = productRepository.findById(600L);
+            assertThat(finalProduct).isPresent();
+
+            executor.shutdown();
+        }
     }
 
     private static Stream<Arguments> provideEdgeCasePrices() {

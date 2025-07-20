@@ -9,23 +9,67 @@ import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
 public class InMemoryBalanceRepository implements BalanceRepositoryPort {
 
     private final Map<Long, Balance> balances = new ConcurrentHashMap<>();
+    private final Map<Long, Balance> userBalances = new ConcurrentHashMap<>(); // userId -> Balance 매핑
+    private final AtomicLong nextId = new AtomicLong(1L);
 
     @Override
     public Optional<Balance> findByUser(User user) {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
-        return balances.values().stream().filter(balance -> balance.getUser().equals(user)).findFirst();
+        if (user.getId() == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        return Optional.ofNullable(userBalances.get(user.getId()));
     }
 
     @Override
     public Balance save(Balance balance) {
-        balances.put(balance.getId(), balance);
-        return balance;
+        if (balance == null) {
+            throw new IllegalArgumentException("Balance cannot be null");
+        }
+        if (balance.getUser() == null) {
+            throw new IllegalArgumentException("Balance user cannot be null");
+        }
+        if (balance.getUser().getId() == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        
+        Long userId = balance.getUser().getId();
+        
+        // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
+        Balance savedBalance = userBalances.compute(userId, (key, existingBalance) -> {
+            if (existingBalance != null) {
+                // 기존 잔액 업데이트
+                return Balance.builder()
+                        .id(existingBalance.getId())
+                        .user(balance.getUser())
+                        .amount(balance.getAmount())
+                        .createdAt(existingBalance.getCreatedAt())
+                        .updatedAt(balance.getUpdatedAt())
+                        .build();
+            } else {
+                // 새로운 잔액 생성
+                Long id = balance.getId() != null ? balance.getId() : nextId.getAndIncrement();
+                return Balance.builder()
+                        .id(id)
+                        .user(balance.getUser())
+                        .amount(balance.getAmount())
+                        .createdAt(balance.getCreatedAt())
+                        .updatedAt(balance.getUpdatedAt())
+                        .build();
+            }
+        });
+        
+        // ID 기반 인덱스도 동기화
+        balances.put(savedBalance.getId(), savedBalance);
+        
+        return savedBalance;
     }
 } 
