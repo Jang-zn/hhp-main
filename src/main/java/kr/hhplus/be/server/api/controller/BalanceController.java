@@ -30,8 +30,14 @@ public class BalanceController {
     @ApiSuccess(summary = "잔액 충전")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-  
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        if (request.getUserId() == null || request.getAmount() == null) {
+            throw new IllegalArgumentException("UserId and Amount are required");
+        }
+        
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUser().getId(),
@@ -43,6 +49,10 @@ public class BalanceController {
     @ApiSuccess(summary = "잔액 조회")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("UserId cannot be null");
+        }
+        
         Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
         
         if (balanceOpt.isEmpty()) {

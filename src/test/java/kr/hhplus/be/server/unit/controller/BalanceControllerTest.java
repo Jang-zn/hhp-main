@@ -16,7 +16,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("BalanceController 단위 테스트")
 class BalanceControllerTest {
 
@@ -42,7 +44,6 @@ class BalanceControllerTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
         balanceController = new BalanceController(chargeBalanceUseCase, getBalanceUseCase);
     }
 
@@ -59,10 +60,12 @@ class BalanceControllerTest {
             BalanceRequest request = new BalanceRequest(userId, chargeAmount);
 
             
-            User user = User.builder().name("테스트 사용자").build();
+            User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
+                    .id(1L)
                     .user(user)
                     .amount(new BigDecimal("150000"))
+                    .updatedAt(LocalDateTime.now())
                     .build();
             
             when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(balance);
@@ -85,10 +88,12 @@ class BalanceControllerTest {
             BalanceRequest request = new BalanceRequest(userId, new BigDecimal(chargeAmount));
 
             
-            User user = User.builder().name("테스트 사용자").build();
+            User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
+                    .id(1L)
                     .user(user)
                     .amount(new BigDecimal(chargeAmount))
+                    .updatedAt(LocalDateTime.now())
                     .build();
             
             when(chargeBalanceUseCase.execute(userId, new BigDecimal(chargeAmount))).thenReturn(balance);
@@ -138,21 +143,15 @@ class BalanceControllerTest {
         }
 
         @Test
-        @DisplayName("실패케이스: 동시성 충돌")
-        void chargeBalance_ConcurrencyConflict() {
+        @DisplayName("실패케이스: null ID와 금액으로 잔액 충전")
+        void chargeBalance_WithNullFields() {
             // given
-            Long userId = 1L;
-            BigDecimal chargeAmount = new BigDecimal("50000");
-            BalanceRequest request = new BalanceRequest(userId, chargeAmount);
-
-            
-            when(chargeBalanceUseCase.execute(userId, chargeAmount))
-                    .thenThrow(new BalanceException.ConcurrencyConflict());
+            BalanceRequest request = new BalanceRequest(null, null);
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                    .hasMessage("Concurrent balance update conflict");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("UserId and Amount are required");
         }
 
         @Test
@@ -160,7 +159,8 @@ class BalanceControllerTest {
         void chargeBalance_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Request cannot be null");
         }
 
         @ParameterizedTest
@@ -190,10 +190,12 @@ class BalanceControllerTest {
             // given
             Long userId = 1L;
             
-            User user = User.builder().name("테스트 사용자").build();
+            User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
+                    .id(1L)
                     .user(user)
                     .amount(new BigDecimal("100000"))
+                    .updatedAt(LocalDateTime.now())
                     .build();
             
             when(getBalanceUseCase.execute(userId)).thenReturn(Optional.of(balance));
@@ -213,10 +215,12 @@ class BalanceControllerTest {
         @DisplayName("성공케이스: 다양한 사용자 ID로 잔액 조회")
         void getBalance_WithDifferentUserIds(Long userId) {
             // given
-            User user = User.builder().name("테스트 사용자").build();
+            User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
+                    .id(1L)
                     .user(user)
                     .amount(new BigDecimal("50000"))
+                    .updatedAt(LocalDateTime.now())
                     .build();
             
             when(getBalanceUseCase.execute(userId)).thenReturn(Optional.of(balance));
@@ -249,7 +253,8 @@ class BalanceControllerTest {
         void getBalance_WithNullUserId() {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("UserId cannot be null");
         }
 
         @ParameterizedTest
