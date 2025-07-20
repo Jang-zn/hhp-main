@@ -43,11 +43,13 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
         
         Long userId = balance.getUser().getId();
         
-        // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
-        Balance savedBalance = userBalances.compute(userId, (key, existingBalance) -> {
+        // 동기화 블록을 사용하여 두 맵을 원자적으로 업데이트
+        synchronized (this) {
+            Balance existingBalance = userBalances.get(userId);
+            Balance savedBalance;
+            
             if (existingBalance != null) {
-                // 기존 잔액 업데이트
-                return Balance.builder()
+                savedBalance = Balance.builder()
                         .id(existingBalance.getId())
                         .user(balance.getUser())
                         .amount(balance.getAmount())
@@ -55,9 +57,8 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
                         .updatedAt(balance.getUpdatedAt())
                         .build();
             } else {
-                // 새로운 잔액 생성
                 Long id = balance.getId() != null ? balance.getId() : nextId.getAndIncrement();
-                return Balance.builder()
+                savedBalance = Balance.builder()
                         .id(id)
                         .user(balance.getUser())
                         .amount(balance.getAmount())
@@ -65,11 +66,11 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
                         .updatedAt(balance.getUpdatedAt())
                         .build();
             }
-        });
-        
-        // ID 기반 인덱스도 동기화
-        balances.put(savedBalance.getId(), savedBalance);
-        
-        return savedBalance;
+            
+            userBalances.put(userId, savedBalance);
+            balances.put(savedBalance.getId(), savedBalance);
+            
+            return savedBalance;
+        }
     }
 } 
