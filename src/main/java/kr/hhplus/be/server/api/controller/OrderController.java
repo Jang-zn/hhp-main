@@ -40,12 +40,26 @@ public class OrderController {
     @ResponseStatus(HttpStatus.CREATED)
   
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
-        // productIds를 Map<Long, Integer> 형태로 변환 (각 상품의 수량을 1로 설정)
-        Map<Long, Integer> productQuantities = request.getProductIds().stream()
-                .collect(Collectors.toMap(
-                        productId -> productId,
-                        productId -> 1  // 기본 수량 1
-                ));
+        // 상품 수량 정보를 Map<Long, Integer> 형태로 변환
+        Map<Long, Integer> productQuantities;
+        
+        if (request.getProducts() != null && !request.getProducts().isEmpty()) {
+            // 새로운 products 필드 사용 (수량 정보 포함)
+            productQuantities = request.getProducts().stream()
+                    .collect(Collectors.toMap(
+                            OrderRequest.ProductQuantity::getProductId,
+                            OrderRequest.ProductQuantity::getQuantity
+                    ));
+        } else if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
+            // 기존 productIds 필드 사용 (하위 호환성을 위해 수량 1로 설정)
+            productQuantities = request.getProductIds().stream()
+                    .collect(Collectors.toMap(
+                            productId -> productId,
+                            productId -> 1
+                    ));
+        } else {
+            productQuantities = new HashMap<>();
+        }
         
         Order order = createOrderUseCase.execute(request.getUserId(), productQuantities);
         
@@ -62,7 +76,7 @@ public class OrderController {
         return new OrderResponse(
                 order.getId(),
                 order.getUser().getId(),
-                "PENDING",  // Order 엔티티에 status 필드가 없으므로 기본값 사용
+                order.getStatus().name(),
                 order.getTotalAmount(),
                 order.getCreatedAt(),
                 itemResponses

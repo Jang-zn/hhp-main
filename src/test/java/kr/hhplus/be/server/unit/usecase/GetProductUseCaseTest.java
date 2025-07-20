@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,186 +41,201 @@ class GetProductUseCaseTest {
         getProductUseCase = new GetProductUseCase(productRepositoryPort, cachePort);
     }
 
-    @Test
-    @DisplayName("상품 조회 성공")
-    void getProduct_Success() {
-        // given
-        Long productId = 1L;
+    @Nested
+    @DisplayName("상품 조회 성공 테스트")
+    class SuccessTests {
         
-        Product product = Product.builder()
-                .name("노트북")
-                .price(new BigDecimal("1200000"))
-                .stock(50)
-                .reservedStock(0)
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(product));
+        @Test
+        @DisplayName("성공케이스: 정상 상품 조회")
+        void getProduct_Success() {
+            // given
+            Long productId = 1L;
+            
+            Product product = Product.builder()
+                    .name("노트북")
+                    .price(new BigDecimal("1200000"))
+                    .stock(50)
+                    .reservedStock(0)
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(product));
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getName()).isEqualTo("노트북");
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getName()).isEqualTo("노트북");
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideProductData")
+        @DisplayName("성공케이스: 다양한 상품 조회")
+        void getProduct_WithDifferentProducts(Long productId, String name, String price) {
+            // given
+            Product product = Product.builder()
+                    .name(name)
+                    .price(new BigDecimal(price))
+                    .stock(100)
+                    .reservedStock(0)
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(product));
+
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
+
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getName()).isEqualTo(name);
+        }
     }
 
-    @Test
-    @DisplayName("존재하지 않는 상품 조회")
-    void getProduct_NotFound() {
-        // given
-        Long productId = 999L;
+    @Nested
+    @DisplayName("상품 조회 실패 테스트")
+    class FailureTests {
         
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.empty());
+        @Test
+        @DisplayName("실패케이스: 존재하지 않는 상품 조회")
+        void getProduct_NotFound() {
+            // given
+            Long productId = 999L;
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.empty());
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-        assertThat(result).isEmpty();
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("실패케이스: null 상품 ID로 조회")
+        void getProduct_WithNullProductId() {
+            // given
+            Long productId = null;
+
+            // when & then
+            assertThatThrownBy(() -> getProductUseCase.execute(productId))
+                    .isInstanceOf(ProductException.NotFound.class)
+                    .hasMessage("Product not found");
+        }
+
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideInvalidProductIds")
+        @DisplayName("실패케이스: 다양한 비정상 상품 ID로 조회")
+        void getProduct_WithInvalidProductIds(Long invalidProductId) {
+            // given
+            when(productRepositoryPort.findById(invalidProductId)).thenReturn(Optional.empty());
+
+            // when
+            Optional<Product> result = getProductUseCase.execute(invalidProductId);
+
+            // then
+            assertThat(result).isEmpty();
+        }
     }
 
-    @ParameterizedTest
-    @MethodSource("provideProductData")
-    @DisplayName("다양한 상품 조회")
-    void getProduct_WithDifferentProducts(Long productId, String name, String price) {
-        // given
-        Product product = Product.builder()
-                .name(name)
-                .price(new BigDecimal(price))
-                .stock(100)
-                .reservedStock(0)
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(product));
+    @Nested
+    @DisplayName("상품 조회 엣지 케이스 테스트")
+    class EdgeCaseTests {
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
+        @Test
+        @DisplayName("성공케이스: 재고가 0인 상품 조회")
+        void getProduct_OutOfStock() {
+            // given
+            Long productId = 1L;
+            
+            Product outOfStockProduct = Product.builder()
+                    .name("품절 상품")
+                    .price(new BigDecimal("100000"))
+                    .stock(0)
+                    .reservedStock(0)
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(outOfStockProduct));
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 empty 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getName()).isEqualTo(name);
-    }
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-    @Test
-    @DisplayName("null 상품 ID로 조회 시 예외 발생")
-    void getProduct_WithNullProductId() {
-        // given
-        Long productId = null;
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getStock()).isEqualTo(0);
+        }
 
-        // when & then
-        assertThatThrownBy(() -> getProductUseCase.execute(productId))
-                .isInstanceOf(ProductException.NotFound.class)
-                .hasMessage("Product not found");
-    }
+        @Test
+        @DisplayName("성공케이스: 예약 재고가 실제 재고보다 많은 상품")
+        void getProduct_InvalidReservedStock() {
+            // given
+            Long productId = 1L;
+            
+            Product invalidProduct = Product.builder()
+                    .name("비정상 상품")
+                    .price(new BigDecimal("50000"))
+                    .stock(10)
+                    .reservedStock(15) // 재고보다 많은 예약
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(invalidProduct));
 
-    @Test
-    @DisplayName("재고가 0인 상품 조회")
-    void getProduct_OutOfStock() {
-        // given
-        Long productId = 1L;
-        
-        Product outOfStockProduct = Product.builder()
-                .name("품절 상품")
-                .price(new BigDecimal("100000"))
-                .stock(0)
-                .reservedStock(0)
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(outOfStockProduct));
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getReservedStock()).isGreaterThan(result.get().getStock());
+        }
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getStock()).isEqualTo(0);
-    }
+        @Test
+        @DisplayName("성공케이스: 음수 가격을 가진 상품")
+        void getProduct_WithNegativePrice() {
+            // given
+            Long productId = 1L;
+            
+            Product negativeProduct = Product.builder()
+                    .name("음수 가격 상품")
+                    .price(new BigDecimal("-10000"))
+                    .stock(10)
+                    .reservedStock(0)
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(negativeProduct));
 
-    @Test
-    @DisplayName("예약 재고가 실제 재고보다 많은 상품")
-    void getProduct_InvalidReservedStock() {
-        // given
-        Long productId = 1L;
-        
-        Product invalidProduct = Product.builder()
-                .name("비정상 상품")
-                .price(new BigDecimal("50000"))
-                .stock(10)
-                .reservedStock(15) // 재고보다 많은 예약
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(invalidProduct));
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getPrice()).isEqualTo(new BigDecimal("-10000"));
+        }
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getReservedStock()).isGreaterThan(result.get().getStock());
-    }
+        @ParameterizedTest
+        @MethodSource("kr.hhplus.be.server.unit.usecase.GetProductUseCaseTest#provideEdgeCaseProducts")
+        @DisplayName("성공케이스: 극한값 상품 데이터로 조회")
+        void getProduct_WithEdgeCaseData(String description, String price, int stock, int reservedStock) {
+            // given
+            Long productId = 1L;
+            
+            Product edgeCaseProduct = Product.builder()
+                    .name("극한값 " + description)
+                    .price(new BigDecimal(price))
+                    .stock(stock)
+                    .reservedStock(reservedStock)
+                    .build();
+            
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(edgeCaseProduct));
 
-    @Test
-    @DisplayName("음수 가격을 가진 상품")
-    void getProduct_WithNegativePrice() {
-        // given
-        Long productId = 1L;
-        
-        Product negativeProduct = Product.builder()
-                .name("음수 가격 상품")
-                .price(new BigDecimal("-10000"))
-                .stock(10)
-                .reservedStock(0)
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(negativeProduct));
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
 
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
-
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getPrice()).isEqualTo(new BigDecimal("-10000"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidProductIds")
-    @DisplayName("다양한 비정상 상품 ID로 조회")
-    void getProduct_WithInvalidProductIds(Long invalidProductId) {
-        // given
-        when(productRepositoryPort.findById(invalidProductId)).thenReturn(Optional.empty());
-
-        // when
-        Optional<Product> result = getProductUseCase.execute(invalidProductId);
-
-        // then
-        assertThat(result).isEmpty();
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideEdgeCaseProducts")
-    @DisplayName("극한값 상품 데이터로 조회")
-    void getProduct_WithEdgeCaseData(String description, String price, int stock, int reservedStock) {
-        // given
-        Long productId = 1L;
-        
-        Product edgeCaseProduct = Product.builder()
-                .name("극한값 " + description)
-                .price(new BigDecimal(price))
-                .stock(stock)
-                .reservedStock(reservedStock)
-                .build();
-        
-        when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(edgeCaseProduct));
-
-        // when
-        Optional<Product> result = getProductUseCase.execute(productId);
-
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // assertThat(result).isPresent();
-        // assertThat(result.get().getPrice()).isEqualTo(new BigDecimal(price));
+            // then - TODO 구현이 완료되면 실제 검증 로직 추가
+            // assertThat(result).isPresent();
+            // assertThat(result.get().getPrice()).isEqualTo(new BigDecimal(price));
+        }
     }
 
     private static Stream<Arguments> provideProductData() {

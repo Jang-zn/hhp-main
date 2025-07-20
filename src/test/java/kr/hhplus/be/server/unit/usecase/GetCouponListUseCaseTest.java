@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,13 +37,16 @@ class GetCouponListUseCaseTest {
     
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
 
     private GetCouponListUseCase getCouponListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort);
+        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort, cachePort);
     }
 
     @Test
@@ -85,7 +89,8 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(couponHistories);
+        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
+            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(couponHistories);
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -122,7 +127,8 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(couponHistories);
+        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
+            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(couponHistories);
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -175,7 +181,8 @@ class GetCouponListUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset)).thenReturn(Collections.emptyList());
+        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
+            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(Collections.emptyList());
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);

@@ -156,9 +156,9 @@ class AcquireCouponUseCaseTest {
                 .hasMessage("Coupon not found");
     }
 
-    @Test
-    @DisplayName("만료된 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_ExpiredCoupon() {
+        @Test
+        @DisplayName("실패케이스: 만료된 쿠폰 발급")
+        void acquireCoupon_ExpiredCoupon() {
         // given
         Long userId = 1L;
         Long couponId = 1L;

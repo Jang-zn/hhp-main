@@ -16,6 +16,17 @@ public class GetProductListUseCase {
     private final CachePort cachePort;
     
     public List<Product> execute(int limit, int offset) {
-        return productRepositoryPort.findAllWithPagination(limit, offset);
+        if (limit <= 0) {
+            throw new IllegalArgumentException("Limit must be greater than 0");
+        }
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset must be non-negative");
+        }
+        
+        String cacheKey = "product_list_" + limit + "_" + offset;
+        
+        return cachePort.get(cacheKey, List.class, () -> 
+            productRepositoryPort.findAllWithPagination(limit, offset)
+        );
     }
 } 
