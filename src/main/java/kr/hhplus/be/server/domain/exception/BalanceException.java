@@ -25,12 +25,6 @@ public class BalanceException extends RuntimeException {
         }
     }
     
-    public static class Insufficient extends BalanceException {
-        public Insufficient() {
-            super("ERR_BALANCE_INSUFFICIENT", "Insufficient balance");
-        }
-    }
-    
     public static class ConcurrencyConflict extends BalanceException {
         public ConcurrencyConflict() {
             super("ERR_BALANCE_CONCURRENCY_CONFLICT", "Balance concurrency conflict");
