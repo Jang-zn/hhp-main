@@ -15,6 +15,11 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
 
     private final Map<Long, Product> products = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong(1L);
+    
+    public void clear() {
+        products.clear();
+        nextId.set(1L);
+    }
 
     @Override
     public Optional<Product> findById(Long id) {
