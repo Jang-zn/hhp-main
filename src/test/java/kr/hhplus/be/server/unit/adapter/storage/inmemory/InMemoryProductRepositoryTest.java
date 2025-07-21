@@ -325,7 +325,7 @@ class InMemoryProductRepositoryTest {
         // when & then - 음수 limit
         assertThatThrownBy(() -> productRepository.findAllWithPagination(-1, 0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Limit cannot be negative");
+                .hasMessage("Limit must be greater than 0");
 
         // when & then - 음수 offset
         assertThatThrownBy(() -> productRepository.findAllWithPagination(10, -1))
