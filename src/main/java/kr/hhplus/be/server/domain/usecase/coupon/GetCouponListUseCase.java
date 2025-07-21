@@ -19,7 +19,6 @@ public class GetCouponListUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     private final CachePort cachePort;
-    
     private static final int MAX_LIMIT = 1000;
     private static final int CACHE_TTL_SECONDS = 300;
     

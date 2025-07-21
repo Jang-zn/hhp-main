@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

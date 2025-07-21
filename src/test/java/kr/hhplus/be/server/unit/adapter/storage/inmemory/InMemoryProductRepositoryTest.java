@@ -19,7 +19,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 
@@ -371,7 +370,6 @@ class InMemoryProductRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfProducts);
             AtomicInteger successCount = new AtomicInteger(0);
-
             // when - 서로 다른 상품들을 동시에 저장
             for (int i = 0; i < numberOfProducts; i++) {
                 final int productIndex = i + 1;
@@ -411,7 +409,6 @@ class InMemoryProductRepositoryTest {
                 assertThat(product).isPresent();
                 assertThat(product.get().getName()).isEqualTo("동시성상품" + i);
             }
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -437,7 +434,6 @@ class InMemoryProductRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
             AtomicInteger successfulUpdates = new AtomicInteger(0);
-
             // when - 동일한 상품을 동시에 업데이트
             for (int i = 0; i < numberOfThreads; i++) {
                 final int threadId = i;
@@ -477,7 +473,6 @@ class InMemoryProductRepositoryTest {
             Optional<Product> finalProduct = productRepository.findById(productId);
             assertThat(finalProduct).isPresent();
             assertThat(finalProduct.get().getPrice()).isEqualTo(new BigDecimal("150000"));
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -504,13 +499,11 @@ class InMemoryProductRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Optional<Product> product = productRepository.findById(600L);
                             if (product.isPresent()) {
@@ -531,7 +524,6 @@ class InMemoryProductRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Product newProduct = Product.builder()
                                     .id((long) (700 + writerId * 20 + j))
@@ -564,7 +556,6 @@ class InMemoryProductRepositoryTest {
             // 최종 상태 확인
             Optional<Product> finalProduct = productRepository.findById(600L);
             assertThat(finalProduct).isPresent();
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();

@@ -273,7 +273,6 @@ class InMemoryPaymentRepositoryTest {
                 assertThat(payment).isPresent();
                 assertThat(payment.get().getAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -342,7 +341,6 @@ class InMemoryPaymentRepositoryTest {
             Optional<Payment> finalPayment = paymentRepository.findById(paymentId);
             assertThat(finalPayment).isPresent();
             assertThat(finalPayment.get().getStatus()).isIn(PaymentStatus.PAID, PaymentStatus.FAILED);
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -372,13 +370,11 @@ class InMemoryPaymentRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Optional<Payment> payment = paymentRepository.findById(600L);
                             if (payment.isPresent()) {
@@ -399,7 +395,6 @@ class InMemoryPaymentRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             User newUser = User.builder()
                                     .id((long) (700 + writerId * 20 + j))
@@ -443,7 +438,6 @@ class InMemoryPaymentRepositoryTest {
             // 최종 상태 확인
             Optional<Payment> finalPayment = paymentRepository.findById(600L);
             assertThat(finalPayment).isPresent();
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();

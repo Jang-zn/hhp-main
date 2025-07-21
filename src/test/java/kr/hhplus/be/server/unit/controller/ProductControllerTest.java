@@ -35,7 +35,7 @@ class ProductControllerTest {
     
     @Mock
     private GetProductUseCase getProductUseCase;
-    
+
     @Mock
     private GetPopularProductListUseCase getPopularProductListUseCase;
 

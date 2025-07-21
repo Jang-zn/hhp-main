@@ -124,7 +124,7 @@ class CouponControllerTest {
             Long couponId = 1L;
             CouponRequest request = new CouponRequest(invalidUserId, couponId);
             
-                        when(issueCouponUseCase.execute(invalidUserId, couponId))
+            when(issueCouponUseCase.execute(invalidUserId, couponId))
                 .thenThrow(new RuntimeException("User not found"));
 
             // when & then

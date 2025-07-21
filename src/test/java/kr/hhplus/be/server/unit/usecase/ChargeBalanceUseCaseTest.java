@@ -305,7 +305,6 @@ class ChargeBalanceUseCaseTest {
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.ConcurrencyConflict.class)
                     .hasMessage("Balance concurrency conflict");
-                    
             verify(lockingPort).releaseLock("balance-" + userId);
         }
 
@@ -324,7 +323,6 @@ class ChargeBalanceUseCaseTest {
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidUserId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
                     .hasMessage("Invalid user for balance operation");
-                    
             verify(lockingPort).releaseLock("balance-" + invalidUserId);
         }
 

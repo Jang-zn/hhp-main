@@ -241,7 +241,6 @@ class InMemoryOrderRepositoryTest {
             startLatch.countDown();
             boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
             assertThat(finished).isTrue();
-
             // then - 모든 주문이 성공적으로 생성되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfOrders);
             
@@ -251,7 +250,6 @@ class InMemoryOrderRepositoryTest {
                 assertThat(order).isPresent();
                 assertThat(order.get().getTotalAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -272,7 +270,6 @@ class InMemoryOrderRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfOrders);
             AtomicInteger successfulOrders = new AtomicInteger(0);
-
             // when - 동일한 사용자가 여러 주문을 동시에 생성
             for (int i = 0; i < numberOfOrders; i++) {
                 final int orderIndex = i + 1;
@@ -307,7 +304,6 @@ class InMemoryOrderRepositoryTest {
             // 사용자의 주문 목록 확인
             List<Order> userOrders = orderRepository.findByUser(user);
             assertThat(userOrders).hasSize(numberOfOrders);
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -338,13 +334,11 @@ class InMemoryOrderRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Optional<Order> order = orderRepository.findById(600L);
                             if (order.isPresent()) {
@@ -365,7 +359,6 @@ class InMemoryOrderRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Order newOrder = Order.builder()
                                     .id((long) (700 + writerId * 20 + j))
@@ -396,7 +389,6 @@ class InMemoryOrderRepositoryTest {
             // 최종 상태 확인
             List<Order> userOrders = orderRepository.findByUser(testUser);
             assertThat(userOrders.size()).isGreaterThan(1);
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();

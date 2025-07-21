@@ -13,6 +13,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -302,7 +304,6 @@ class InMemoryCouponRepositoryTest {
             CountDownLatch doneLatch = new CountDownLatch(numberOfCoupons);
             AtomicInteger successCount = new AtomicInteger(0);
 
-
             // when - 서로 다른 쿠폰들을 동시에 저장
             for (int i = 0; i < numberOfCoupons; i++) {
                 final int couponIndex = i + 1;
@@ -365,14 +366,12 @@ class InMemoryCouponRepositoryTest {
                     .endDate(LocalDateTime.now().plusDays(30))
                     .build();
             couponRepository.save(initialCoupon);
-
             int numberOfThreads = 5;
             int updatesPerThread = 5;
             ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
             AtomicInteger successfulUpdates = new AtomicInteger(0);
-
 
             // when - 동일한 쿠폰을 동시에 업데이트
             for (int i = 0; i < numberOfThreads; i++) {
@@ -415,7 +414,6 @@ class InMemoryCouponRepositoryTest {
             Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
             assertThat(finalCoupon).isPresent();
             assertThat(finalCoupon.get().getDiscountRate()).isEqualTo(new BigDecimal("0.15"));
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -445,7 +443,6 @@ class InMemoryCouponRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
 
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {

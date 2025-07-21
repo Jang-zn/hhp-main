@@ -104,7 +104,8 @@ public class OrderTest {
         long userId = 1L;
         List<Long> productIds = List.of(1L, 2L);
         List<Long> couponIds = List.of(1L);
-        OrderRequest request = new OrderRequest(userId, productIds, couponIds);
+        OrderRequest request = new OrderRequest(userId, null, couponIds);
+        request.setProductIds(productIds);
 
         // when
         ResultActions resultActions = mockMvc.perform(post("/api/order")

@@ -156,7 +156,6 @@ class InMemoryEventLogRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfLogs);
             AtomicInteger successCount = new AtomicInteger(0);
-
             // when - 서로 다른 이벤트 로그들을 동시에 저장
             for (int i = 0; i < numberOfLogs; i++) {
                 final int logIndex = i + 1;
@@ -188,7 +187,6 @@ class InMemoryEventLogRepositoryTest {
 
             // then - 모든 이벤트 로그가 성공적으로 저장되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfLogs);
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -213,7 +211,6 @@ class InMemoryEventLogRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
             AtomicInteger successfulUpdates = new AtomicInteger(0);
-
             // when - 동일한 이벤트 로그를 동시에 업데이트
             for (int i = 0; i < numberOfThreads; i++) {
                 final int threadId = i;
@@ -273,13 +270,11 @@ class InMemoryEventLogRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             List<EventLog> logs = eventLogRepository.findByStatus(EventStatus.PUBLISHED);
                             if (!logs.isEmpty()) {
@@ -300,7 +295,6 @@ class InMemoryEventLogRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             EventLog newLog = EventLog.builder()
                                     .id((long) (700 + writerId * 20 + j))

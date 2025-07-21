@@ -92,7 +92,6 @@ class GetCouponListUseCaseTest {
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(couponHistories);
-
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 

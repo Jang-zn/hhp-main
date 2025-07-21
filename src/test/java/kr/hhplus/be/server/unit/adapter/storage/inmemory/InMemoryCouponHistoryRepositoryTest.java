@@ -195,7 +195,6 @@ class InMemoryCouponHistoryRepositoryTest {
             CountDownLatch doneLatch = new CountDownLatch(numberOfHistories);
             AtomicInteger successCount = new AtomicInteger(0);
 
-
             // when - 서로 다른 쿠폰 히스토리들을 동시에 저장
             for (int i = 0; i < numberOfHistories; i++) {
                 final int historyIndex = i + 1;
@@ -250,7 +249,6 @@ class InMemoryCouponHistoryRepositoryTest {
                 boolean exists = couponHistoryRepository.existsByUserAndCoupon(user, coupon);
                 assertThat(exists).isTrue();
             }
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -271,7 +269,6 @@ class InMemoryCouponHistoryRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfCoupons);
             AtomicInteger successfulIssuances = new AtomicInteger(0);
-
 
             // when - 동일한 사용자에게 여러 쿠폰을 동시에 발급
             for (int i = 0; i < numberOfCoupons; i++) {
@@ -317,7 +314,6 @@ class InMemoryCouponHistoryRepositoryTest {
             // 사용자의 쿠폰 히스토리 확인
             List<CouponHistory> userHistories = couponHistoryRepository.findByUserWithPagination(user, numberOfCoupons, 0);
             assertThat(userHistories).hasSize(numberOfCoupons);
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -359,7 +355,6 @@ class InMemoryCouponHistoryRepositoryTest {
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
 
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {

@@ -223,7 +223,6 @@ class InMemoryUserRepositoryTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfUsers);
             AtomicInteger successCount = new AtomicInteger(0);
-
             // when - 서로 다른 사용자들을 동시에 생성
             for (int i = 0; i < numberOfUsers; i++) {
                 final int userIndex = i + 1;
@@ -322,7 +321,6 @@ class InMemoryUserRepositoryTest {
             assertThat(finalUser).isPresent();
             assertThat(finalUser.get().getName()).startsWith("업데이트된 사용자_");
             assertThat(userRepository.existsById(userId)).isTrue();
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
@@ -347,13 +345,11 @@ class InMemoryUserRepositoryTest {
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
             AtomicInteger successfulExistsChecks = new AtomicInteger(0);
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             Optional<User> user = userRepository.findById(600L);
                             if (user.isPresent()) {
@@ -378,7 +374,6 @@ class InMemoryUserRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
                         for (int j = 0; j < 10; j++) {
                             User newUser = User.builder()
                                     .id((long) (700 + writerId * 20 + j))
@@ -410,7 +405,6 @@ class InMemoryUserRepositoryTest {
             Optional<User> finalUser = userRepository.findById(600L);
             assertThat(finalUser).isPresent();
             assertThat(userRepository.existsById(600L)).isTrue();
-
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
