@@ -3,6 +3,7 @@ package kr.hhplus.be.server.unit.adapter.storage.inmemory;
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryBalanceRepository;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -156,7 +157,7 @@ class InMemoryBalanceRepositoryTest {
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(null))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Balance cannot be null");
+                    .hasMessage(BalanceException.Messages.BALANCE_CANNOT_BE_NULL);
         }
 
         @Test
@@ -171,7 +172,7 @@ class InMemoryBalanceRepositoryTest {
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(balance))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Balance user cannot be null");
+                    .hasMessage(BalanceException.Messages.BALANCE_USER_CANNOT_BE_NULL);
         }
     }
 
@@ -221,7 +222,7 @@ class InMemoryBalanceRepositoryTest {
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(null))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User cannot be null");
+                    .hasMessage(BalanceException.Messages.USER_CANNOT_BE_NULL);
         }
 
         @Test
@@ -233,7 +234,7 @@ class InMemoryBalanceRepositoryTest {
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(user))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User ID cannot be null");
+                    .hasMessage(BalanceException.Messages.USER_ID_CANNOT_BE_NULL);
         }
 
         @Test

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,7 +124,7 @@ public class BalanceTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest()) // GlobalExceptionHandler에 따라 적절한 상태 코드 확인
                         .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value("Invalid user for balance operation"));
+                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
             }
 
             @Test
@@ -141,7 +142,7 @@ public class BalanceTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value("Invalid amount for balance operation"));
+                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_AMOUNT_POSITIVE));
             }
         }
     }
@@ -183,7 +184,7 @@ public class BalanceTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value("Invalid user for balance operation"));
+                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
             }
 
             @Test
@@ -197,7 +198,7 @@ public class BalanceTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value("Invalid user for balance operation"));
+                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
             }
         }
     }

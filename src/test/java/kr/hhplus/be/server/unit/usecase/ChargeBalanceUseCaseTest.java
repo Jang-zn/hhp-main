@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
@@ -168,7 +169,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_USER);
                     
             verify(lockingPort).releaseLock("balance-" + userId);
         }
@@ -183,7 +184,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_USER);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -200,7 +201,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -217,7 +218,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -234,7 +235,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -251,7 +252,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -270,7 +271,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                    .hasMessage("Balance concurrency conflict");
+                    .hasMessage(BalanceException.Messages.CONCURRENCY_CONFLICT);
                     
             verify(lockingPort).acquireLock("balance-" + userId);
             verify(lockingPort, never()).releaseLock(anyString());
@@ -304,7 +305,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                    .hasMessage("Balance concurrency conflict");
+                    .hasMessage(BalanceException.Messages.CONCURRENCY_CONFLICT);
             verify(lockingPort).releaseLock("balance-" + userId);
         }
 
@@ -322,7 +323,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidUserId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_USER);
             verify(lockingPort).releaseLock("balance-" + invalidUserId);
         }
 
@@ -337,7 +338,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
