@@ -192,11 +192,10 @@ class InMemoryPaymentRepositoryTest {
         @Test
         @DisplayName("실패케이스: null ID로 결제 조회")
         void findById_WithNullId() {
-            // when
-            Optional<Payment> foundPayment = paymentRepository.findById(null);
-
-            // then
-            assertThat(foundPayment).isEmpty();
+            // when & then
+            assertThatThrownBy(() -> paymentRepository.findById(null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Payment ID cannot be null");
         }
 
         @Test

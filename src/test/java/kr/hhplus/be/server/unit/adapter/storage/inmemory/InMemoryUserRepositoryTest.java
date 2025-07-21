@@ -145,11 +145,10 @@ class InMemoryUserRepositoryTest {
         @Test
         @DisplayName("실패케이스: null ID로 사용자 조회")
         void findById_WithNullId() {
-            // when
-            Optional<User> foundUser = userRepository.findById(null);
-
-            // then
-            assertThat(foundUser).isEmpty();
+            // when & then
+            assertThatThrownBy(() -> userRepository.findById(null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("User ID cannot be null");
         }
 
         @Test
@@ -194,11 +193,10 @@ class InMemoryUserRepositoryTest {
         @Test
         @DisplayName("실패케이스: null ID로 사용자 존재 확인")
         void existsById_WithNullId() {
-            // when
-            boolean exists = userRepository.existsById(null);
-
-            // then
-            assertThat(exists).isFalse();
+            // when & then
+            assertThatThrownBy(() -> userRepository.existsById(null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("User ID cannot be null");
         }
 
         @Test

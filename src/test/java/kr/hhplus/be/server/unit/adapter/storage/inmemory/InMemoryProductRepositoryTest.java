@@ -19,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 
@@ -322,16 +323,19 @@ class InMemoryProductRepositoryTest {
         productRepository.save(product);
 
         // when & then - 음수 limit
-        List<Product> result1 = productRepository.findAllWithPagination(-1, 0);
-        assertThat(result1).isEmpty();
+        assertThatThrownBy(() -> productRepository.findAllWithPagination(-1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Limit cannot be negative");
 
         // when & then - 음수 offset
-        List<Product> result2 = productRepository.findAllWithPagination(10, -1);
-        assertThat(result2).isEmpty();
+        assertThatThrownBy(() -> productRepository.findAllWithPagination(10, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Offset cannot be negative");
 
             // when & then - 0 limit
-            List<Product> result3 = productRepository.findAllWithPagination(0, 0);
-            assertThat(result3).isEmpty();
+            assertThatThrownBy(() -> productRepository.findAllWithPagination(0, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Limit must be greater than 0");
         }
     }
 
