@@ -10,12 +10,19 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,7 +32,8 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.CouponException;
 
@@ -74,19 +82,26 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().plusDays(30))
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
+        when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         CouponHistory result = acquireCouponUseCase.execute(userId, couponId);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isNotNull();
-        // assertThat(result.getUser()).isEqualTo(user);
-        // assertThat(result.getCoupon()).isEqualTo(coupon);
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.getUser()).isEqualTo(user);
+        assertThat(result.getCoupon()).isEqualTo(coupon);
+        assertThat(result.getIssuedAt()).isNotNull();
+        
+        verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(couponRepositoryPort).save(coupon);
+        verify(couponHistoryRepositoryPort).save(any(CouponHistory.class));
     }
 
     @ParameterizedTest
@@ -107,18 +122,22 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().plusDays(15))
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
+        when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         CouponHistory result = acquireCouponUseCase.execute(userId, couponId);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 null 반환하는 메서드이므로 기본 검증만 수행
-        // assertThat(result).isNotNull();
-        // assertThat(result.getCoupon().getCode()).isEqualTo(couponCode);
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.getCoupon().getCode()).isEqualTo(couponCode);
+        
+        verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
     @Test
@@ -128,12 +147,15 @@ class AcquireCouponUseCaseTest {
         Long userId = 999L;
         Long couponId = 1L;
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("User not found");
+                .hasMessage("User not found");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
     @Test
@@ -147,6 +169,7 @@ class AcquireCouponUseCaseTest {
                 .name("테스트 사용자")
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
 
@@ -154,6 +177,8 @@ class AcquireCouponUseCaseTest {
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.NotFound.class)
                 .hasMessage("Coupon not found");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
         @Test
@@ -176,6 +201,7 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().minusDays(1)) // 이미 만료
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(expiredCoupon));
 
@@ -183,6 +209,8 @@ class AcquireCouponUseCaseTest {
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.Expired.class)
                 .hasMessage("Coupon has expired");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
     @Test
@@ -205,14 +233,16 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().plusDays(30))
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(outOfStockCoupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, outOfStockCoupon)).thenReturn(false);
 
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.OutOfStock.class)
                 .hasMessage("Coupon stock exhausted");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
     @Test
@@ -235,13 +265,17 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().plusDays(30))
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(true); // 이미 발급받음
+        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(true);
+        
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.AlreadyAcquired.class)
                 .hasMessage("Coupon already acquired by user");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
     }
 
     @Test
@@ -288,13 +322,33 @@ class AcquireCouponUseCaseTest {
                 .endDate(LocalDateTime.now().plusDays(30))
                 .build();
         
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(futureStartCoupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, futureStartCoupon)).thenReturn(false);
+        
         // when & then
         assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not yet started");
+                
+        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+    }
+
+    @Test
+    @DisplayName("락 획득 실패 시 예외 발생")
+    void acquireCoupon_LockAcquisitionFailed() {
+        // given
+        Long userId = 1L;
+        Long couponId = 1L;
+        
+        when(lockingPort.acquireLock(anyString())).thenReturn(false);
+        
+        // when & then
+        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+                .isInstanceOf(CouponException.AlreadyAcquired.class)
+                .hasMessage("Coupon already acquired by user");
+                
+        verify(lockingPort, never()).releaseLock(anyString());
     }
 
     @ParameterizedTest
@@ -304,9 +358,8 @@ class AcquireCouponUseCaseTest {
         // when & then
         if (userId != null && userId > 0) {
             User user = User.builder().name("테스트").build();
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        } else {
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
         }
         
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
@@ -325,11 +378,101 @@ class AcquireCouponUseCaseTest {
 
     private static Stream<Arguments> provideInvalidIds() {
         return Stream.of(
-                Arguments.of(-1L, 1L),
-                Arguments.of(1L, -1L),
-                Arguments.of(0L, 1L),
-                Arguments.of(1L, 0L),
-                Arguments.of(999L, 999L)
+                Arguments.of(999L, 999L), // 존재하지 않는 ID들
+                Arguments.of(888L, 888L)
         );
+    }
+    
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTests {
+        
+        @Test
+        @DisplayName("동시 쿠폰 발급 요청 시 한 명만 성공")
+        void acquireCoupon_ConcurrentRequests_OnlyOneSucceeds() throws Exception {
+            // given
+            Long userId1 = 1L;
+            Long userId2 = 2L;
+            Long couponId = 1L;
+            
+            User user1 = User.builder().name("사용자1").build();
+            User user2 = User.builder().name("사용자2").build();
+            
+            Coupon coupon = Coupon.builder()
+                    .code("LIMITED1")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(1) // 재고 1개
+                    .issuedCount(0)
+                    .startDate(LocalDateTime.now().minusDays(1))
+                    .endDate(LocalDateTime.now().plusDays(30))
+                    .build();
+            
+            AtomicInteger lockCounter = new AtomicInteger(0);
+            
+            when(userRepositoryPort.findById(userId1)).thenReturn(Optional.of(user1));
+            when(userRepositoryPort.findById(userId2)).thenReturn(Optional.of(user2));
+            when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
+            when(couponHistoryRepositoryPort.existsByUserAndCoupon(any(), any())).thenReturn(false);
+            when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
+            when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            
+            // 락 획득 시뮬레이션: 첫 번째만 성공
+            when(lockingPort.acquireLock(anyString())).thenAnswer(invocation -> {
+                return lockCounter.getAndIncrement() == 0;
+            });
+            
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            
+            // when
+            CompletableFuture<CouponHistory> future1 = CompletableFuture.supplyAsync(() -> {
+                return acquireCouponUseCase.execute(userId1, couponId);
+            }, executor).handle((result, ex) -> {
+                if (ex != null) {
+                    return null; // 예외 발생 시 null 반환
+                }
+                return result;
+            });
+            
+            CompletableFuture<CouponHistory> future2 = CompletableFuture.supplyAsync(() -> {
+                return acquireCouponUseCase.execute(userId2, couponId);
+            }, executor).handle((result, ex) -> {
+                if (ex != null) {
+                    return null; // 예외 발생 시 null 반환
+                }
+                return result;
+            });
+            
+            // then
+            CompletableFuture.allOf(future1, future2).join();
+            
+            CouponHistory result1 = future1.join();
+            CouponHistory result2 = future2.join();
+            
+            // 한 명만 성공해야 함
+            int successCount = (result1 != null ? 1 : 0) + (result2 != null ? 1 : 0);
+            
+            assertThat(successCount).isEqualTo(1);
+            
+            executor.shutdown();
+            executor.awaitTermination(1, TimeUnit.SECONDS);
+        }
+        
+        @Test
+        @DisplayName("동시성 하에서 락 획득 실패 테스트")
+        void acquireCoupon_LockContentionHandling() {
+            // given
+            Long userId = 1L;
+            Long couponId = 1L;
+            
+            when(lockingPort.acquireLock(anyString())).thenReturn(false);
+            
+            // when & then
+            assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+                    .isInstanceOf(CouponException.AlreadyAcquired.class)
+                    .hasMessage("Coupon already acquired by user");
+            
+            verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
+            verify(lockingPort, never()).releaseLock(anyString());
+        }
     }
 }

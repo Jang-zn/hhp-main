@@ -6,7 +6,7 @@ import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.usecase.product.GetProductListUseCase;
+import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.springframework.validation.annotation.Validated;
 
@@ -27,13 +27,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProductController {
 
-    private final GetProductListUseCase getProductListUseCase;
+    private final GetProductUseCase getProductUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
 
     @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
     public List<ProductResponse> getProductList(@Valid ProductRequest request) {
-        List<Product> products = getProductListUseCase.execute(request.getLimit(), request.getOffset());
+        List<Product> products = getProductUseCase.execute(request.getLimit(), request.getOffset());
         return products.stream()
                 .map(product -> new ProductResponse(
                         product.getId(),
