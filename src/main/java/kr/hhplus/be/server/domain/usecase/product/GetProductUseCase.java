@@ -29,7 +29,7 @@ public class GetProductUseCase {
         
         if (productId == null) {
             log.warn("상품 ID가 null입니다");
-            throw new ProductException.NotFound();
+            throw new IllegalArgumentException("상품 ID는 null일 수 없습니다.");
         }
         
         try {

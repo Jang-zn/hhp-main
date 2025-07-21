@@ -64,6 +64,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 잘못된 인자 예외 처리
+     * @param ex 잘못된 인자 예외
+     * @return 400 Bad Request + 예외 메시지
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<CommonResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+    }
+
+    /**
      * 예상하지 못한 모든 예외 처리 (최후의 보루)
      * 위에서 처리되지 않은 모든 예외를 캐치한다.
      * 

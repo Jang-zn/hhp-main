@@ -94,8 +94,8 @@ class GetProductUseCaseTest {
         void getProduct_WithNullProductId() {
             // when & then
             assertThatThrownBy(() -> getProductUseCase.execute((Long) null))
-                    .isInstanceOf(ProductException.NotFound.class)
-                    .hasMessage("Product not found");
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("상품 ID는 null일 수 없습니다.");
         }
     }
 
