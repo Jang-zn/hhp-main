@@ -71,6 +71,17 @@ public class Product extends BaseEntity {
     }
     
     /**
+     * 확정된 재고를 다시 예약 상태로 복원합니다. (보상 처리용)
+     * 실제 재고를 증가시키고 예약 재고도 증가시킵니다.
+     */
+    public void restoreReservation(int quantity) {
+        validateQuantity(quantity);
+        
+        this.stock += quantity;
+        this.reservedStock += quantity;
+    }
+    
+    /**
      * 이용 가능한 재고가 있는지 확인합니다.
      * 이용 가능한 재고 = 전체 재고 - 예약된 재고
      */

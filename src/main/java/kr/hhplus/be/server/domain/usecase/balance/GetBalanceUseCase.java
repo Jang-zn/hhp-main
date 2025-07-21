@@ -38,7 +38,7 @@ public class GetBalanceUseCase {
             Balance cachedBalance = getCachedBalance(cacheKey);
             
             if (cachedBalance != null) {
-                log.debug("캐시에서 위액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
+                log.debug("캐시에서 잔액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
                 return Optional.of(cachedBalance);
             }
             

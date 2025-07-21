@@ -35,7 +35,7 @@ public class ChargeBalanceUseCase {
         // 입력 값 검증
         validateInputs(userId, amount);
         
-        String lockKey = "balance-charge-" + userId;
+        String lockKey = "balance-" + userId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("락 획득 실패: userId={}", userId);
             throw new BalanceException.ConcurrencyConflict();

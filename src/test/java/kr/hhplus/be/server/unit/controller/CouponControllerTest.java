@@ -154,6 +154,8 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(null))
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 
     @Nested
     @DisplayName("보유 쿠폰 조회 테스트")
@@ -263,7 +265,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(userId, invalidRequest))
                     .isInstanceOf(IllegalArgumentException.class);
-        }
+        }   
     }
 
     private static Stream<Arguments> provideCouponData() {

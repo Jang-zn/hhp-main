@@ -9,12 +9,15 @@ import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
@@ -39,9 +42,19 @@ public class PayOrderUseCase {
         // 파라미터 검증
         validateParameters(orderId, userId);
         
-        String lockKey = "payment-" + orderId;
-        if (!lockingPort.acquireLock(lockKey)) {
-            log.warn("락 획득 실패: orderId={}", orderId);
+        String paymentLockKey = "payment-" + orderId;
+        String balanceLockKey = "balance-" + userId;
+        
+        // 주문 락 먼저 획득
+        if (!lockingPort.acquireLock(paymentLockKey)) {
+            log.warn("주문 락 획득 실패: orderId={}", orderId);
+            throw new OrderException.ConcurrencyConflict();
+        }
+        
+        // 잔액 락 획득 (충전과의 동시성 방지)
+        if (!lockingPort.acquireLock(balanceLockKey)) {
+            log.warn("잔액 락 획득 실패: userId={}", userId);
+            lockingPort.releaseLock(paymentLockKey); // 주문 락 해제
             throw new OrderException.ConcurrencyConflict();
         }
         
@@ -66,13 +79,20 @@ public class PayOrderUseCase {
                 throw new OrderException.Unauthorized();
             }
 
+            // 주문 상태 검증 (이미 결제된 주문인지 확인)
+            List<Payment> existingPayments = paymentRepositoryPort.findByOrderId(orderId);
+            if (!existingPayments.isEmpty()) {
+                log.warn("이미 결제된 주문: orderId={}", orderId);
+                throw new OrderException.AlreadyPaid();
+            }
+
             // 쿠폰 적용 및 최종 금액 계산
             BigDecimal finalAmount = order.getTotalAmount();
             if (couponId != null) {
                 Coupon coupon = couponRepositoryPort.findById(couponId)
                         .orElseThrow(() -> {
                             log.warn("존재하지 않는 쿠폰: couponId={}", couponId);
-                            return new RuntimeException("Coupon not found");
+                            return new CouponException.NotFound();
                         });
                 finalAmount = finalAmount.multiply(BigDecimal.ONE.subtract(coupon.getDiscountRate()));
                 log.debug("쿠폰 적용: originalAmount={}, discountRate={}, finalAmount={}", 
@@ -119,7 +139,8 @@ public class PayOrderUseCase {
             log.error("결제 처리 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
             throw e;
         } finally {
-            lockingPort.releaseLock(lockKey);
+            lockingPort.releaseLock(balanceLockKey);
+            lockingPort.releaseLock(paymentLockKey);
         }
     }
     
@@ -130,12 +151,21 @@ public class PayOrderUseCase {
         if (userId == null) {
             throw new IllegalArgumentException("UserId cannot be null");
         }
+        if (orderId <= 0) {
+            throw new IllegalArgumentException("OrderId must be positive");
+        }
+        if (userId <= 0) {
+            throw new IllegalArgumentException("UserId must be positive");
+        }
     }
     
     /**
      * 예약된 재고를 확정합니다 (실제 재고 차감)
+     * 실패 시 이미 확정된 재고들을 복원합니다
      */
     private void confirmReservedStock(Order order) {
+        List<OrderItem> processedItems = new ArrayList<>();
+        
         try {
             order.getItems().forEach(orderItem -> {
                 Product product = orderItem.getProduct();
@@ -144,14 +174,42 @@ public class PayOrderUseCase {
                 // 예약된 재고를 실제 재고로 확정
                 product.confirmReservation(quantity);
                 productRepositoryPort.save(product);
+                processedItems.add(orderItem);
                 
                 log.debug("재고 확정 완료: productId={}, quantity={}, remainingStock={}", 
                         product.getId(), quantity, product.getStock());
             });
         } catch (Exception e) {
-            log.error("재고 확정 중 오류 발생: orderId={}", order.getId(), e);
-            throw e;
+            log.error("재고 확정 중 오류 발생: orderId={}, 보상 처리 시작", order.getId(), e);
+            
+            // 보상 처리: 이미 처리된 아이템들의 재고를 복원
+            rollbackConfirmedStock(processedItems);
+            
+            throw new RuntimeException("재고 확정 실패: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * 확정된 재고를 다시 예약 상태로 되돌립니다 (보상 처리)
+     */
+    private void rollbackConfirmedStock(List<OrderItem> processedItems) {
+        processedItems.forEach(orderItem -> {
+            try {
+                Product product = orderItem.getProduct();
+                int quantity = orderItem.getQuantity();
+                
+                // 확정된 재고를 다시 예약 상태로 복원
+                product.restoreReservation(quantity);
+                productRepositoryPort.save(product);
+                
+                log.debug("재고 복원 완료: productId={}, quantity={}", 
+                        product.getId(), quantity);
+            } catch (Exception rollbackException) {
+                log.error("재고 복원 실패: productId={}, quantity={}", 
+                        orderItem.getProduct().getId(), orderItem.getQuantity(), rollbackException);
+                // 복원 실패는 로그만 남기고 계속 진행
+            }
+        });
     }
     
     private void invalidateRelatedCache(Long userId, Long orderId) {

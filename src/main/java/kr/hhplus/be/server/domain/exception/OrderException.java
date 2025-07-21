@@ -48,4 +48,10 @@ public class OrderException extends RuntimeException {
             super("ERR_ORDER_EMPTY_ITEMS", "Order must contain at least one item");
         }
     }
+    
+    public static class AlreadyPaid extends OrderException {
+        public AlreadyPaid() {
+            super("ERR_ORDER_ALREADY_PAID", "Order is already paid");
+        }
+    }
 } 
