@@ -91,7 +91,7 @@ public class IssueCouponUseCase {
             throw e;
         } catch (Exception e) {
             log.error("쿠폰 발급 중 예상치 못한 오류: userId={}, couponId={}", userId, couponId, e);
-            throw new CouponException.AlreadyIssued();
+            throw e;
         } finally {
             lockingPort.releaseLock(lockKey);
             log.debug("쿠폰 락 해제 완료: couponId={}", couponId);

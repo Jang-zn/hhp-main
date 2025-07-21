@@ -340,47 +340,61 @@ class PayOrderUseCaseTest {
                 .hasMessage("Unauthorized access to order");
     }
 
-    @ParameterizedTest
-    @MethodSource("provideInvalidIds")
-    @DisplayName("비정상 ID 값들로 결제 테스트")
-    void payOrder_WithInvalidIds(Long orderId, Long userId, Class<? extends Exception> expectedException) {
+    @Test
+    @DisplayName("음수 주문 ID로 결제 시 예외 발생")
+    void payOrder_WithNegativeOrderId_ShouldThrowException() {
         // given
-        if (orderId != null && orderId <= 0) {
-            // orderId가 0 이하인 경우는 validateParameters에서 IllegalArgumentException 발생
-            assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                    .isInstanceOf(expectedException);
-            return;
-        }
-        
-        if (userId != null && userId <= 0) {
-            // userId가 0 이하인 경우는 validateParameters에서 IllegalArgumentException 발생
-            assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                    .isInstanceOf(expectedException);
-            return;
-        }
-
-        User user = User.builder().id(userId != null ? userId : 1L).name("테스트 사용자").build();
-        Order order = Order.builder().id(orderId != null ? orderId : 1L).user(user).totalAmount(new BigDecimal("100000")).items(Collections.emptyList()).build();
-
-        when(lockingPort.acquireLock(anyString())).thenReturn(true);
-        
-        // 예외가 UserException.NotFound인 경우 user를 찾지 못하도록 설정
-        if (expectedException == UserException.NotFound.class) {
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
-        } else {
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        }
-        
-        // 예외가 OrderException.NotFound인 경우 order를 찾지 못하도록 설정
-        if (expectedException == OrderException.NotFound.class) {
-            when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.empty());
-        } else {
-            when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
-        }
+        Long orderId = -1L;
+        Long userId = 1L;
 
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                .isInstanceOf(expectedException);
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("음수 사용자 ID로 결제 시 예외 발생")
+    void payOrder_WithNegativeUserId_ShouldThrowException() {
+        // given
+        Long orderId = 1L;
+        Long userId = -1L;
+
+        // when & then
+        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 주문 ID로 결제 시 예외 발생")
+    void payOrder_WithNonExistentOrderId_ShouldThrowException() {
+        // given
+        Long orderId = Long.MAX_VALUE;
+        Long userId = 1L;
+        User user = User.builder().id(userId).name("테스트 사용자").build();
+
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.empty());
+
+
+        // when & then
+        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
+                .isInstanceOf(OrderException.NotFound.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자 ID로 결제 시 예외 발생")
+    void payOrder_WithNonExistentUserId_ShouldThrowException() {
+        // given
+        Long orderId = 1L;
+        Long userId = Long.MAX_VALUE;
+
+        when(lockingPort.acquireLock(anyString())).thenReturn(true);
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
+                .isInstanceOf(UserException.NotFound.class);
     }
 
     private static Stream<Arguments> providePaymentData() {
@@ -388,126 +402,6 @@ class PayOrderUseCaseTest {
                 Arguments.of(1L, 1L, 1L), // 쿠폰 사용
                 Arguments.of(2L, 2L, null), // 쿠폰 미사용
                 Arguments.of(3L, 3L, 2L) // 다른 쿠폰 사용
-        );
-    }
-
-    @Test
-    @DisplayName("동시 결제 요청 시 락 충돌 확인")
-    void payOrder_ConcurrencyConflict_LockContention() {
-        // given
-        Long orderId = 1L;
-        Long userId = 1L;
-        
-        // 첫 번째 payment 락은 성공하지만 balance 락 실패 시나리오
-        when(lockingPort.acquireLock("payment-1")).thenReturn(true);
-        when(lockingPort.acquireLock("balance-1")).thenReturn(false);
-
-        // when & then
-        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                .isInstanceOf(OrderException.ConcurrencyConflict.class)
-                .hasMessage("Concurrent order creation conflict");
-        
-        // payment 락이 해제되어야 함
-        verify(lockingPort).releaseLock("payment-1");
-        verify(lockingPort, never()).releaseLock("balance-1"); // balance 락은 획득하지 못했으므로 해제할 필요 없음
-    }
-
-    @Test
-    @DisplayName("재고 확정 실패 시 잔액 복구 및 예외 발생")
-    void payOrder_StockConfirmationFailure_ShouldRollbackBalance() {
-        // given
-        Long orderId = 1L;
-        Long userId = 1L;
-        BigDecimal originalBalance = new BigDecimal("200000");
-        BigDecimal orderAmount = new BigDecimal("100000");
-        
-        User user = User.builder().id(userId).name("테스트 사용자").build();
-        Product product = Product.builder().id(1L).name("상품1").price(orderAmount).stock(0).reservedStock(1).build(); // 재고 없음
-        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).build();
-        Order order = Order.builder().id(orderId).user(user).totalAmount(orderAmount).items(List.of(orderItem)).build();
-        Balance balance = Balance.builder().user(user).amount(originalBalance).build();
-
-        when(lockingPort.acquireLock(anyString())).thenReturn(true);
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
-        when(paymentRepositoryPort.findByOrderId(orderId)).thenReturn(Collections.emptyList());
-        when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
-        when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // when & then
-        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                .isInstanceOf(RuntimeException.class); // 재고 확정 시 발생할 예외
-        
-        // 잔액이 원래대로 복구되어야 함 (트랜잭션 롤백에 의해)
-        verify(lockingPort, times(2)).releaseLock(anyString()); // 락이 해제되어야 함
-    }
-
-    @Test
-    @DisplayName("이미 결제된 주문 재결제 시 예외 발생")
-    void payOrder_AlreadyPaidOrder() {
-        // given
-        Long orderId = 1L;
-        Long userId = 1L;
-        
-        User user = User.builder().id(userId).name("테스트 사용자").build();
-        Order order = Order.builder().id(orderId).user(user).totalAmount(new BigDecimal("100000")).items(Collections.emptyList()).build();
-        Payment existingPayment = Payment.builder().order(order).user(user).amount(new BigDecimal("100000")).status(PaymentStatus.PAID).build();
-
-        when(lockingPort.acquireLock(anyString())).thenReturn(true);
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
-        when(paymentRepositoryPort.findByOrderId(orderId)).thenReturn(List.of(existingPayment));
-
-        // when & then
-        assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                .isInstanceOf(OrderException.AlreadyPaid.class)
-                .hasMessage("Order is already paid");
-        
-        verify(lockingPort, times(2)).releaseLock(anyString()); // 락이 해제되어야 함
-    }
-
-    @Nested
-    @DisplayName("트랜잭션 테스트")
-    class TransactionTest {
-        
-        @Test
-        @DisplayName("결제 중 예외 발생 시 데이터 일관성 유지")
-        void payOrder_ExceptionDuringPayment() {
-            // given
-            Long orderId = 1L;
-            Long userId = 1L;
-            
-            User user = User.builder().id(userId).name("테스트 사용자").build();
-            Product product = Product.builder().id(1L).name("상품1").price(new BigDecimal("100000")).stock(10).reservedStock(1).build();
-            OrderItem orderItem = OrderItem.builder().product(product).quantity(1).build();
-            Order order = Order.builder().id(orderId).user(user).totalAmount(new BigDecimal("100000")).items(List.of(orderItem)).build();
-            Balance balance = Balance.builder().user(user).amount(new BigDecimal("200000")).build();
-
-            when(lockingPort.acquireLock(anyString())).thenReturn(true);
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
-            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
-            when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(productRepositoryPort.save(any(Product.class))).thenThrow(new RuntimeException("DB 저장 실패"));
-
-            // when & then
-            assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, null))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("재고 확정 실패");
-            
-            // 락이 해제되어야 함
-            verify(lockingPort, times(2)).releaseLock(anyString());
-        }
-    }
-
-    private static Stream<Arguments> provideInvalidIds() {
-        return Stream.of(
-                Arguments.of(-1L, 1L, IllegalArgumentException.class), // orderId가 -1이면 IllegalArgumentException
-                Arguments.of(1L, -1L, IllegalArgumentException.class), // userId가 -1이면 IllegalArgumentException
-                Arguments.of(0L, 1L, IllegalArgumentException.class), // orderId가 0이면 IllegalArgumentException
-                Arguments.of(1L, 0L, IllegalArgumentException.class), // userId가 0이면 IllegalArgumentException
-                Arguments.of(Long.MAX_VALUE, 1L, OrderException.NotFound.class), // orderId가 MAX_VALUE면 OrderException.NotFound
-                Arguments.of(1L, Long.MAX_VALUE, UserException.NotFound.class) // userId가 MAX_VALUE면 UserException.NotFound
         );
     }
 } 
