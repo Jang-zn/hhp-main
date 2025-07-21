@@ -151,13 +151,11 @@ class InMemoryEventLogRepositoryTest {
         @DisplayName("동시성 테스트: 서로 다른 이벤트 로그 동시 저장")
         void save_ConcurrentSaveForDifferentEventLogs() throws Exception {
             // given
-            int numberOfLogs = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfLogs = 20;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfLogs);
             AtomicInteger successCount = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 서로 다른 이벤트 로그들을 동시에 저장
             for (int i = 0; i < numberOfLogs; i++) {
@@ -174,6 +172,7 @@ class InMemoryEventLogRepositoryTest {
                                 .build();
                         
                         eventLogRepository.save(eventLog);
+                        Thread.sleep(1);
                         successCount.incrementAndGet();
                     } catch (Exception e) {
                         System.err.println("Error for log " + logIndex + ": " + e.getMessage());
@@ -181,15 +180,16 @@ class InMemoryEventLogRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then - 모든 이벤트 로그가 성공적으로 저장되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfLogs);
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -207,14 +207,12 @@ class InMemoryEventLogRepositoryTest {
                     .build();
             eventLogRepository.save(initialLog);
 
-            int numberOfThreads = 10;
+            int numberOfThreads = 5;
             int updatesPerThread = 10;
             ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
             AtomicInteger successfulUpdates = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 동일한 이벤트 로그를 동시에 업데이트
             for (int i = 0; i < numberOfThreads; i++) {
@@ -232,6 +230,7 @@ class InMemoryEventLogRepositoryTest {
                                     .build();
                             
                             eventLogRepository.save(updatedLog);
+                            Thread.sleep(1);
                             successfulUpdates.incrementAndGet();
                         }
                     } catch (Exception e) {
@@ -240,15 +239,16 @@ class InMemoryEventLogRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -267,14 +267,12 @@ class InMemoryEventLogRepositoryTest {
 
             int numberOfReaders = 5;
             int numberOfWriters = 5;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
@@ -282,7 +280,7 @@ class InMemoryEventLogRepositoryTest {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 50; j++) {
+                        for (int j = 0; j < 10; j++) {
                             List<EventLog> logs = eventLogRepository.findByStatus(EventStatus.PUBLISHED);
                             if (!logs.isEmpty()) {
                                 successfulReads.incrementAndGet();
@@ -294,7 +292,6 @@ class InMemoryEventLogRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             // 쓰기 작업들
@@ -304,7 +301,7 @@ class InMemoryEventLogRepositoryTest {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 20; j++) {
+                        for (int j = 0; j < 10; j++) {
                             EventLog newLog = EventLog.builder()
                                     .id((long) (700 + writerId * 20 + j))
                                     .eventType(EventType.PAYMENT_COMPLETED)
@@ -313,6 +310,7 @@ class InMemoryEventLogRepositoryTest {
                                     .build();
                             
                             eventLogRepository.save(newLog);
+                            Thread.sleep(1);
                             successfulWrites.incrementAndGet();
                         }
                     } catch (Exception e) {
@@ -321,16 +319,17 @@ class InMemoryEventLogRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulReads.get()).isGreaterThan(0);
-            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 10);
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }

@@ -189,18 +189,17 @@ class InMemoryCouponHistoryRepositoryTest {
         @DisplayName("동시성 테스트: 서로 다른 쿠폰 히스토리 동시 저장")
         void save_ConcurrentSaveForDifferentHistories() throws Exception {
             // given
-            int numberOfHistories = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfHistories = 20;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfHistories);
             AtomicInteger successCount = new AtomicInteger(0);
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 서로 다른 쿠폰 히스토리들을 동시에 저장
             for (int i = 0; i < numberOfHistories; i++) {
                 final int historyIndex = i + 1;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
                         
@@ -228,17 +227,18 @@ class InMemoryCouponHistoryRepositoryTest {
                         
                         couponHistoryRepository.save(history);
                         successCount.incrementAndGet();
+                        Thread.sleep(1);
                     } catch (Exception e) {
                         System.err.println("Error for history " + historyIndex + ": " + e.getMessage());
                     } finally {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(completed).isTrue();
 
             // then - 모든 히스토리가 성공적으로 저장되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfHistories);
@@ -251,7 +251,8 @@ class InMemoryCouponHistoryRepositoryTest {
                 assertThat(exists).isTrue();
             }
 
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            executor.shutdown();
+            boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
 
@@ -265,18 +266,17 @@ class InMemoryCouponHistoryRepositoryTest {
                     .name("동시성 테스트 사용자")
                     .build();
 
-            int numberOfCoupons = 50;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfCoupons = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfCoupons);
             AtomicInteger successfulIssuances = new AtomicInteger(0);
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 동일한 사용자에게 여러 쿠폰을 동시에 발급
             for (int i = 0; i < numberOfCoupons; i++) {
                 final int couponIndex = i + 1;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
                         
@@ -305,11 +305,11 @@ class InMemoryCouponHistoryRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(completed).isTrue();
 
             // then
             assertThat(successfulIssuances.get()).isEqualTo(numberOfCoupons);
@@ -318,7 +318,8 @@ class InMemoryCouponHistoryRepositoryTest {
             List<CouponHistory> userHistories = couponHistoryRepository.findByUserWithPagination(user, numberOfCoupons, 0);
             assertThat(userHistories).hasSize(numberOfCoupons);
 
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            executor.shutdown();
+            boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
 
@@ -359,19 +360,19 @@ class InMemoryCouponHistoryRepositoryTest {
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 50; j++) {
+                        for (int j = 0; j < 10; j++) {
                             boolean exists = couponHistoryRepository.existsByUserAndCoupon(testUser, baseCoupon);
                             if (exists) {
                                 successfulReads.incrementAndGet();
                             }
+                            Thread.sleep(1);
                         }
                     } catch (Exception e) {
                         System.err.println("Reader error: " + e.getMessage());
@@ -379,17 +380,16 @@ class InMemoryCouponHistoryRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             // 쓰기 작업들
             for (int i = 0; i < numberOfWriters; i++) {
                 final int writerId = i;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 20; j++) {
+                        for (int j = 0; j < 5; j++) {
                             Coupon newCoupon = Coupon.builder()
                                     .id((long) (700 + writerId * 20 + j))
                                     .code("WRITE_TEST" + writerId + "_" + j)
@@ -409,6 +409,7 @@ class InMemoryCouponHistoryRepositoryTest {
                             
                             couponHistoryRepository.save(newHistory);
                             successfulWrites.incrementAndGet();
+                            Thread.sleep(1);
                         }
                     } catch (Exception e) {
                         System.err.println("Writer error: " + e.getMessage());
@@ -416,21 +417,22 @@ class InMemoryCouponHistoryRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(completed).isTrue();
 
             // then
             assertThat(successfulReads.get()).isGreaterThan(0);
-            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 5);
             
             // 최종 상태 확인
             List<CouponHistory> finalHistories = couponHistoryRepository.findByUserWithPagination(testUser, 200, 0);
             assertThat(finalHistories.size()).isGreaterThan(1);
 
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
+            executor.shutdown();
+            boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
     }

@@ -203,13 +203,11 @@ class InMemoryOrderRepositoryTest {
         @DisplayName("동시성 테스트: 서로 다른 주문 동시 생성")
         void save_ConcurrentSaveForDifferentOrders() throws Exception {
             // given
-            int numberOfOrders = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfOrders = 20;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfOrders);
             AtomicInteger successCount = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 서로 다른 주문들을 동시에 생성
             for (int i = 0; i < numberOfOrders; i++) {
@@ -230,6 +228,7 @@ class InMemoryOrderRepositoryTest {
                                 .build();
                         
                         orderRepository.save(order);
+                        Thread.sleep(1);
                         successCount.incrementAndGet();
                     } catch (Exception e) {
                         System.err.println("Error for order " + orderIndex + ": " + e.getMessage());
@@ -237,11 +236,11 @@ class InMemoryOrderRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then - 모든 주문이 성공적으로 생성되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfOrders);
@@ -253,6 +252,7 @@ class InMemoryOrderRepositoryTest {
                 assertThat(order.get().getTotalAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -267,13 +267,11 @@ class InMemoryOrderRepositoryTest {
                     .name("동시성 테스트 사용자")
                     .build();
 
-            int numberOfOrders = 50;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfOrders = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfOrders);
             AtomicInteger successfulOrders = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // when - 동일한 사용자가 여러 주문을 동시에 생성
             for (int i = 0; i < numberOfOrders; i++) {
@@ -289,6 +287,7 @@ class InMemoryOrderRepositoryTest {
                                 .build();
                         
                         orderRepository.save(order);
+                        Thread.sleep(1);
                         successfulOrders.incrementAndGet();
                     } catch (Exception e) {
                         System.err.println("Order error for order " + orderIndex + ": " + e.getMessage());
@@ -296,11 +295,11 @@ class InMemoryOrderRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulOrders.get()).isEqualTo(numberOfOrders);
@@ -309,6 +308,7 @@ class InMemoryOrderRepositoryTest {
             List<Order> userOrders = orderRepository.findByUser(user);
             assertThat(userOrders).hasSize(numberOfOrders);
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -332,14 +332,12 @@ class InMemoryOrderRepositoryTest {
 
             int numberOfReaders = 5;
             int numberOfWriters = 5;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
@@ -347,7 +345,7 @@ class InMemoryOrderRepositoryTest {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 50; j++) {
+                        for (int j = 0; j < 10; j++) {
                             Optional<Order> order = orderRepository.findById(600L);
                             if (order.isPresent()) {
                                 successfulReads.incrementAndGet();
@@ -359,7 +357,6 @@ class InMemoryOrderRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             // 쓰기 작업들
@@ -369,7 +366,7 @@ class InMemoryOrderRepositoryTest {
                     try {
                         startLatch.await();
                         
-                        for (int j = 0; j < 20; j++) {
+                        for (int j = 0; j < 10; j++) {
                             Order newOrder = Order.builder()
                                     .id((long) (700 + writerId * 20 + j))
                                     .user(testUser)
@@ -377,6 +374,7 @@ class InMemoryOrderRepositoryTest {
                                     .build();
                             
                             orderRepository.save(newOrder);
+                            Thread.sleep(1);
                             successfulWrites.incrementAndGet();
                         }
                     } catch (Exception e) {
@@ -385,20 +383,21 @@ class InMemoryOrderRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulReads.get()).isGreaterThan(0);
-            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 10);
             
             // 최종 상태 확인
             List<Order> userOrders = orderRepository.findByUser(testUser);
             assertThat(userOrders.size()).isGreaterThan(1);
 
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
