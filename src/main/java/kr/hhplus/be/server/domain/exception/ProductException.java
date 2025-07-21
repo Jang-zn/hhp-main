@@ -24,4 +24,10 @@ public class ProductException extends RuntimeException {
             super("ERR_PRODUCT_OUT_OF_STOCK", "Product out of stock");
         }
     }
+    
+    public static class InvalidReservation extends ProductException {
+        public InvalidReservation(String message) {
+            super("ERR_PRODUCT_INVALID_RESERVATION", message);
+        }
+    }
 } 

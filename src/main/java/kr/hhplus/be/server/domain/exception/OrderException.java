@@ -42,4 +42,10 @@ public class OrderException extends RuntimeException {
             super("ERR_ORDER_UNAUTHORIZED", "Unauthorized access to order");
         }
     }
+    
+    public static class EmptyItems extends OrderException {
+        public EmptyItems() {
+            super("ERR_ORDER_EMPTY_ITEMS", "Order must contain at least one item");
+        }
+    }
 } 

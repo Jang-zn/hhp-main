@@ -31,9 +31,9 @@ public class CouponException extends RuntimeException {
         }
     }
     
-    public static class AlreadyAcquired extends CouponException {
-        public AlreadyAcquired() {
-            super("ERR_COUPON_ALREADY_ACQUIRED", "Coupon already acquired by user");
+    public static class AlreadyIssued extends CouponException {
+        public AlreadyIssued() {
+            super("ERR_COUPON_ALREADY_ISSUED", "Coupon already issued by user");
         }
     }
 } 
