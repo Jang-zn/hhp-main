@@ -7,7 +7,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,8 +37,8 @@ import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.CouponException;
 
-@DisplayName("AcquireCouponUseCase 단위 테스트")
-class AcquireCouponUseCaseTest {
+@DisplayName("IssueCouponUseCase 단위 테스트")
+class IssueCouponUseCaseTest {
 
     @Mock
     private UserRepositoryPort userRepositoryPort;
@@ -52,19 +52,19 @@ class AcquireCouponUseCaseTest {
     @Mock
     private LockingPort lockingPort;
 
-    private AcquireCouponUseCase acquireCouponUseCase;
+    private IssueCouponUseCase issueCouponUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        acquireCouponUseCase = new AcquireCouponUseCase(
+        issueCouponUseCase = new IssueCouponUseCase(
                 userRepositoryPort, couponRepositoryPort, couponHistoryRepositoryPort, lockingPort
         );
     }
 
     @Test
     @DisplayName("쿠폰 발급 성공")
-    void acquireCoupon_Success() {
+    void issueCoupon_Success() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -90,7 +90,7 @@ class AcquireCouponUseCaseTest {
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        CouponHistory result = acquireCouponUseCase.execute(userId, couponId);
+        CouponHistory result = issueCouponUseCase.execute(userId, couponId);
 
         // then
         assertThat(result).isNotNull();
@@ -98,8 +98,8 @@ class AcquireCouponUseCaseTest {
         assertThat(result.getCoupon()).isEqualTo(coupon);
         assertThat(result.getIssuedAt()).isNotNull();
         
-        verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
         verify(couponRepositoryPort).save(coupon);
         verify(couponHistoryRepositoryPort).save(any(CouponHistory.class));
     }
@@ -107,7 +107,7 @@ class AcquireCouponUseCaseTest {
     @ParameterizedTest
     @MethodSource("provideCouponData")
     @DisplayName("다양한 쿠폰 발급 시나리오")
-    void acquireCoupon_WithDifferentScenarios(Long userId, Long couponId, String couponCode) {
+    void issueCoupon_WithDifferentScenarios(Long userId, Long couponId, String couponCode) {
         // given
         User user = User.builder()
                 .name("테스트 사용자")
@@ -130,19 +130,19 @@ class AcquireCouponUseCaseTest {
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        CouponHistory result = acquireCouponUseCase.execute(userId, couponId);
+        CouponHistory result = issueCouponUseCase.execute(userId, couponId);
 
         // then
         assertThat(result).isNotNull();
         assertThat(result.getCoupon().getCode()).isEqualTo(couponCode);
         
-        verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("존재하지 않는 사용자 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_UserNotFound() {
+    void issueCoupon_UserNotFound() {
         // given
         Long userId = 999L;
         Long couponId = 1L;
@@ -151,16 +151,16 @@ class AcquireCouponUseCaseTest {
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("User not found");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("존재하지 않는 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_CouponNotFound() {
+    void issueCoupon_CouponNotFound() {
         // given
         Long userId = 1L;
         Long couponId = 999L;
@@ -174,16 +174,16 @@ class AcquireCouponUseCaseTest {
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.NotFound.class)
                 .hasMessage("Coupon not found");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
         @Test
         @DisplayName("실패케이스: 만료된 쿠폰 발급")
-        void acquireCoupon_ExpiredCoupon() {
+        void issueCoupon_ExpiredCoupon() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -206,16 +206,16 @@ class AcquireCouponUseCaseTest {
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(expiredCoupon));
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.Expired.class)
                 .hasMessage("Coupon has expired");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("재고 소진된 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_OutOfStock() {
+    void issueCoupon_OutOfStock() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -238,16 +238,16 @@ class AcquireCouponUseCaseTest {
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(outOfStockCoupon));
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.OutOfStock.class)
                 .hasMessage("Coupon stock exhausted");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("이미 발급받은 쿠폰 재발급 시 예외 발생")
-    void acquireCoupon_AlreadyAcquired() {
+    void issueCoupon_AlreadyIssued() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -257,7 +257,7 @@ class AcquireCouponUseCaseTest {
                 .build();
         
         Coupon coupon = Coupon.builder()
-                .code("ALREADY_ACQUIRED")
+                .code("ALREADY_ISSUED")
                 .discountRate(new BigDecimal("0.15"))
                 .maxIssuance(100)
                 .issuedCount(50)
@@ -271,40 +271,40 @@ class AcquireCouponUseCaseTest {
         when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(true);
         
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.AlreadyAcquired.class)
-                .hasMessage("Coupon already acquired by user");
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
+                .isInstanceOf(CouponException.AlreadyIssued.class)
+                .hasMessage("Coupon already issued by user");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("null 사용자 ID로 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_WithNullUserId() {
+    void issueCoupon_WithNullUserId() {
         // given
         Long userId = null;
         Long couponId = 1L;
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("null 쿠폰 ID로 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_WithNullCouponId() {
+    void issueCoupon_WithNullCouponId() {
         // given
         Long userId = 1L;
         Long couponId = null;
 
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("아직 시작되지 않은 쿠폰 발급 시 예외 발생")
-    void acquireCoupon_NotYetStarted() {
+    void issueCoupon_NotYetStarted() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -327,16 +327,16 @@ class AcquireCouponUseCaseTest {
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(futureStartCoupon));
         
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not yet started");
                 
-        verify(lockingPort).releaseLock("coupon-acquire-" + couponId);
+        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
 
     @Test
     @DisplayName("락 획득 실패 시 예외 발생")
-    void acquireCoupon_LockAcquisitionFailed() {
+    void issueCoupon_LockAcquisitionFailed() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -344,9 +344,9 @@ class AcquireCouponUseCaseTest {
         when(lockingPort.acquireLock(anyString())).thenReturn(false);
         
         // when & then
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.AlreadyAcquired.class)
-                .hasMessage("Coupon already acquired by user");
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
+                .isInstanceOf(CouponException.AlreadyIssued.class)
+                .hasMessage("Coupon already issued by user");
                 
         verify(lockingPort, never()).releaseLock(anyString());
     }
@@ -354,7 +354,7 @@ class AcquireCouponUseCaseTest {
     @ParameterizedTest
     @MethodSource("provideInvalidIds")
     @DisplayName("비정상 ID 값들로 쿠폰 발급 테스트")
-    void acquireCoupon_WithInvalidIds(Long userId, Long couponId) {
+    void issueCoupon_WithInvalidIds(Long userId, Long couponId) {
         // when & then
         if (userId != null && userId > 0) {
             User user = User.builder().name("테스트").build();
@@ -364,7 +364,7 @@ class AcquireCouponUseCaseTest {
         
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
+        assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -389,7 +389,7 @@ class AcquireCouponUseCaseTest {
         
         @Test
         @DisplayName("동시 쿠폰 발급 요청 시 한 명만 성공")
-        void acquireCoupon_ConcurrentRequests_OnlyOneSucceeds() throws Exception {
+        void issueCoupon_ConcurrentRequests_OnlyOneSucceeds() throws Exception {
             // given
             Long userId1 = 1L;
             Long userId2 = 2L;
@@ -425,7 +425,7 @@ class AcquireCouponUseCaseTest {
             
             // when
             CompletableFuture<CouponHistory> future1 = CompletableFuture.supplyAsync(() -> {
-                return acquireCouponUseCase.execute(userId1, couponId);
+                return issueCouponUseCase.execute(userId1, couponId);
             }, executor).handle((result, ex) -> {
                 if (ex != null) {
                     return null; // 예외 발생 시 null 반환
@@ -434,7 +434,7 @@ class AcquireCouponUseCaseTest {
             });
             
             CompletableFuture<CouponHistory> future2 = CompletableFuture.supplyAsync(() -> {
-                return acquireCouponUseCase.execute(userId2, couponId);
+                return issueCouponUseCase.execute(userId2, couponId);
             }, executor).handle((result, ex) -> {
                 if (ex != null) {
                     return null; // 예외 발생 시 null 반환
@@ -459,7 +459,7 @@ class AcquireCouponUseCaseTest {
         
         @Test
         @DisplayName("동시성 하에서 락 획득 실패 테스트")
-        void acquireCoupon_LockContentionHandling() {
+        void issueCoupon_LockContentionHandling() {
             // given
             Long userId = 1L;
             Long couponId = 1L;
@@ -467,11 +467,11 @@ class AcquireCouponUseCaseTest {
             when(lockingPort.acquireLock(anyString())).thenReturn(false);
             
             // when & then
-            assertThatThrownBy(() -> acquireCouponUseCase.execute(userId, couponId))
-                    .isInstanceOf(CouponException.AlreadyAcquired.class)
-                    .hasMessage("Coupon already acquired by user");
+            assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
+                    .isInstanceOf(CouponException.AlreadyIssued.class)
+                    .hasMessage("Coupon already issued by user");
             
-            verify(lockingPort).acquireLock("coupon-acquire-" + couponId);
+            verify(lockingPort).acquireLock("coupon-issue-" + couponId);
             verify(lockingPort, never()).releaseLock(anyString());
         }
     }

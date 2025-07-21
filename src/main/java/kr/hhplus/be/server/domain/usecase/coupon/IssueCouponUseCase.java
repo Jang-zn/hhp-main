@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class AcquireCouponUseCase {
+public class IssueCouponUseCase {
     
     private final UserRepositoryPort userRepositoryPort;
     private final CouponRepositoryPort couponRepositoryPort;
@@ -32,10 +32,10 @@ public class AcquireCouponUseCase {
         // 입력 값 검증
         validateInputs(userId, couponId);
         
-        String lockKey = "coupon-acquire-" + couponId;
+        String lockKey = "coupon-issue-" + couponId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("쿠폰 락 획득 실패: couponId={}", couponId);
-            throw new CouponException.AlreadyAcquired();
+            throw new CouponException.AlreadyIssued();
         }
         
         try {
@@ -59,7 +59,7 @@ public class AcquireCouponUseCase {
             // 중복 발급 검증
             if (couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)) {
                 log.warn("중복 발급 시도: userId={}, couponId={}", userId, couponId);
-                throw new CouponException.AlreadyAcquired();
+                throw new CouponException.AlreadyIssued();
             }
             
             // 재고 감소
@@ -91,7 +91,7 @@ public class AcquireCouponUseCase {
             throw e;
         } catch (Exception e) {
             log.error("쿠폰 발급 중 예상치 못한 오류: userId={}, couponId={}", userId, couponId, e);
-            throw new CouponException.AlreadyAcquired();
+            throw new CouponException.AlreadyIssued();
         } finally {
             lockingPort.releaseLock(lockKey);
             log.debug("쿠폰 락 해제 완료: couponId={}", couponId);
