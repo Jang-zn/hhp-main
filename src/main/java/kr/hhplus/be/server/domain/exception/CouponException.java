@@ -14,37 +14,19 @@ public class CouponException extends RuntimeException {
     
     // 메시지 상수들
     public static class Messages {
-        // Validation 메시지들
-        public static final String INVALID_USER_ID = "사용자 ID는 필수입니다";
-        public static final String INVALID_USER_ID_POSITIVE = "사용자 ID는 양수여야 합니다";
-        public static final String INVALID_COUPON_ID_POSITIVE = "쿠폰 ID는 양수여야 합니다";
-        public static final String INVALID_LIMIT_POSITIVE = "limit은 양수여야 합니다";
-        public static final String INVALID_LIMIT_MAX = "limit은 100 이하여야 합니다";
-        public static final String INVALID_OFFSET = "offset은 0 이상이어야 합니다";
-        
         // UseCase 메시지들
-        public static final String USER_ID_CANNOT_BE_NULL = "User ID cannot be null";
-        public static final String COUPON_ID_CANNOT_BE_NULL = "Coupon ID cannot be null";
-        public static final String USER_NOT_FOUND = "User not found";
-        public static final String LIMIT_MUST_BE_POSITIVE = "Limit must be greater than 0";
-        public static final String LIMIT_CANNOT_EXCEED_MAX = "Limit cannot exceed 1000";
-        public static final String OFFSET_MUST_BE_NON_NEGATIVE = "Offset must be non-negative";
-        public static final String FAILED_TO_RETRIEVE_COUPON_LIST = "Failed to retrieve coupon list";
-        public static final String COUPON_NOT_YET_STARTED = "Coupon not yet started";
-        public static final String COUPON_STOCK_EXCEEDED = "Coupon stock exceeded";
-        
-        // Controller 메시지들
-        public static final String REQUEST_CANNOT_BE_NULL = "Request cannot be null";
-        public static final String USERID_AND_COUPONID_REQUIRED = "UserId and CouponId are required";
-        public static final String USERID_CANNOT_BE_NULL = "UserId cannot be null";
-        public static final String INVALID_PAGINATION_PARAMETERS = "Invalid pagination parameters";
+        public static final String FAILED_TO_RETRIEVE_COUPON_LIST = "쿠폰 목록을 가져오는데 실패했습니다";
+        public static final String COUPON_NOT_YET_STARTED = "쿠폰이 아직 시작되지 않았습니다";
+        public static final String COUPON_STOCK_EXCEEDED = "쿠폰 재고를 초과했습니다";
         
         // 비즈니스 로직 메시지들
-        public static final String COUPON_NOT_FOUND = "Coupon not found";
-        public static final String COUPON_EXPIRED = "Coupon has expired";
-        public static final String COUPON_OUT_OF_STOCK = "Coupon stock exhausted";
-        public static final String COUPON_ALREADY_ISSUED = "Coupon already issued by user";
-        public static final String COUPON_CONCURRENCY_CONFLICT = "Coupon concurrency conflict";
+        public static final String COUPON_NOT_FOUND = "쿠폰을 찾을 수 없습니다";
+        public static final String COUPON_EXPIRED = "쿠폰이 만료되었습니다";
+        public static final String COUPON_OUT_OF_STOCK = "쿠폰 재고가 소진되었습니다";
+        public static final String COUPON_ALREADY_ISSUED = "이미 발급받은 쿠폰입니다";
+        public static final String INVALID_COUPON_ID_POSITIVE = "쿠폰 ID는 양수여야 합니다";
+        public static final String COUPON_ID_CANNOT_BE_NULL = "쿠폰 ID는 null일 수 없습니다";
+        public static final String USERID_AND_COUPONID_REQUIRED = "사용자 ID와 쿠폰 ID가 필요합니다";
     }
     
     // 쿠폰 관련 예외들
@@ -71,10 +53,40 @@ public class CouponException extends RuntimeException {
             super("ERR_COUPON_ALREADY_ISSUED", Messages.COUPON_ALREADY_ISSUED);
         }
     }
-    
-    public static class ConcurrencyConflict extends CouponException {
-        public ConcurrencyConflict() {
-            super("ERR_COUPON_CONCURRENCY_CONFLICT", Messages.COUPON_CONCURRENCY_CONFLICT);
+
+    public static class FailedToRetrieveCouponList extends CouponException {
+        public FailedToRetrieveCouponList() {
+            super("ERR_COUPON_FAILED_TO_RETRIEVE_LIST", Messages.FAILED_TO_RETRIEVE_COUPON_LIST);
+        }
+    }
+
+    public static class CouponNotYetStarted extends CouponException {
+        public CouponNotYetStarted() {
+            super("ERR_COUPON_NOT_YET_STARTED", Messages.COUPON_NOT_YET_STARTED);
+        }
+    }
+
+    public static class CouponStockExceeded extends CouponException {
+        public CouponStockExceeded() {
+            super("ERR_COUPON_STOCK_EXCEEDED", Messages.COUPON_STOCK_EXCEEDED);
+        }
+    }
+
+    public static class InvalidCouponIdPositive extends CouponException {
+        public InvalidCouponIdPositive() {
+            super("ERR_COUPON_INVALID_ID_POSITIVE", Messages.INVALID_COUPON_ID_POSITIVE);
+        }
+    }
+
+    public static class CouponIdCannotBeNull extends CouponException {
+        public CouponIdCannotBeNull() {
+            super("ERR_COUPON_ID_CANNOT_BE_NULL", Messages.COUPON_ID_CANNOT_BE_NULL);
+        }
+    }
+
+    public static class UserIdAndCouponIdRequired extends CouponException {
+        public UserIdAndCouponIdRequired() {
+            super("ERR_COUPON_USERID_AND_COUPONID_REQUIRED", Messages.USERID_AND_COUPONID_REQUIRED);
         }
     }
 } 
