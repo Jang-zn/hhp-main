@@ -6,7 +6,7 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 
 import java.util.stream.Collectors;
@@ -25,12 +25,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CouponController {
     
-    private final AcquireCouponUseCase acquireCouponUseCase;
+    private final IssueCouponUseCase issueCouponUseCase;
     private final GetCouponListUseCase getCouponListUseCase;
 
     @ApiSuccess(summary = "쿠폰 발급")
-    @PostMapping("/acquire")
-    public CouponResponse acquireCoupon(@Valid @RequestBody CouponRequest request) {
+    @PostMapping("/issue")
+    public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request cannot be null");
         }
@@ -38,7 +38,7 @@ public class CouponController {
             throw new IllegalArgumentException("UserId and CouponId are required");
         }
         
-        CouponHistory couponHistory = acquireCouponUseCase.execute(request.getUserId(), request.getCouponId());
+        CouponHistory couponHistory = issueCouponUseCase.execute(request.getUserId(), request.getCouponId());
         return new CouponResponse(
                 couponHistory.getCoupon().getId(),
                 couponHistory.getCoupon().getCode(),

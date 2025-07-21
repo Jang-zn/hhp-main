@@ -7,7 +7,7 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.usecase.coupon.AcquireCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,23 +38,23 @@ class CouponControllerTest {
     private CouponController couponController;
     
     @Mock
-    private AcquireCouponUseCase acquireCouponUseCase;
+    private IssueCouponUseCase issueCouponUseCase;
     
     @Mock
     private GetCouponListUseCase getCouponListUseCase;
 
     @BeforeEach
     void setUp() {
-        couponController = new CouponController(acquireCouponUseCase, getCouponListUseCase);
+        couponController = new CouponController(issueCouponUseCase, getCouponListUseCase);
     }
 
     @Nested
     @DisplayName("쿠폰 발급 테스트")
-    class AcquireCouponTests {
+    class IssueCouponTests {
         
         @Test
         @DisplayName("성공케이스: 정상 쿠폰 발급")
-        void acquireCoupon_Success() {
+        void issueCoupon_Success() {
         // given
         Long userId = 1L;
         Long couponId = 1L;
@@ -72,11 +72,11 @@ class CouponControllerTest {
             .issuedAt(LocalDateTime.now())
             .build();
             
-        when(acquireCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
+        when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
 
         // when
         CouponRequest request = new CouponRequest(userId, couponId);
-        CouponResponse response = couponController.acquireCoupon(request);
+        CouponResponse response = couponController.issueCoupon(request);
 
         // then
         assertThat(response).isNotNull();
@@ -89,7 +89,7 @@ class CouponControllerTest {
         @ParameterizedTest
         @MethodSource("kr.hhplus.be.server.unit.controller.CouponControllerTest#provideCouponData")
         @DisplayName("성공케이스: 다양한 쿠폰으로 발급 테스트")
-        void acquireCoupon_WithDifferentCoupons(Long userId, Long couponId) {
+        void issueCoupon_WithDifferentCoupons(Long userId, Long couponId) {
             // given
             Coupon mockCoupon = Coupon.builder()
                 .id(couponId)
@@ -103,11 +103,11 @@ class CouponControllerTest {
                 .issuedAt(LocalDateTime.now())
                 .build();
                 
-            when(acquireCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
+            when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
             
             // when
             CouponRequest request = new CouponRequest(userId, couponId);
-            CouponResponse response = couponController.acquireCoupon(request);
+            CouponResponse response = couponController.issueCoupon(request);
 
             // then
             assertThat(response).isNotNull();
@@ -118,41 +118,41 @@ class CouponControllerTest {
 
         @Test
         @DisplayName("실패케이스: 존재하지 않는 사용자로 쿠폰 발급")
-        void acquireCoupon_UserNotFound() {
+        void issueCoupon_UserNotFound() {
             // given
             Long invalidUserId = 999L;
             Long couponId = 1L;
             CouponRequest request = new CouponRequest(invalidUserId, couponId);
             
-            when(acquireCouponUseCase.execute(invalidUserId, couponId))
+            when(issueCouponUseCase.execute(invalidUserId, couponId))
                 .thenThrow(new RuntimeException("User not found"));
 
             // when & then
-            assertThatThrownBy(() -> couponController.acquireCoupon(request))
+            assertThatThrownBy(() -> couponController.issueCoupon(request))
                     .isInstanceOf(RuntimeException.class);
         }
 
         @Test
         @DisplayName("실패케이스: 존재하지 않는 쿠폰 발급")
-        void acquireCoupon_CouponNotFound() {
+        void issueCoupon_CouponNotFound() {
             // given
             Long userId = 1L;
             Long invalidCouponId = 999L;
             CouponRequest request = new CouponRequest(userId, invalidCouponId);
             
-            when(acquireCouponUseCase.execute(userId, invalidCouponId))
+            when(issueCouponUseCase.execute(userId, invalidCouponId))
                 .thenThrow(new RuntimeException("Coupon not found"));
 
             // when & then
-            assertThatThrownBy(() -> couponController.acquireCoupon(request))
+            assertThatThrownBy(() -> couponController.issueCoupon(request))
                     .isInstanceOf(RuntimeException.class);
         }
 
         @Test
         @DisplayName("실패케이스: null 요청으로 쿠폰 발급")
-        void acquireCoupon_WithNullRequest() {
+        void issueCoupon_WithNullRequest() {
             // when & then
-            assertThatThrownBy(() -> couponController.acquireCoupon(null))
+            assertThatThrownBy(() -> couponController.issueCoupon(null))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }
@@ -265,7 +265,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(userId, invalidRequest))
                     .isInstanceOf(IllegalArgumentException.class);
-        }
+        }   
     }
 
     private static Stream<Arguments> provideCouponData() {

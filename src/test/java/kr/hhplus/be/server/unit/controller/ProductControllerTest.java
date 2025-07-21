@@ -4,7 +4,7 @@ import kr.hhplus.be.server.api.controller.ProductController;
 import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.usecase.product.GetProductListUseCase;
+import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,14 +34,14 @@ class ProductControllerTest {
     private ProductController productController;
     
     @Mock
-    private GetProductListUseCase getProductListUseCase;
-    
+    private GetProductUseCase getProductUseCase;
+
     @Mock
     private GetPopularProductListUseCase getPopularProductListUseCase;
 
     @BeforeEach
     void setUp() {
-        productController = new ProductController(getProductListUseCase, getPopularProductListUseCase);
+        productController = new ProductController(getProductUseCase, getPopularProductListUseCase);
     }
 
     @Nested
@@ -58,7 +58,7 @@ class ProductControllerTest {
             Product.builder().id(2L).name("스마트폰").price(BigDecimal.valueOf(800000)).stock(5).reservedStock(0).build(),
             Product.builder().id(3L).name("태블릿").price(BigDecimal.valueOf(500000)).stock(15).reservedStock(0).build()
         );
-        when(getProductListUseCase.execute(10, 0)).thenReturn(mockProducts);
+        when(getProductUseCase.execute(10, 0)).thenReturn(mockProducts);
         
         // when
         List<ProductResponse> response = productController.getProductList(request);
@@ -81,7 +81,7 @@ class ProductControllerTest {
             Product.builder().id(2L).name("스마트폰").price(BigDecimal.valueOf(800000)).stock(5).reservedStock(0).build(),
             Product.builder().id(3L).name("태블릿").price(BigDecimal.valueOf(500000)).stock(15).reservedStock(0).build()
         );
-        when(getProductListUseCase.execute(limit, offset)).thenReturn(mockProducts);
+        when(getProductUseCase.execute(limit, offset)).thenReturn(mockProducts);
         
         // when
         List<ProductResponse> response = productController.getProductList(request);
@@ -105,7 +105,7 @@ class ProductControllerTest {
         void getProducts_WithInvalidPagination() {
             // given
             ProductRequest invalidRequest = new ProductRequest(-1, -1);
-            when(getProductListUseCase.execute(-1, -1)).thenThrow(new IllegalArgumentException("Invalid pagination parameters"));
+            when(getProductUseCase.execute(-1, -1)).thenThrow(new IllegalArgumentException("Invalid pagination parameters"));
             
             // when & then
             assertThatThrownBy(() -> productController.getProductList(invalidRequest))

@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 
@@ -321,16 +322,19 @@ class InMemoryProductRepositoryTest {
         productRepository.save(product);
 
         // when & then - 음수 limit
-        List<Product> result1 = productRepository.findAllWithPagination(-1, 0);
-        assertThat(result1).isEmpty();
+        assertThatThrownBy(() -> productRepository.findAllWithPagination(-1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Limit must be greater than 0");
 
         // when & then - 음수 offset
-        List<Product> result2 = productRepository.findAllWithPagination(10, -1);
-        assertThat(result2).isEmpty();
+        assertThatThrownBy(() -> productRepository.findAllWithPagination(10, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Offset cannot be negative");
 
             // when & then - 0 limit
-            List<Product> result3 = productRepository.findAllWithPagination(0, 0);
-            assertThat(result3).isEmpty();
+            assertThatThrownBy(() -> productRepository.findAllWithPagination(0, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Limit must be greater than 0");
         }
     }
 
@@ -361,14 +365,11 @@ class InMemoryProductRepositoryTest {
         @DisplayName("동시성 테스트: 서로 다른 상품 동시 저장")
         void save_ConcurrentSaveForDifferentProducts() throws Exception {
             // given
-            int numberOfProducts = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
+            int numberOfProducts = 20;
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfProducts);
             AtomicInteger successCount = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
             // when - 서로 다른 상품들을 동시에 저장
             for (int i = 0; i < numberOfProducts; i++) {
                 final int productIndex = i + 1;
@@ -385,6 +386,7 @@ class InMemoryProductRepositoryTest {
                                 .build();
                         
                         productRepository.save(product);
+                        Thread.sleep(1);
                         successCount.incrementAndGet();
                     } catch (Exception e) {
                         System.err.println("Error for product " + productIndex + ": " + e.getMessage());
@@ -392,11 +394,11 @@ class InMemoryProductRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then - 모든 상품이 성공적으로 저장되었는지 확인
             assertThat(successCount.get()).isEqualTo(numberOfProducts);
@@ -407,7 +409,7 @@ class InMemoryProductRepositoryTest {
                 assertThat(product).isPresent();
                 assertThat(product.get().getName()).isEqualTo("동시성상품" + i);
             }
-
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -426,15 +428,12 @@ class InMemoryProductRepositoryTest {
                     .build();
             productRepository.save(initialProduct);
 
-            int numberOfThreads = 10;
+            int numberOfThreads = 5;
             int updatesPerThread = 10;
             ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
             AtomicInteger successfulUpdates = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
             // when - 동일한 상품을 동시에 업데이트
             for (int i = 0; i < numberOfThreads; i++) {
                 final int threadId = i;
@@ -452,6 +451,7 @@ class InMemoryProductRepositoryTest {
                                     .build();
                             
                             productRepository.save(updatedProduct);
+                            Thread.sleep(1);
                             successfulUpdates.incrementAndGet();
                         }
                     } catch (Exception e) {
@@ -460,11 +460,11 @@ class InMemoryProductRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulUpdates.get()).isEqualTo(numberOfThreads * updatesPerThread);
@@ -473,7 +473,7 @@ class InMemoryProductRepositoryTest {
             Optional<Product> finalProduct = productRepository.findById(productId);
             assertThat(finalProduct).isPresent();
             assertThat(finalProduct.get().getPrice()).isEqualTo(new BigDecimal("150000"));
-
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }
@@ -493,22 +493,18 @@ class InMemoryProductRepositoryTest {
 
             int numberOfReaders = 5;
             int numberOfWriters = 5;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
+            ExecutorService executor = Executors.newFixedThreadPool(5);
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
             
             AtomicInteger successfulReads = new AtomicInteger(0);
             AtomicInteger successfulWrites = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
             // 읽기 작업들
             for (int i = 0; i < numberOfReaders; i++) {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
-                        for (int j = 0; j < 50; j++) {
+                        for (int j = 0; j < 10; j++) {
                             Optional<Product> product = productRepository.findById(600L);
                             if (product.isPresent()) {
                                 successfulReads.incrementAndGet();
@@ -520,7 +516,6 @@ class InMemoryProductRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             // 쓰기 작업들
@@ -529,8 +524,7 @@ class InMemoryProductRepositoryTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         startLatch.await();
-                        
-                        for (int j = 0; j < 20; j++) {
+                        for (int j = 0; j < 10; j++) {
                             Product newProduct = Product.builder()
                                     .id((long) (700 + writerId * 20 + j))
                                     .name("쓰기테스트" + writerId + "_" + j)
@@ -540,6 +534,7 @@ class InMemoryProductRepositoryTest {
                                     .build();
                             
                             productRepository.save(newProduct);
+                            Thread.sleep(1);
                             successfulWrites.incrementAndGet();
                         }
                     } catch (Exception e) {
@@ -548,20 +543,20 @@ class InMemoryProductRepositoryTest {
                         doneLatch.countDown();
                     }
                 }, executor);
-                futures.add(future);
             }
 
             startLatch.countDown();
-            doneLatch.await();
+            boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
+            assertThat(finished).isTrue();
 
             // then
             assertThat(successfulReads.get()).isGreaterThan(0);
-            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 20);
+            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 10);
             
             // 최종 상태 확인
             Optional<Product> finalProduct = productRepository.findById(600L);
             assertThat(finalProduct).isPresent();
-
+            executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
         }

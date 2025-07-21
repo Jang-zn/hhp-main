@@ -31,9 +31,15 @@ public class CouponException extends RuntimeException {
         }
     }
     
-    public static class AlreadyAcquired extends CouponException {
-        public AlreadyAcquired() {
-            super("ERR_COUPON_ALREADY_ACQUIRED", "Coupon already acquired by user");
+    public static class AlreadyIssued extends CouponException {
+        public AlreadyIssued() {
+            super("ERR_COUPON_ALREADY_ISSUED", "Coupon already issued by user");
+        }
+    }
+    
+    public static class ConcurrencyConflict extends CouponException {
+        public ConcurrencyConflict() {
+            super("ERR_COUPON_CONCURRENCY_CONFLICT", "Coupon concurrency conflict");
         }
     }
 } 

@@ -122,7 +122,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .hasMessage("Invalid user for balance operation");
         }
 
         @Test
@@ -139,7 +139,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
         }
 
         @Test
@@ -245,7 +245,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(userId))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .hasMessage("Invalid user for balance operation");
         }
 
         @Test

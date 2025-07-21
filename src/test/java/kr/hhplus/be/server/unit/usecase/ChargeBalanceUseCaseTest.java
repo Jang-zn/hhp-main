@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -102,12 +103,12 @@ class ChargeBalanceUseCaseTest {
             assertThat(result).isNotNull();
             assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
             
-            verify(lockingPort).acquireLock("balance-charge-" + userId);
+            verify(lockingPort).acquireLock("balance-" + userId);
             verify(userRepositoryPort).findById(userId);
             verify(balanceRepositoryPort).findByUser(user);
             verify(balanceRepositoryPort).save(any(Balance.class));
             verify(cachePort).put(eq("balance:" + userId), any(Balance.class), eq(600));
-            verify(lockingPort).releaseLock("balance-charge-" + userId);
+            verify(lockingPort).releaseLock("balance-" + userId);
         }
 
         @ParameterizedTest
@@ -167,9 +168,9 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .hasMessage("Invalid user for balance operation");
                     
-            verify(lockingPort).releaseLock("balance-charge-" + userId);
+            verify(lockingPort).releaseLock("balance-" + userId);
         }
 
         @Test
@@ -182,7 +183,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .hasMessage("Invalid user for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -199,7 +200,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -216,7 +217,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -233,7 +234,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -250,7 +251,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -269,9 +270,9 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                    .hasMessage("Concurrent balance update conflict");
+                    .hasMessage("Balance concurrency conflict");
                     
-            verify(lockingPort).acquireLock("balance-charge-" + userId);
+            verify(lockingPort).acquireLock("balance-" + userId);
             verify(lockingPort, never()).releaseLock(anyString());
             verify(userRepositoryPort, never()).findById(any());
         }
@@ -303,9 +304,8 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.ConcurrencyConflict.class)
-                    .hasMessage("Concurrent balance update conflict");
-                    
-            verify(lockingPort).releaseLock("balance-charge-" + userId);
+                    .hasMessage("Balance concurrency conflict");
+            verify(lockingPort).releaseLock("balance-" + userId);
         }
 
         @ParameterizedTest
@@ -322,9 +322,8 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidUserId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
-                    
-            verify(lockingPort).releaseLock("balance-charge-" + invalidUserId);
+                    .hasMessage("Invalid user for balance operation");
+            verify(lockingPort).releaseLock("balance-" + invalidUserId);
         }
 
         @ParameterizedTest
@@ -338,7 +337,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Amount must be between 1,000 and 1,000,000");
+                    .hasMessage("Invalid amount for balance operation");
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -461,7 +460,7 @@ class ChargeBalanceUseCaseTest {
                     .build();
             
             // 락 경합 시나리오: 첫 번째만 성공, 나머지는 락 획득 실패
-            when(lockingPort.acquireLock("balance-charge-" + userId))
+            when(lockingPort.acquireLock("balance-" + userId))
                     .thenReturn(true)  // 첫 번째 호출만 성공
                     .thenReturn(false) // 나머지는 실패
                     .thenReturn(false)
@@ -510,6 +509,231 @@ class ChargeBalanceUseCaseTest {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
             }
+        }
+        
+        @Test
+        @DisplayName("동시성 테스트: 충전과 사용이 동시에 발생하는 시나리오")
+        void chargeBalance_ConcurrentChargeAndUsage() throws InterruptedException {
+            // given
+            Long userId = 1L;
+            BigDecimal initialBalance = new BigDecimal("100000");
+            BigDecimal chargeAmount = new BigDecimal("50000");
+            BigDecimal usageAmount = new BigDecimal("30000");
+            
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(2);
+            AtomicInteger chargeSuccessCount = new AtomicInteger(0);
+            AtomicInteger usageSuccessCount = new AtomicInteger(0);
+            AtomicInteger conflictCount = new AtomicInteger(0);
+            AtomicReference<BigDecimal> finalBalance = new AtomicReference<>();
+            
+            User user = User.builder()
+                    .id(userId)
+                    .name("테스트 사용자")
+                    .build();
+            
+            Balance balance = Balance.builder()
+                    .id(1L)
+                    .user(user)
+                    .amount(initialBalance)
+                    .build();
+            
+            // 충전용 락 설정 (충전 프로세스가 먼저 락을 얻는다고 가정)
+            when(lockingPort.acquireLock("balance-" + userId))
+                    .thenReturn(true)   // 충전 성공
+                    .thenReturn(false); // 사용 시 락 실패
+            
+            // PayOrderUseCase의 결제 락 설정
+            when(lockingPort.acquireLock("payment-1"))
+                    .thenReturn(true);  // 주문 락은 성공
+            
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(balance));
+            
+            // 충전 후 잔액
+            Balance chargedBalance = Balance.builder()
+                    .id(1L)
+                    .user(user)
+                    .amount(initialBalance.add(chargeAmount))
+                    .build();
+            
+            when(balanceRepositoryPort.save(any(Balance.class))).thenReturn(chargedBalance);
+            doNothing().when(lockingPort).releaseLock(anyString());
+            doNothing().when(cachePort).put(anyString(), any(Balance.class), anyInt());
+            
+            // 충전 태스크
+            CompletableFuture<Void> chargeTask = CompletableFuture.runAsync(() -> {
+                try {
+                    startLatch.await();
+                    Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
+                    chargeSuccessCount.incrementAndGet();
+                    finalBalance.set(result.getAmount());
+                } catch (BalanceException.ConcurrencyConflict e) {
+                    conflictCount.incrementAndGet();
+                } catch (Exception e) {
+                    System.err.println("충전 오류: " + e.getMessage());
+                } finally {
+                    doneLatch.countDown();
+                }
+            }, executor);
+            
+            // 사용 시뮬레이션 태스크 (PayOrderUseCase의 잔액 락 획득을 모방)
+            CompletableFuture<Void> usageTask = CompletableFuture.runAsync(() -> {
+                try {
+                    startLatch.await();
+                    // PayOrderUseCase에서 잔액 락 획득 시도
+                    if (!lockingPort.acquireLock("balance-" + userId)) {
+                        throw new BalanceException.ConcurrencyConflict();
+                    }
+                    // 락 획득 성공 시 해제
+                    lockingPort.releaseLock("balance-" + userId);
+                    usageSuccessCount.incrementAndGet();
+                } catch (BalanceException.ConcurrencyConflict e) {
+                    conflictCount.incrementAndGet();
+                } catch (Exception e) {
+                    System.err.println("사용 오류: " + e.getMessage());
+                } finally {
+                    doneLatch.countDown();
+                }
+            }, executor);
+            
+            // 동시 실행
+            startLatch.countDown();
+            doneLatch.await(10, TimeUnit.SECONDS);
+            
+            // 검증: 둘 중 하나만 성공해야 함 (순서는 무관)
+            int totalOperations = chargeSuccessCount.get() + usageSuccessCount.get();
+            assertThat(totalOperations).isEqualTo(1);
+            assertThat(conflictCount.get()).isEqualTo(1);
+            
+            if (chargeSuccessCount.get() == 1) {
+                assertThat(finalBalance.get()).isEqualTo(new BigDecimal("150000"));
+            }
+            
+            // 리소스 정리
+            executor.shutdown();
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        }
+        
+        @Test
+        @DisplayName("동시성 테스트: 새 잔액 생성 시 동시 충전")
+        void chargeBalance_ConcurrentChargeForNewBalance() throws InterruptedException {
+            // given
+            Long userId = 1L;
+            BigDecimal chargeAmount = new BigDecimal("50000");
+            
+            User user = User.builder()
+                    .id(userId)
+                    .name("신규 사용자")
+                    .build();
+            
+            ExecutorService executor = Executors.newFixedThreadPool(3);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(3);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger conflictCount = new AtomicInteger(0);
+            
+            // 첫 번째 충전만 성공하도록 락 설정
+            when(lockingPort.acquireLock("balance-" + userId))
+                    .thenReturn(true)   // 첫 번째만 성공
+                    .thenReturn(false)  // 나머지는 실패
+                    .thenReturn(false);
+            
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.empty()); // 잔액 없음
+            
+            Balance newBalance = Balance.builder()
+                    .id(1L)
+                    .user(user)
+                    .amount(chargeAmount)
+                    .build();
+            
+            when(balanceRepositoryPort.save(any(Balance.class))).thenReturn(newBalance);
+            doNothing().when(lockingPort).releaseLock(anyString());
+            doNothing().when(cachePort).put(anyString(), any(Balance.class), anyInt());
+            
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            
+            // 3개의 동시 충전 시도
+            for (int i = 0; i < 3; i++) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        startLatch.await();
+                        Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
+                        successCount.incrementAndGet();
+                        assertThat(result.getAmount()).isEqualTo(chargeAmount);
+                    } catch (BalanceException.ConcurrencyConflict e) {
+                        conflictCount.incrementAndGet();
+                    } catch (Exception e) {
+                        System.err.println("예상치 못한 오류: " + e.getMessage());
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                }, executor);
+                
+                futures.add(future);
+            }
+            
+            // 동시 실행
+            startLatch.countDown();
+            doneLatch.await(10, TimeUnit.SECONDS);
+            
+            // 검증: 하나만 성공, 나머지는 락 충돌
+            assertThat(successCount.get()).isEqualTo(1);
+            assertThat(conflictCount.get()).isEqualTo(2);
+            
+            // 리소스 정리
+            executor.shutdown();
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        }
+        
+        @Test
+        @DisplayName("동시성 테스트: 캐시 업데이트 실패 시에도 충전은 성공해야 함")
+        void chargeBalance_CacheUpdateFailure() {
+            // given
+            Long userId = 1L;
+            BigDecimal chargeAmount = new BigDecimal("50000");
+            
+            User user = User.builder()
+                    .id(userId)
+                    .name("테스트 사용자")
+                    .build();
+            
+            Balance existingBalance = Balance.builder()
+                    .id(1L)
+                    .user(user)
+                    .amount(new BigDecimal("100000"))
+                    .build();
+            
+            Balance updatedBalance = Balance.builder()
+                    .id(1L)
+                    .user(user)
+                    .amount(new BigDecimal("150000"))
+                    .build();
+            
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(balanceRepositoryPort.findByUser(user)).thenReturn(Optional.of(existingBalance));
+            when(balanceRepositoryPort.save(any(Balance.class))).thenReturn(updatedBalance);
+            doThrow(new RuntimeException("캐시 서버 연결 실패")).when(cachePort).put(anyString(), any(Balance.class), anyInt());
+            doNothing().when(lockingPort).releaseLock(anyString());
+            
+            // when
+            Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
+            
+            // then - 캐시 실패에도 불구하고 충전은 성공해야 함
+            assertThat(result).isNotNull();
+            assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
+            
+            verify(lockingPort).acquireLock("balance-" + userId);
+            verify(balanceRepositoryPort).save(any(Balance.class));
+            verify(cachePort).put(eq("balance:" + userId), any(Balance.class), eq(600));
+            verify(lockingPort).releaseLock("balance-" + userId);
         }
     }
 

@@ -3,6 +3,11 @@ package kr.hhplus.be.server.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.controller.BalanceController;
+import kr.hhplus.be.server.domain.entity.Balance;
+import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,6 +34,26 @@ public class BalanceTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepositoryPort userRepositoryPort;
+    @Autowired
+    private BalanceRepositoryPort balanceRepositoryPort;
+
+    @BeforeEach
+    void setUp() {
+        // 테스트 사용자 및 초기 잔액 설정
+        User user = User.builder().id(1L).name("Test User").build();
+        userRepositoryPort.save(user);
+
+        Balance balance = Balance.builder()
+                                .user(user)
+                                .amount(new BigDecimal("50000"))
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build();
+        balanceRepositoryPort.save(balance);
+    }
 
     @Test
     @DisplayName("잔액 충전 API 테스트")
@@ -47,7 +73,7 @@ public class BalanceTest {
         resultActions
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value(userId))
-                .andExpect(jsonPath("$.data.amount").value(amount.intValue()));
+                .andExpect(jsonPath("$.data.amount").value(new BigDecimal("60000"))); // 50000 + 10000
     }
 
     @Test

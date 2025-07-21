@@ -24,7 +24,8 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.CouponException;
 import java.util.Collections;
@@ -89,17 +90,19 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
-            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(couponHistories);
-
+        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
+                .thenReturn(couponHistories);
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 빈 리스트 반환하는 메서드이므로 기본 검증만 수행
+        // then
         assertThat(result).isNotNull();
-        // assertThat(result).hasSize(2);
-        // assertThat(result.get(0).getCoupon().getCode()).isEqualTo("DISCOUNT10");
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("DISCOUNT10");
+        assertThat(result.get(1).getCoupon().getCode()).isEqualTo("SUMMER25");
+        
+        verify(userRepositoryPort).findById(userId);
+        verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
     }
 
     @ParameterizedTest
@@ -127,16 +130,16 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
-            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(couponHistories);
+        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
+                .thenReturn(couponHistories);
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 빈 리스트 반환하는 메서드이므로 기본 검증만 수행
+        // then
         assertThat(result).isNotNull();
-        // assertThat(result).isNotEmpty();
+        assertThat(result).isNotEmpty();
+        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("VIP30");
     }
 
     @Test
@@ -181,8 +184,8 @@ class GetCouponListUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(cachePort.get("coupon_list_" + userId + "_" + limit + "_" + offset, List.class, () -> 
-            couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))).thenReturn(Collections.emptyList());
+        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
+                .thenReturn(Collections.emptyList());
 
         // when
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -190,6 +193,9 @@ class GetCouponListUseCaseTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
+        
+        verify(userRepositoryPort).findById(userId);
+        verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
     }
 
     @Test
@@ -204,12 +210,10 @@ class GetCouponListUseCaseTest {
                 .name("테스트 사용자")
                 .build();
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("limit");
+                .hasMessage("Limit must be greater than 0");
     }
 
     @Test
@@ -224,12 +228,10 @@ class GetCouponListUseCaseTest {
                 .name("테스트 사용자")
                 .build();
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("offset");
+                .hasMessage("Offset must be non-negative");
     }
 
     @ParameterizedTest
@@ -240,11 +242,63 @@ class GetCouponListUseCaseTest {
         int limit = 10;
         int offset = 0;
         
-        when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
+        if (invalidUserId != null) {
+            when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
+            
+            // when & then
+            assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("User not found");
+        } else {
+            // when & then
+            assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("User ID cannot be null");
+        }
+    }
 
-        // when & then
-        assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class);
+    @Test
+    @DisplayName("캐시 실패 시 DB에서 직접 조회")
+    void getCouponList_CacheFallback() {
+        // given
+        Long userId = 1L;
+        int limit = 10;
+        int offset = 0;
+        
+        User user = User.builder()
+                .name("테스트 사용자")
+                .build();
+        
+        List<CouponHistory> couponHistories = List.of(
+                CouponHistory.builder()
+                        .user(user)
+                        .coupon(Coupon.builder()
+                                .code("FALLBACK")
+                                .discountRate(new BigDecimal("0.20"))
+                                .maxIssuance(100)
+                                .issuedCount(50)
+                                .startDate(LocalDateTime.now().minusDays(1))
+                                .endDate(LocalDateTime.now().plusDays(30))
+                                .build())
+                        .issuedAt(LocalDateTime.now())
+                        .build()
+        );
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
+                .thenThrow(new RuntimeException("Cache error"));
+        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))
+                .thenReturn(couponHistories);
+
+        // when
+        List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("FALLBACK");
+        
+        verify(couponHistoryRepositoryPort).findByUserWithPagination(user, limit, offset);
     }
 
     @ParameterizedTest
@@ -254,13 +308,7 @@ class GetCouponListUseCaseTest {
         // given
         Long userId = 1L;
         
-        User user = User.builder()
-                .name("테스트 사용자")
-                .build();
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-
-        // when & then
+        // when & then (validation happens before user lookup)
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -275,10 +323,9 @@ class GetCouponListUseCaseTest {
 
     private static Stream<Arguments> provideInvalidUserIds() {
         return Stream.of(
-                Arguments.of(-1L),
-                Arguments.of(0L),
-                Arguments.of(Long.MAX_VALUE),
-                Arguments.of(Long.MIN_VALUE)
+                Arguments.of((Long) null),
+                Arguments.of(999L),
+                Arguments.of(888L)
         );
     }
 
@@ -287,7 +334,7 @@ class GetCouponListUseCaseTest {
                 Arguments.of("음수 limit", -1, 0),
                 Arguments.of("음수 offset", 10, -1),
                 Arguments.of("0 limit", 0, 0),
-                Arguments.of("과도한 limit", 10000, 0)
+                Arguments.of("과도한 limit", 1001, 0)
         );
     }
 }

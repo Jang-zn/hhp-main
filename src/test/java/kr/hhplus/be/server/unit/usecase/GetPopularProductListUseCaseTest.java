@@ -18,7 +18,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 @DisplayName("GetPopularProductListUseCase 단위 테스트")
 class GetPopularProductListUseCaseTest {
@@ -58,16 +59,23 @@ class GetPopularProductListUseCaseTest {
                         .build()
         );
         
-        // Mock 설정은 TODO 구현에서 필요시 추가
+        // cachePort.get이 람다식을 실행하도록 Mocking
+        when(cachePort.get(anyString(), any(Class.class), any())).thenAnswer(invocation -> {
+            // 세 번째 인자가 Supplier 람다식이므로, 이를 실행하여 값을 반환
+            return ((java.util.function.Supplier<List<Product>>) invocation.getArgument(2)).get();
+        });
+        when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
 
         // when
         List<Product> result = getPopularProductListUseCase.execute(period);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 빈 리스트 반환하는 메서드이므로 기본 검증만 수행
+        // then
         assertThat(result).isNotNull();
-        // assertThat(result).hasSize(2);
-        // assertThat(result.get(0).getName()).isEqualTo("인기 노트북");
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getName()).isEqualTo("인기 노트북");
+        assertThat(result.get(1).getName()).isEqualTo("인기 스마트폰");
+        verify(cachePort, times(1)).get(anyString(), any(Class.class), any());
+        verify(productRepositoryPort, times(1)).findPopularProducts(period);
     }
 
     @ParameterizedTest
@@ -84,15 +92,22 @@ class GetPopularProductListUseCaseTest {
                         .build()
         );
         
-        // Mock 설정은 TODO 구현에서 필요시 추가
+        // cachePort.get이 람다식을 실행하도록 Mocking
+        when(cachePort.get(anyString(), any(Class.class), any())).thenAnswer(invocation -> {
+            return ((java.util.function.Supplier<List<Product>>) invocation.getArgument(2)).get();
+        });
+        when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
 
         // when
         List<Product> result = getPopularProductListUseCase.execute(period);
 
-        // then - TODO 구현이 완료되면 실제 검증 로직 추가
-        // 현재는 빈 리스트 반환하는 메서드이므로 기본 검증만 수행
+        // then
         assertThat(result).isNotNull();
-        // assertThat(result).isNotEmpty();
+        assertThat(result).isNotEmpty();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("상품1");
+        verify(cachePort, times(1)).get(anyString(), any(Class.class), any());
+        verify(productRepositoryPort, times(1)).findPopularProducts(period);
     }
 
     private static Stream<Arguments> providePeriodData() {

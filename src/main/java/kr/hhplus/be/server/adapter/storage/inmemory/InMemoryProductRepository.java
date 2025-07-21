@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,8 +67,8 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
 
     @Override
     public List<Product> findAllWithPagination(int limit, int offset) {
-        if (limit < 0) {
-            throw new IllegalArgumentException("Limit cannot be negative");
+        if (limit <= 0) {
+            throw new IllegalArgumentException("Limit must be greater than 0");
         }
         if (offset < 0) {
             throw new IllegalArgumentException("Offset cannot be negative");
