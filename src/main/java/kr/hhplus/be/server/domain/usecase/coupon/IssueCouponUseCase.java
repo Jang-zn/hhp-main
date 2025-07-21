@@ -35,7 +35,7 @@ public class IssueCouponUseCase {
         String lockKey = "coupon-issue-" + couponId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("쿠폰 락 획득 실패: couponId={}", couponId);
-            throw new CouponException.AlreadyIssued();
+            throw new CouponException.ConcurrencyConflict();
         }
         
         try {

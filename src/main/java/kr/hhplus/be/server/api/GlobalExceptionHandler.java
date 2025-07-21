@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
      */
     private HttpStatus getStatusFromException(RuntimeException ex) {
         // 잔액 부족 관련 -> 402 Payment Required
-        if (ex instanceof BalanceException.Insufficient || ex instanceof PaymentException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
+        if (ex instanceof BalanceException.InsufficientBalance || ex instanceof PaymentException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
         
         // 쿠폰 만료/소진 -> 410 Gone (더 이상 사용할 수 없음)
         if (ex instanceof CouponException.Expired || ex instanceof CouponException.OutOfStock) return HttpStatus.GONE;

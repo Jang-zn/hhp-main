@@ -345,8 +345,8 @@ class IssueCouponUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.AlreadyIssued.class)
-                .hasMessage("Coupon already issued by user");
+                .isInstanceOf(CouponException.ConcurrencyConflict.class)
+                .hasMessage("Coupon concurrency conflict");
                 
         verify(lockingPort, never()).releaseLock(anyString());
     }
@@ -468,8 +468,8 @@ class IssueCouponUseCaseTest {
             
             // when & then
             assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                    .isInstanceOf(CouponException.AlreadyIssued.class)
-                    .hasMessage("Coupon already issued by user");
+                    .isInstanceOf(CouponException.ConcurrencyConflict.class)
+                    .hasMessage("Coupon concurrency conflict");
             
             verify(lockingPort).acquireLock("coupon-issue-" + couponId);
             verify(lockingPort, never()).releaseLock(anyString());

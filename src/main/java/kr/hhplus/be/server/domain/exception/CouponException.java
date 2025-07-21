@@ -36,4 +36,10 @@ public class CouponException extends RuntimeException {
             super("ERR_COUPON_ALREADY_ISSUED", "Coupon already issued by user");
         }
     }
+    
+    public static class ConcurrencyConflict extends CouponException {
+        public ConcurrencyConflict() {
+            super("ERR_COUPON_CONCURRENCY_CONFLICT", "Coupon concurrency conflict");
+        }
+    }
 } 

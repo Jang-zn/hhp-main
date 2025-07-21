@@ -76,6 +76,7 @@ public class CouponTest {
         // then
         resultActions
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.couponId").value(couponId));
     }
 
