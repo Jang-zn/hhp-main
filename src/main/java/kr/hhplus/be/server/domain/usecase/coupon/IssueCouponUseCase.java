@@ -43,7 +43,7 @@ public class IssueCouponUseCase {
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
                         log.warn("사용자 없음: userId={}", userId);
-                        return new IllegalArgumentException("User not found");
+                        return new IllegalArgumentException(CouponException.Messages.USER_NOT_FOUND);
                     });
             
             // 쿠폰 조회
@@ -112,7 +112,7 @@ public class IssueCouponUseCase {
         
         // 쿠폰 시작 시간 검증
         if (now.isBefore(coupon.getStartDate())) {
-            throw new IllegalStateException("Coupon not yet started");
+            throw new IllegalStateException(CouponException.Messages.COUPON_NOT_YET_STARTED);
         }
         
         // 쿠폰 만료 시간 검증

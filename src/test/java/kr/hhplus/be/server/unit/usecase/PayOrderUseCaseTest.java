@@ -243,7 +243,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage("Coupon not found");
+                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
     }
 
     @Test

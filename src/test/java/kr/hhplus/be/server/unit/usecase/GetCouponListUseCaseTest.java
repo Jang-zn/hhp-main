@@ -155,7 +155,7 @@ class GetCouponListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("User not found");
+                .hasMessage(CouponException.Messages.USER_NOT_FOUND);
     }
 
     @Test
@@ -213,7 +213,7 @@ class GetCouponListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Limit must be greater than 0");
+                .hasMessage(CouponException.Messages.LIMIT_MUST_BE_POSITIVE);
     }
 
     @Test
@@ -231,7 +231,7 @@ class GetCouponListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Offset must be non-negative");
+                .hasMessage(CouponException.Messages.OFFSET_MUST_BE_NON_NEGATIVE);
     }
 
     @ParameterizedTest
@@ -248,12 +248,12 @@ class GetCouponListUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User not found");
+                    .hasMessage(CouponException.Messages.USER_NOT_FOUND);
         } else {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User ID cannot be null");
+                    .hasMessage(CouponException.Messages.USER_ID_CANNOT_BE_NULL);
         }
     }
 

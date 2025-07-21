@@ -15,6 +15,11 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     private final Map<Long, User> users = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong(1L);
     
+    public void clear() {
+        users.clear();
+        nextId.set(1L);
+    }
+    
     @Override
     public Optional<User> findById(Long id) {
         if (id == null) {

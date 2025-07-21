@@ -125,7 +125,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(invalidUserId, couponId);
             
             when(issueCouponUseCase.execute(invalidUserId, couponId))
-                .thenThrow(new RuntimeException("User not found"));
+                .thenThrow(new RuntimeException(CouponException.Messages.USER_NOT_FOUND));
 
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
@@ -141,7 +141,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(userId, invalidCouponId);
             
             when(issueCouponUseCase.execute(userId, invalidCouponId))
-                .thenThrow(new RuntimeException("Coupon not found"));
+                .thenThrow(new RuntimeException(CouponException.Messages.COUPON_NOT_FOUND));
 
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
@@ -237,7 +237,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(10, 0);
             
             when(getCouponListUseCase.execute(invalidUserId, 10, 0))
-                .thenThrow(new RuntimeException("User not found"));
+                .thenThrow(new RuntimeException(CouponException.Messages.USER_NOT_FOUND));
 
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(invalidUserId, request))
