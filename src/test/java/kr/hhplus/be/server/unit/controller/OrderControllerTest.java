@@ -13,9 +13,7 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.PaymentException;
-import kr.hhplus.be.server.domain.exception.ProductException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,9 +57,19 @@ class OrderControllerTest {
         orderController = new OrderController(createOrderUseCase, payOrderUseCase);
     }
 
+
     @Nested
     @DisplayName("주문 생성 테스트")
     class CreateOrderTests {
+        
+        // Test data providers for this nested class
+        static Stream<Arguments> provideOrderData() {
+            return Stream.of(
+                    Arguments.of(1L, List.of(new OrderRequest.ProductQuantity(1L, 2)), List.of(1L)), // 단일 상품, 단일 쿠폰
+                    Arguments.of(2L, List.of(new OrderRequest.ProductQuantity(1L, 1), new OrderRequest.ProductQuantity(2L, 3)), List.of()), // 다중 상품, 쿠폰 없음
+                    Arguments.of(3L, List.of(new OrderRequest.ProductQuantity(3L, 1)), List.of(1L, 2L)) // 단일 상품, 다중 쿠폰
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 정상 주문 생성")
@@ -89,7 +97,7 @@ class OrderControllerTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderData")
+        @MethodSource("provideOrderData")
         @DisplayName("성공케이스: 다양한 주문 데이터로 주문 생성")
         void createOrder_WithDifferentData(Long userId, List<OrderRequest.ProductQuantity> products, List<Long> couponIds) {
             // given
@@ -141,12 +149,12 @@ class OrderControllerTest {
             request.setProducts(products);
 
             when(createOrderUseCase.execute(anyLong(), anyMap()))
-                    .thenThrow(new OrderException.InvalidUser());
+                    .thenThrow(new UserException.InvalidUser());
 
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
-                    .isInstanceOf(OrderException.InvalidUser.class)
-                    .hasMessage("Invalid user ID");
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
 
         @Test
@@ -160,12 +168,12 @@ class OrderControllerTest {
             request.setProducts(products);
 
             when(createOrderUseCase.execute(anyLong(), anyMap()))
-                    .thenThrow(new IllegalArgumentException("Order must contain at least one item"));
+                    .thenThrow(new OrderException.EmptyItems());
 
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Order must contain at least one item");
+                    .isInstanceOf(OrderException.EmptyItems.class)
+                    .hasMessage(OrderException.Messages.EMPTY_ITEMS);
         }
 
         @Test
@@ -186,13 +194,22 @@ class OrderControllerTest {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage("Product out of stock");
+                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
         }
     }
 
     @Nested
     @DisplayName("주문 결제 테스트")
     class PayOrderTests {
+        
+        // Test data providers for this nested class
+        static Stream<Arguments> provideOrderIds() {
+            return Stream.of(
+                    Arguments.of(1L),
+                    Arguments.of(100L),
+                    Arguments.of(999L)
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 정상 주문 결제")
@@ -223,7 +240,7 @@ class OrderControllerTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideOrderIds")
+        @MethodSource("provideOrderIds")
         @DisplayName("성공케이스: 다양한 주문 ID로 결제")
         void payOrder_WithDifferentOrderIds(Long orderId) {
             // given
@@ -255,13 +272,13 @@ class OrderControllerTest {
             Long orderId = 999L;
             
             when(payOrderUseCase.execute(orderId, null, null))
-                    .thenThrow(new PaymentException.OrderNotFound());
+                    .thenThrow(new OrderException.NotFound());
 
             // when & then
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(orderId, request))
-                    .isInstanceOf(PaymentException.OrderNotFound.class)
-                    .hasMessage("Order not found");
+                    .isInstanceOf(OrderException.NotFound.class)
+                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
         }
 
         @Test
@@ -271,13 +288,13 @@ class OrderControllerTest {
             Long orderId = 1L;
             
             when(payOrderUseCase.execute(orderId, null, null))
-                    .thenThrow(new PaymentException.InsufficientBalance());
+                    .thenThrow(new BalanceException.InsufficientBalance());
 
             // when & then
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(orderId, request))
-                    .isInstanceOf(PaymentException.InsufficientBalance.class)
-                    .hasMessage("Insufficient balance");
+                    .isInstanceOf(BalanceException.InsufficientBalance.class)
+                    .hasMessage(BalanceException.Messages.INSUFFICIENT_BALANCE);
         }
     }
 
@@ -451,12 +468,22 @@ class OrderControllerTest {
     @DisplayName("예외 처리 테스트")
     class ExceptionHandlingTests {
         
+        // Test data providers for this nested class
+        static Stream<Arguments> provideInvalidOrderIds() {
+            return Stream.of(
+                    Arguments.of(-1L),
+                    Arguments.of(0L),
+                    Arguments.of(Long.MAX_VALUE)
+            );
+        }
+        
         @Test
         @DisplayName("실패케이스: null 요청으로 주문 생성")
         void createOrder_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(null))
-                    .isInstanceOf(NullPointerException.class);
+                    .isInstanceOf(CommonException.InvalidRequest.class)
+                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
         }
 
         @Test
@@ -465,21 +492,23 @@ class OrderControllerTest {
             // when & then
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(null, request))
-                    .isInstanceOf(NullPointerException.class);
+                    .isInstanceOf(OrderException.NotFound.class)
+                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.OrderControllerTest#provideInvalidOrderIds")
+        @MethodSource("provideInvalidOrderIds")
         @DisplayName("실패케이스: 비정상 주문 ID로 결제")
         void payOrder_WithInvalidOrderIds(Long invalidOrderId) {
             // given
             when(payOrderUseCase.execute(invalidOrderId, null, null))
-                    .thenThrow(new PaymentException.OrderNotFound());
+                    .thenThrow(new OrderException.NotFound());
 
             // when & then
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, request))
-                    .isInstanceOf(PaymentException.OrderNotFound.class);
+                    .isInstanceOf(OrderException.NotFound.class)
+                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
         }
     }
 
@@ -507,30 +536,5 @@ class OrderControllerTest {
                 .totalAmount(totalAmount)
                 .items(orderItems)
                 .build();
-    }
-
-    // Test data providers
-    private static Stream<Arguments> provideOrderData() {
-        return Stream.of(
-                Arguments.of(1L, List.of(new OrderRequest.ProductQuantity(1L, 2)), List.of(1L)), // 단일 상품, 단일 쿠폰
-                Arguments.of(2L, List.of(new OrderRequest.ProductQuantity(1L, 1), new OrderRequest.ProductQuantity(2L, 3)), List.of()), // 다중 상품, 쿠폰 없음
-                Arguments.of(3L, List.of(new OrderRequest.ProductQuantity(3L, 1)), List.of(1L, 2L)) // 단일 상품, 다중 쿠폰
-        );
-    }
-
-    private static Stream<Arguments> provideOrderIds() {
-        return Stream.of(
-                Arguments.of(1L),
-                Arguments.of(100L),
-                Arguments.of(999L)
-        );
-    }
-
-    private static Stream<Arguments> provideInvalidOrderIds() {
-        return Stream.of(
-                Arguments.of(-1L),
-                Arguments.of(0L),
-                Arguments.of(Long.MAX_VALUE)
-        );
     }
 }

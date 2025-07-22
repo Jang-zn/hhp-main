@@ -5,11 +5,9 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,6 +44,22 @@ class CouponControllerTest {
     @BeforeEach
     void setUp() {
         couponController = new CouponController(issueCouponUseCase, getCouponListUseCase);
+    }
+
+    public static Stream<Arguments> provideCouponData() {
+        return Stream.of(
+                Arguments.of(1L, 1L),
+                Arguments.of(2L, 2L),
+                Arguments.of(3L, 3L)
+        );
+    }
+
+    public static Stream<Arguments> providePaginationData() {
+        return Stream.of(
+                Arguments.of(1L, 5, 0),
+                Arguments.of(2L, 10, 5),
+                Arguments.of(3L, 20, 0)
+        );
     }
 
     @Nested
@@ -125,11 +139,12 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(invalidUserId, couponId);
             
             when(issueCouponUseCase.execute(invalidUserId, couponId))
-                .thenThrow(new RuntimeException(CouponException.Messages.USER_NOT_FOUND));
+                .thenThrow(new UserException.NotFound());
 
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(UserException.NotFound.class)
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
         }
 
         @Test
@@ -141,11 +156,12 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(userId, invalidCouponId);
             
             when(issueCouponUseCase.execute(userId, invalidCouponId))
-                .thenThrow(new RuntimeException(CouponException.Messages.COUPON_NOT_FOUND));
+                .thenThrow(new CouponException.NotFound());
 
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(CouponException.NotFound.class)
+                    .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
         }
 
         @Test
@@ -153,7 +169,7 @@ class CouponControllerTest {
         void issueCoupon_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(CommonException.InvalidRequest.class);
         }
     }
 
@@ -237,11 +253,12 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest(10, 0);
             
             when(getCouponListUseCase.execute(invalidUserId, 10, 0))
-                .thenThrow(new RuntimeException(CouponException.Messages.USER_NOT_FOUND));
+                .thenThrow(new UserException.NotFound());
 
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(invalidUserId, request))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(UserException.NotFound.class)
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
         }
 
         @Test
@@ -252,7 +269,8 @@ class CouponControllerTest {
 
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(null, request))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(UserException.UserIdCannotBeNull.class)
+                    .hasMessage(UserException.Messages.USER_ID_CANNOT_BE_NULL);
         }
 
         @Test
@@ -264,24 +282,8 @@ class CouponControllerTest {
 
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(userId, invalidRequest))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(CommonException.InvalidPagination.class);
         }   
-    }
-
-    private static Stream<Arguments> provideCouponData() {
-        return Stream.of(
-                Arguments.of(1L, 1L),
-                Arguments.of(2L, 2L),
-                Arguments.of(3L, 3L)
-        );
-    }
-
-    private static Stream<Arguments> providePaginationData() {
-        return Stream.of(
-                Arguments.of(1L, 5, 0),
-                Arguments.of(2L, 10, 5),
-                Arguments.of(3L, 20, 0)
-        );
     }
 
 }

@@ -6,6 +6,9 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
+import kr.hhplus.be.server.domain.exception.CommonException;
+import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 
@@ -32,10 +35,10 @@ public class CouponController {
     @PostMapping("/issue")
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
+            throw new CommonException.InvalidRequest();
         }
         if (request.getUserId() == null || request.getCouponId() == null) {
-            throw new IllegalArgumentException("UserId and CouponId are required");
+            throw new CouponException.UserIdAndCouponIdRequired();
         }
         
         CouponHistory couponHistory = issueCouponUseCase.execute(request.getUserId(), request.getCouponId());
@@ -53,13 +56,13 @@ public class CouponController {
             @PathVariable Long userId,
             @Valid CouponRequest request) {
         if (userId == null) {
-            throw new IllegalArgumentException("UserId cannot be null");
+            throw new UserException.UserIdCannotBeNull();
         }
         if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
+            throw new CommonException.InvalidRequest();
         }
         if (request.getLimit() < 0 || request.getOffset() < 0) {
-            throw new IllegalArgumentException("Invalid pagination parameters");
+            throw new CommonException.InvalidPagination();
         }
         
         List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());

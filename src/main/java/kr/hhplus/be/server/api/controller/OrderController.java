@@ -9,9 +9,9 @@ import kr.hhplus.be.server.api.swagger.ApiCreate;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
+import kr.hhplus.be.server.domain.exception.CommonException;
+import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.usecase.order.*;
-import org.springframework.validation.annotation.Validated;
-
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +40,10 @@ public class OrderController {
     @ResponseStatus(HttpStatus.CREATED)
   
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
         // 상품 수량 정보를 Map<Long, Integer> 형태로 변환
         Map<Long, Integer> productQuantities;
         
@@ -88,6 +92,13 @@ public class OrderController {
     public PaymentResponse payOrder(
             @PathVariable Long orderId,
             @Valid @RequestBody OrderRequest request) {
+        if (orderId == null) {
+            throw new OrderException.NotFound();
+        }
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
         Payment payment = payOrderUseCase.execute(orderId, request.getUserId(), request.getCouponId());
         
         return new PaymentResponse(

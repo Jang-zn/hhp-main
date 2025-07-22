@@ -4,6 +4,7 @@ import kr.hhplus.be.server.api.controller.ProductController;
 import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +25,6 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,9 +44,19 @@ class ProductControllerTest {
         productController = new ProductController(getProductUseCase, getPopularProductListUseCase);
     }
 
+
     @Nested
     @DisplayName("상품 목록 조회 테스트")
     class GetProductsTests {
+        
+        private static Stream<Arguments> providePaginationData() {
+            return Stream.of(
+                    Arguments.of(5, 0), // 작은 페이지 크기
+                    Arguments.of(10, 10), // 오프셋 적용
+                    Arguments.of(20, 0), // 큰 페이지 크기
+                    Arguments.of(1, 0) // 최소 페이지 크기
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 정상 상품 목록 조회")
@@ -71,7 +81,7 @@ class ProductControllerTest {
     }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.ProductControllerTest#providePaginationData")
+        @MethodSource("providePaginationData")
         @DisplayName("성공케이스: 다양한 페이지네이션으로 상품 조회")
         void getProducts_WithDifferentPagination(int limit, int offset) {
         // given
@@ -97,7 +107,8 @@ class ProductControllerTest {
         void getProducts_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> productController.getProductList(null))
-                    .isInstanceOf(NullPointerException.class);
+                    .isInstanceOf(CommonException.InvalidRequest.class)
+                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
         }
 
         @Test
@@ -105,11 +116,11 @@ class ProductControllerTest {
         void getProducts_WithInvalidPagination() {
             // given
             ProductRequest invalidRequest = new ProductRequest(-1, -1);
-            when(getProductUseCase.execute(-1, -1)).thenThrow(new IllegalArgumentException("Invalid pagination parameters"));
+            when(getProductUseCase.execute(-1, -1)).thenThrow(new CommonException.InvalidPagination());
             
             // when & then
             assertThatThrownBy(() -> productController.getProductList(invalidRequest))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(CommonException.InvalidPagination.class);
         }
     }
 
@@ -146,17 +157,9 @@ class ProductControllerTest {
         void getPopularProducts_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> productController.getPopularProducts(null))
-                    .isInstanceOf(NullPointerException.class);
+                    .isInstanceOf(CommonException.InvalidRequest.class)
+                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
         }
-    }
-
-    private static Stream<Arguments> providePaginationData() {
-        return Stream.of(
-                Arguments.of(5, 0), // 작은 페이지 크기
-                Arguments.of(10, 10), // 오프셋 적용
-                Arguments.of(20, 0), // 큰 페이지 크기
-                Arguments.of(1, 0) // 최소 페이지 크기
-        );
     }
 
 } 
