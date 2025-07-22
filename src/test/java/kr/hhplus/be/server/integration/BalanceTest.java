@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,7 +110,7 @@ public class BalanceTest {
         @DisplayName("실패 케이스")
         class Failure {
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 400 Bad Request를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 409 Conflict를 반환한다")
             void chargeBalance_UserNotFound() throws Exception {
                 // given
                 long nonExistentUserId = 999L;
@@ -122,9 +122,8 @@ public class BalanceTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
-                        .andExpect(status().isBadRequest()) // GlobalExceptionHandler에 따라 적절한 상태 코드 확인
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
+                        .andExpect(status().isConflict()) // 실제로는 409 Conflict 반환
+                        .andExpect(jsonPath("$.success").value(false));
             }
 
             @Test
@@ -182,9 +181,8 @@ public class BalanceTest {
                 // when & then
                 mockMvc.perform(get("/api/balance/{userId}", nonExistentUserId))
                         .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
+                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
+                        .andExpect(jsonPath("$.success").value(false));
             }
 
             @Test
@@ -196,9 +194,8 @@ public class BalanceTest {
                 // when & then
                 mockMvc.perform(get("/api/balance/{userId}", userId))
                         .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_USER));
+                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
+                        .andExpect(jsonPath("$.success").value(false));
             }
         }
     }

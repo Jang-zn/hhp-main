@@ -7,10 +7,7 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.exception.BalanceException;
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -189,7 +186,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.NotFound.class)
-                .hasMessage("Order not found");
+                .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
         
         verify(lockingPort, times(2)).releaseLock(anyString());
     }
@@ -218,7 +215,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.Unauthorized.class)
-                .hasMessage("Unauthorized access to order");
+                .hasMessage(OrderException.Messages.UNAUTHORIZED_ACCESS);
     }
 
     @Test
@@ -269,7 +266,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(BalanceException.InsufficientBalance.class)
-                .hasMessage("Insufficient balance");
+                .hasMessage(BalanceException.Messages.INSUFFICIENT_BALANCE);
     }
 
     @Test
@@ -284,8 +281,8 @@ class PayOrderUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
-                .isInstanceOf(OrderException.ConcurrencyConflict.class)
-                .hasMessage("Concurrent order creation conflict");
+                .isInstanceOf(CommonException.ConcurrencyConflict.class)
+                .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
     }
 
     @Test
@@ -337,7 +334,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.Unauthorized.class)
-                .hasMessage("Unauthorized access to order");
+                .hasMessage(OrderException.Messages.UNAUTHORIZED_ACCESS);
     }
 
     @Test
