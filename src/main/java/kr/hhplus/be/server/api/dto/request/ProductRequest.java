@@ -4,22 +4,23 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import kr.hhplus.be.server.domain.exception.*;
 
 @Schema(description = "상품 관련 요청")
 public class ProductRequest {
     
     @Schema(description = "페이지 크기", example = "10", defaultValue = "10")
-    @Positive(message = "limit은 양수여야 합니다")
-    @Max(value = 100, message = "limit은 100 이하여야 합니다")
+    @Positive(message = CommonException.Messages.INVALID_LIMIT)
+    @Max(value = 100, message = CommonException.Messages.LIMIT_EXCEEDED)
     private int limit = 10;
     
     @Schema(description = "페이지 오프셋", example = "0", defaultValue = "0")
-    @PositiveOrZero(message = "offset은 0 이상이어야 합니다")
+    @PositiveOrZero(message = CommonException.Messages.INVALID_OFFSET)
     private int offset = 0;
     
     @Schema(description = "조회 기간(일)", example = "3", defaultValue = "3")
-    @Positive(message = "조회 기간(일)은 양수여야 합니다")
-    @Max(value = 30, message = "조회 기간은 30일 이하여야 합니다")
+    @Positive(message = ProductException.Messages.DAYS_MUST_BE_POSITIVE)
+    @Max(value = 30, message = ProductException.Messages.DAYS_CANNOT_EXCEED_MAX)
     private int days = 3;
 
     // 기본 생성자

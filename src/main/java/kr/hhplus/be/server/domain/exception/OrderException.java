@@ -33,7 +33,6 @@ public class OrderException extends RuntimeException {
         
         // Repository 레벨 validation 메시지들
         public static final String ORDER_CANNOT_BE_NULL = "주문은 null일 수 없습니다";
-        public static final String ORDER_USER_CANNOT_BE_NULL = "주문 사용자는 null일 수 없습니다";
         public static final String ORDER_ITEMS_CANNOT_BE_NULL = "주문 상품들은 null일 수 없습니다";
         public static final String ORDER_ITEMS_CANNOT_BE_EMPTY = "주문 상품들은 비어있을 수 없습니다";
     }
@@ -106,11 +105,6 @@ public class OrderException extends RuntimeException {
         }
     }
 
-    public static class OrderUserCannotBeNull extends OrderException {
-        public OrderUserCannotBeNull() {
-            super("ERR_ORDER_USER_CANNOT_BE_NULL", Messages.ORDER_USER_CANNOT_BE_NULL);
-        }
-    }
 
     public static class OrderItemsCannotBeNull extends OrderException {
         public OrderItemsCannotBeNull() {

@@ -118,3 +118,4 @@ public class UserException extends RuntimeException {
             super("ERR_USER_CANNOT_BE_NULL", Messages.USER_CANNOT_BE_NULL);
         }
     }
+}

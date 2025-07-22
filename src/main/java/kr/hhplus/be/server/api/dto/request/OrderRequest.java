@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.Valid;
+import kr.hhplus.be.server.domain.exception.*;
 
 import java.util.List;
 
@@ -12,12 +13,12 @@ import java.util.List;
 public class OrderRequest {
     
     @Schema(description = "사용자 ID", example = "1")
-    @NotNull(message = "사용자 ID는 필수입니다")
-    @Positive(message = "사용자 ID는 양수여야 합니다")
+    @NotNull(message = UserException.Messages.INVALID_USER_ID)
+    @Positive(message = UserException.Messages.INVALID_USER_ID_POSITIVE)
     private Long userId;
     
     @Schema(description = "상품 ID 목록", example = "[1, 2, 3]")
-    @NotEmpty(message = "상품 목록은 필수입니다")
+    @NotEmpty(message = OrderException.Messages.EMPTY_ITEMS)
     private List<Long> productIds;
     
     @Schema(description = "상품 정보 목록 (ID와 수량)", example = "[{\"productId\": 1, \"quantity\": 2}, {\"productId\": 2, \"quantity\": 1}]")
@@ -28,7 +29,7 @@ public class OrderRequest {
     private List<Long> couponIds;
     
     @Schema(description = "쿠폰 ID (결제 시 사용)", example = "1")
-    @Positive(message = "쿠폰 ID는 양수여야 합니다")
+    @Positive(message = CouponException.Messages.INVALID_COUPON_ID_POSITIVE)
     private Long couponId;
 
     // 기본 생성자
@@ -62,13 +63,13 @@ public class OrderRequest {
     @Schema(description = "상품 정보 (ID와 수량)")
     public static class ProductQuantity {
         @Schema(description = "상품 ID", example = "1")
-        @NotNull(message = "상품 ID는 필수입니다")
-        @Positive(message = "상품 ID는 양수여야 합니다")
+        @NotNull(message = ProductException.Messages.PRODUCT_ID_CANNOT_BE_NULL)
+        @Positive(message = ProductException.Messages.PRODUCT_ID_CANNOT_BE_NEGATIVE)
         private Long productId;
         
         @Schema(description = "수량", example = "2")
-        @NotNull(message = "수량은 필수입니다")
-        @Positive(message = "수량은 양수여야 합니다")
+        @NotNull(message = ProductException.Messages.PRODUCT_QUANTITY_CANNOT_BE_NULL)
+        @Positive(message = ProductException.Messages.PRODUCT_QUANTITY_CANNOT_BE_NEGATIVE)
         private Integer quantity;
         
         public ProductQuantity() {}

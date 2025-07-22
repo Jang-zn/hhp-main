@@ -2,16 +2,16 @@ package kr.hhplus.be.server.domain.exception;
 
 public class ProductException extends RuntimeException {
     private final String errorCode;
-    
+
     public ProductException(String errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
     }
-    
+
     public String getErrorCode() {
         return errorCode;
     }
-    
+
     // 메시지 상수들
     public static class Messages {
         // Validation 메시지들
@@ -21,43 +21,38 @@ public class ProductException extends RuntimeException {
         public static final String PRODUCT_QUANTITY_CANNOT_BE_NEGATIVE = "상품 수량은 0보다 커야 합니다";
         public static final String INVALID_DAYS_POSITIVE = "조회 기간(일)은 양수여야 합니다";
         public static final String INVALID_DAYS_MAX = "조회 기간은 30일 이하여야 합니다";
-        
+
         // UseCase 메시지들
-        public static final String PRODUCT_ID_CANNOT_BE_NULL_USECASE = "상품 ID는 null일 수 없습니다";
         public static final String DAYS_MUST_BE_POSITIVE = "조회 기간은 0보다 커야 합니다";
         public static final String DAYS_CANNOT_EXCEED_MAX = "조회 기간은 30일을 초과할 수 없습니다";
         public static final String FAILED_TO_RETRIEVE_PRODUCT = "상품 조회에 실패했습니다";
         public static final String FAILED_TO_RETRIEVE_POPULAR_PRODUCTS = "인기 상품 조회에 실패했습니다";
-        
-        // Controller 메시지들
-        public static final String PRODUCTID_CANNOT_BE_NULL = "상품 ID는 null일 수 없습니다";
-        
+
         // 비즈니스 로직 메시지들
         public static final String PRODUCT_NOT_FOUND = "상품을 찾을 수 없습니다";
         public static final String OUT_OF_STOCK = "상품이 품절되었습니다";
         public static final String INVALID_RESERVATION = "잘못된 예약입니다";
-        
+
         // Repository 레벨 validation 메시지들
         public static final String PRODUCT_CANNOT_BE_NULL = "상품은 null일 수 없습니다";
-        public static final String PRODUCT_ID_CANNOT_BE_NULL_REPO = "상품 ID는 null일 수 없습니다";
         public static final String PRODUCT_NAME_CANNOT_BE_NULL = "상품명은 null일 수 없습니다";
         public static final String PRODUCT_PRICE_CANNOT_BE_NEGATIVE = "상품 가격은 음수일 수 없습니다";
         public static final String PRODUCT_STOCK_CANNOT_BE_NEGATIVE = "상품 재고는 음수일 수 없습니다";
     }
-    
+
     // 상품 관련 예외들
     public static class NotFound extends ProductException {
         public NotFound() {
             super("ERR_PRODUCT_NOT_FOUND", Messages.PRODUCT_NOT_FOUND);
         }
     }
-    
+
     public static class OutOfStock extends ProductException {
         public OutOfStock() {
             super("ERR_PRODUCT_OUT_OF_STOCK", Messages.OUT_OF_STOCK);
         }
     }
-    
+
     public static class InvalidReservation extends ProductException {
         public InvalidReservation(String message) {
             super("ERR_PRODUCT_INVALID_RESERVATION", message);
@@ -134,4 +129,5 @@ public class ProductException extends RuntimeException {
         public ProductStockCannotBeNegative() {
             super("ERR_PRODUCT_STOCK_CANNOT_BE_NEGATIVE", Messages.PRODUCT_STOCK_CANNOT_BE_NEGATIVE);
         }
-    } 
+    }
+}

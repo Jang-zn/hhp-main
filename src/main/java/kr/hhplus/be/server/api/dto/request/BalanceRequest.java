@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 
 import java.math.BigDecimal;
 
@@ -12,8 +12,8 @@ import java.math.BigDecimal;
 public class BalanceRequest {
     
     @Schema(description = "사용자 ID", example = "1", required = true)
-    @NotNull(message = BalanceException.Messages.INVALID_USER_ID)
-    @Positive(message = BalanceException.Messages.INVALID_USER_ID_POSITIVE)
+    @NotNull(message = UserException.Messages.INVALID_USER_ID)
+    @Positive(message = UserException.Messages.INVALID_USER_ID_POSITIVE)
     private Long userId;
     
     @Schema(description = "충전 금액", example = "10000", required = true)

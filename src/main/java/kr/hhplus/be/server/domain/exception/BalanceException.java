@@ -29,24 +29,16 @@ public class BalanceException extends RuntimeException {
         // 비즈니스 로직 메시지들
         public static final String BALANCE_NOT_FOUND = "잔액 정보를 찾을 수 없습니다";
         public static final String INSUFFICIENT_BALANCE = "잔액이 부족합니다";
-        public static final String INVALID_USER = "잔액 작업에 유효하지 않은 사용자입니다";
         public static final String INVALID_AMOUNT = "잔액 작업에 유효하지 않은 금액입니다";
         
         // Repository 레벨 validation 메시지들
         public static final String BALANCE_CANNOT_BE_NULL = "잔액은 null일 수 없습니다";
-        public static final String BALANCE_USER_CANNOT_BE_NULL = "잔액 사용자는 null일 수 없습니다";
     }
     
     // 잔액 관련 예외들
     public static class NotFound extends BalanceException {
         public NotFound() {
             super("ERR_BALANCE_NOT_FOUND", Messages.BALANCE_NOT_FOUND);
-        }
-    }
-    
-    public static class InvalidUser extends BalanceException {
-        public InvalidUser() {
-            super("ERR_BALANCE_INVALID_USER", Messages.INVALID_USER);
         }
     }
     
@@ -101,12 +93,6 @@ public class BalanceException extends RuntimeException {
     public static class BalanceCannotBeNull extends BalanceException {
         public BalanceCannotBeNull() {
             super("ERR_BALANCE_CANNOT_BE_NULL", Messages.BALANCE_CANNOT_BE_NULL);
-        }
-    }
-
-    public static class BalanceUserCannotBeNull extends BalanceException {
-        public BalanceUserCannotBeNull() {
-            super("ERR_BALANCE_USER_CANNOT_BE_NULL", Messages.BALANCE_USER_CANNOT_BE_NULL);
         }
     }
 }

@@ -17,6 +17,7 @@ import kr.hhplus.be.server.api.dto.response.ProductResponse;
  * {
  *   "success": true/false,
  *   "message": "성공/실패 메시지",
+ *   "errorCode": "에러 코드 (실패 시에만)",
  *   "data": 실제 응답 데이터 (성공 시에만),
  *   "timestamp": "2024-01-01T12:00:00"
  * }
@@ -32,6 +33,9 @@ public class CommonResponse<T> {
 
     @Schema(description = "응답 메시지", example = "요청이 성공했습니다")
     private String message;       // 응답 메시지 (성공/실패 메시지)
+
+    @Schema(description = "에러 코드 (실패 시에만)", example = "ERR_USER_NOT_FOUND")
+    private String errorCode;     // 에러 코드 (실패 시에만 존재)
 
     @Schema(description = "응답 데이터", anyOf = {
         BalanceResponse.class, 
@@ -63,6 +67,20 @@ public class CommonResponse<T> {
     private CommonResponse(String message) {
         this.success = false;
         this.message = message;
+        this.errorCode = null;
+        this.data = null;
+        this.timestamp = LocalDateTime.now();
+    }
+
+    /**
+     * 실패 응답용 private 생성자 (에러 코드 포함)
+     * @param message 실패 메시지
+     * @param errorCode 에러 코드
+     */
+    private CommonResponse(String message, String errorCode) {
+        this.success = false;
+        this.message = message;
+        this.errorCode = errorCode;
         this.data = null;
         this.timestamp = LocalDateTime.now();
     }
@@ -105,10 +123,22 @@ public class CommonResponse<T> {
     public static <T> CommonResponse<T> failure(String message) {
         return new CommonResponse<>(message);
     }
+
+    /**
+     * 실패 응답 생성 (에러 코드 포함)
+     * GlobalExceptionHandler에서 도메인 예외 발생 시 사용
+     * @param message 실패 메시지
+     * @param errorCode 에러 코드
+     * @return CommonResponse 객체
+     */
+    public static <T> CommonResponse<T> failure(String message, String errorCode) {
+        return new CommonResponse<>(message, errorCode);
+    }
     
     // JSON 직렬화를 위한 Getter 메서드들
     public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
+    public String getErrorCode() { return errorCode; }
     public T getData() { return data; }
     public LocalDateTime getTimestamp() { return timestamp; }
 } 
