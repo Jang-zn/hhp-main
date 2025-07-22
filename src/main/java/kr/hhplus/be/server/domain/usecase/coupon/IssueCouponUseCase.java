@@ -112,7 +112,7 @@ public class IssueCouponUseCase {
         
         // 쿠폰 시작 시간 검증
         if (now.isBefore(coupon.getStartDate())) {
-            throw new IllegalStateException(CouponException.Messages.COUPON_NOT_YET_STARTED);
+            throw new CouponException.CouponNotYetStarted();
         }
         
         // 쿠폰 만료 시간 검증
