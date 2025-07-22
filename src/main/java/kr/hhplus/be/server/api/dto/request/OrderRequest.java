@@ -18,7 +18,6 @@ public class OrderRequest {
     private Long userId;
     
     @Schema(description = "상품 ID 목록", example = "[1, 2, 3]")
-    @NotEmpty(message = OrderException.Messages.EMPTY_ITEMS)
     private List<Long> productIds;
     
     @Schema(description = "상품 정보 목록 (ID와 수량)", example = "[{\"productId\": 1, \"quantity\": 2}, {\"productId\": 2, \"quantity\": 1}]")

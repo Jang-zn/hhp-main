@@ -13,6 +13,10 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
+import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
+import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
+import kr.hhplus.be.server.domain.usecase.order.CheckOrderAccessUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,11 +54,23 @@ class OrderControllerTest {
     
     @Mock
     private PayOrderUseCase payOrderUseCase;
+    
+    @Mock
+    private GetOrderUseCase getOrderUseCase;
+    
+    @Mock
+    private GetOrderListUseCase getOrderListUseCase;
+    
+    @Mock
+    private CheckOrderAccessUseCase checkOrderAccessUseCase;
+    
+    @Mock
+    private ValidateCouponUseCase validateCouponUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        orderController = new OrderController(createOrderUseCase, payOrderUseCase);
+        orderController = new OrderController(createOrderUseCase, payOrderUseCase, getOrderUseCase, getOrderListUseCase, checkOrderAccessUseCase, validateCouponUseCase);
     }
 
 

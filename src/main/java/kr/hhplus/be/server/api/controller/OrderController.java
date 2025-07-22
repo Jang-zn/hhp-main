@@ -11,7 +11,9 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.OrderException;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.usecase.order.*;
+import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,6 +36,10 @@ public class OrderController {
 
     private final CreateOrderUseCase createOrderUseCase;
     private final PayOrderUseCase payOrderUseCase;
+    private final GetOrderUseCase getOrderUseCase;
+    private final GetOrderListUseCase getOrderListUseCase;
+    private final CheckOrderAccessUseCase checkOrderAccessUseCase;
+    private final ValidateCouponUseCase validateCouponUseCase;
 
     @ApiCreate(summary = "주문 생성")
     @PostMapping
@@ -62,8 +68,12 @@ public class OrderController {
                             productId -> 1
                     ));
         } else {
-            productQuantities = new HashMap<>();
+            // 상품 정보가 없는 경우 예외 처리
+            throw new OrderException.EmptyItems();
         }
+        
+        // 쿠폰 유효성 검증 (있는 경우에만)
+        validateCouponUseCase.execute(request.getCouponIds());
         
         Order order = createOrderUseCase.execute(request.getUserId(), productQuantities);
         
@@ -108,5 +118,73 @@ public class OrderController {
                 payment.getAmount(),
                 payment.getCreatedAt()  // paidAt 대신 createdAt 사용
         );
+    }
+
+    @ApiSuccess(summary = "단일 주문 조회")
+    @GetMapping("/{orderId}")
+    public OrderResponse getOrder(
+            @PathVariable Long orderId,
+            @RequestParam Long userId) {
+        if (orderId == null) {
+            throw new OrderException.NotFound();
+        }
+        if (userId == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
+        // CheckOrderAccessUseCase를 사용해서 권한과 존재 여부를 적절히 구분
+        Order order = checkOrderAccessUseCase.execute(userId, orderId);
+        
+        // OrderItem들을 OrderItemResponse로 변환
+        List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
+                .map(item -> new OrderResponse.OrderItemResponse(
+                        item.getProduct().getId(),
+                        item.getProduct().getName(),
+                        item.getQuantity(),
+                        item.getProduct().getPrice()
+                ))
+                .collect(Collectors.toList());
+        
+        return new OrderResponse(
+                order.getId(),
+                order.getUser().getId(),
+                order.getStatus().name(),
+                order.getTotalAmount(),
+                order.getCreatedAt(),
+                itemResponses
+        );
+    }
+
+    @ApiSuccess(summary = "사용자 주문 목록 조회")
+    @GetMapping("/user/{userId}")
+    public List<OrderResponse> getUserOrders(@PathVariable Long userId) {
+        if (userId == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
+        List<Order> orders = getOrderListUseCase.execute(userId);
+        
+        return orders.stream()
+                .map(order -> {
+                    // OrderItem들을 OrderItemResponse로 변환
+                    List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
+                            .map(item -> new OrderResponse.OrderItemResponse(
+                                    item.getProduct().getId(),
+                                    item.getProduct().getName(),
+                                    item.getQuantity(),
+                                    item.getProduct().getPrice()
+                            ))
+                            .collect(Collectors.toList());
+                    
+                    return new OrderResponse(
+                            order.getId(),
+                            order.getUser().getId(),
+                            order.getStatus().name(),
+                            order.getTotalAmount(),
+                            order.getCreatedAt(),
+                            itemResponses
+                    );
+                })
+                .collect(Collectors.toList());
     }
 } 
