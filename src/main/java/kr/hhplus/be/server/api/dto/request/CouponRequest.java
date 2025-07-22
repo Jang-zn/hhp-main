@@ -5,10 +5,13 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.domain.exception.*;
 
+import java.util.Map;
+
 @Schema(description = "쿠폰 관련 요청")
-public class CouponRequest {
+public class CouponRequest implements DocumentedDto {
     
     @Schema(description = "사용자 ID", example = "1")
     @NotNull(message = UserException.Messages.INVALID_USER_ID)
@@ -51,4 +54,14 @@ public class CouponRequest {
     public void setLimit(int limit) { this.limit = limit; }
     public int getOffset() { return offset; }
     public void setOffset(int offset) { this.offset = offset; }
+
+    @Override
+    public Map<String, SchemaInfo> getFieldDocumentation() {
+        return Map.of(
+                "userId", new SchemaInfo("사용자 ID", "1"),
+                "couponId", new SchemaInfo("쿠폰 ID", "1"),
+                "limit", new SchemaInfo("페이지 크기", "10", false),
+                "offset", new SchemaInfo("페이지 오프셋", "0", false)
+        );
+    }
 }
