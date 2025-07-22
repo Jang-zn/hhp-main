@@ -19,10 +19,6 @@ public class ProductException extends RuntimeException {
         public static final String PRODUCT_ID_CANNOT_BE_NEGATIVE = "상품 ID는 양수여야 합니다";
         public static final String PRODUCT_QUANTITY_CANNOT_BE_NULL = "상품 수량은 필수입니다";
         public static final String PRODUCT_QUANTITY_CANNOT_BE_NEGATIVE = "상품 수량은 0보다 커야 합니다";
-        public static final String INVALID_DAYS_POSITIVE = "조회 기간(일)은 양수여야 합니다";
-        public static final String INVALID_DAYS_MAX = "조회 기간은 30일 이하여야 합니다";
-
-        // UseCase 메시지들
         public static final String DAYS_MUST_BE_POSITIVE = "조회 기간은 0보다 커야 합니다";
         public static final String DAYS_CANNOT_EXCEED_MAX = "조회 기간은 30일을 초과할 수 없습니다";
         public static final String FAILED_TO_RETRIEVE_PRODUCT = "상품 조회에 실패했습니다";
@@ -85,13 +81,13 @@ public class ProductException extends RuntimeException {
 
     public static class InvalidDaysPositive extends ProductException {
         public InvalidDaysPositive() {
-            super("ERR_PRODUCT_INVALID_DAYS_POSITIVE", Messages.INVALID_DAYS_POSITIVE);
+            super("ERR_PRODUCT_INVALID_DAYS_POSITIVE", Messages.DAYS_MUST_BE_POSITIVE);
         }
     }
 
     public static class InvalidDaysMax extends ProductException {
         public InvalidDaysMax() {
-            super("ERR_PRODUCT_INVALID_DAYS_MAX", Messages.INVALID_DAYS_MAX);
+            super("ERR_PRODUCT_INVALID_DAYS_MAX", Messages.DAYS_CANNOT_EXCEED_MAX);
         }
     }
 

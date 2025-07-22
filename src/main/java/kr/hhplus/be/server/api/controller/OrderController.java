@@ -103,7 +103,7 @@ public class OrderController {
             @PathVariable Long orderId,
             @Valid @RequestBody OrderRequest request) {
         if (orderId == null) {
-            throw new OrderException.NotFound();
+            throw new OrderException.OrderIdCannotBeNull();
         }
         if (request == null) {
             throw new CommonException.InvalidRequest();
@@ -126,7 +126,7 @@ public class OrderController {
             @PathVariable Long orderId,
             @RequestParam Long userId) {
         if (orderId == null) {
-            throw new OrderException.NotFound();
+            throw new OrderException.OrderIdCannotBeNull();
         }
         if (userId == null) {
             throw new CommonException.InvalidRequest();

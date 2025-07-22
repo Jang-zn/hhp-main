@@ -16,10 +16,9 @@ public class PaymentException extends RuntimeException {
     public static class Messages {
         // Validation 메시지들
         public static final String FAILED_TO_PROCESS_PAYMENT = "결제 처리에 실패했습니다";
-        
+        public static final String PAYMENT_ID_CANNOT_BE_NULL = "결제 ID는 null일 수 없습니다";
         // Repository 레벨 validation 메시지들
         public static final String PAYMENT_CANNOT_BE_NULL = "결제는 null일 수 없습니다";
-        public static final String PAYMENT_ORDER_CANNOT_BE_NULL = "결제 주문은 null일 수 없습니다";
         public static final String PAYMENT_AMOUNT_CANNOT_BE_NEGATIVE = "결제 금액은 음수일 수 없습니다";
         public static final String PAYMENT_STATUS_CANNOT_BE_NULL = "결제 상태는 null일 수 없습니다";
     }
@@ -32,15 +31,15 @@ public class PaymentException extends RuntimeException {
         }
     }
 
-    public static class PaymentCannotBeNull extends PaymentException {
-        public PaymentCannotBeNull() {
-            super("ERR_PAYMENT_CANNOT_BE_NULL", Messages.PAYMENT_CANNOT_BE_NULL);
+    public static class PaymentIdCannotBeNull extends PaymentException {
+        public PaymentIdCannotBeNull() {
+            super("ERR_PAYMENT_ID_CANNOT_BE_NULL", Messages.PAYMENT_ID_CANNOT_BE_NULL);
         }
     }
 
-    public static class PaymentOrderCannotBeNull extends PaymentException {
-        public PaymentOrderCannotBeNull() {
-            super("ERR_PAYMENT_ORDER_CANNOT_BE_NULL", Messages.PAYMENT_ORDER_CANNOT_BE_NULL);
+    public static class PaymentCannotBeNull extends PaymentException {
+        public PaymentCannotBeNull() {
+            super("ERR_PAYMENT_CANNOT_BE_NULL", Messages.PAYMENT_CANNOT_BE_NULL);
         }
     }
 

@@ -508,8 +508,8 @@ class OrderControllerTest {
             // when & then
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(null, request))
-                    .isInstanceOf(OrderException.NotFound.class)
-                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
+                    .isInstanceOf(OrderException.OrderIdCannotBeNull.class)
+                    .hasMessage(OrderException.Messages.ORDER_ID_CANNOT_BE_NULL);
         }
 
         @ParameterizedTest

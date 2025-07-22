@@ -33,6 +33,7 @@ public class OrderException extends RuntimeException {
         
         // Repository 레벨 validation 메시지들
         public static final String ORDER_CANNOT_BE_NULL = "주문은 null일 수 없습니다";
+        public static final String ORDER_ID_CANNOT_BE_NULL = "주문 ID는 null일 수 없습니다";
         public static final String ORDER_ITEMS_CANNOT_BE_NULL = "주문 상품들은 null일 수 없습니다";
         public static final String ORDER_ITEMS_CANNOT_BE_EMPTY = "주문 상품들은 비어있을 수 없습니다";
     }
@@ -41,6 +42,11 @@ public class OrderException extends RuntimeException {
     public static class NotFound extends OrderException {
         public NotFound() {
             super("ERR_ORDER_NOT_FOUND", Messages.ORDER_NOT_FOUND);
+        }
+    }
+    public static class OrderIdCannotBeNull extends OrderException {
+        public OrderIdCannotBeNull() {
+            super("ERR_ORDER_ID_CANNOT_BE_NULL", Messages.ORDER_ID_CANNOT_BE_NULL);
         }
     }
     

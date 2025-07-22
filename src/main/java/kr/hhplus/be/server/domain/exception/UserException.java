@@ -19,14 +19,10 @@ public class UserException extends RuntimeException {
         public static final String INVALID_USER_ID_POSITIVE = "사용자 ID는 양수여야 합니다";
         public static final String INVALID_USER_NAME = "사용자명은 필수입니다";
         
-        // UseCase 메시지들
+        // Null 검증 메시지들 (통합)
         public static final String USER_ID_CANNOT_BE_NULL = "사용자 ID는 null일 수 없습니다";
         public static final String USER_NAME_CANNOT_BE_NULL = "사용자명은 null일 수 없습니다";
-        public static final String FAILED_TO_RETRIEVE_USER = "사용자 조회에 실패했습니다";
-        public static final String FAILED_TO_CREATE_USER = "사용자 생성에 실패했습니다";
-        
-        // Controller 메시지들
-        public static final String USERID_CANNOT_BE_NULL = "사용자 ID는 null일 수 없습니다";
+        public static final String USER_CANNOT_BE_NULL = "사용자는 null일 수 없습니다";
         
         // 비즈니스 로직 메시지들
         public static final String USER_NOT_FOUND = "사용자를 찾을 수 없습니다";
@@ -34,10 +30,9 @@ public class UserException extends RuntimeException {
         public static final String USER_ALREADY_EXISTS = "이미 존재하는 사용자입니다";
         public static final String INVALID_USER_CREDENTIALS = "유효하지 않은 사용자 정보입니다";
         
-        // Repository 레벨 validation 메시지들
-        public static final String USER_CANNOT_BE_NULL = "사용자는 null일 수 없습니다";
-        public static final String USER_ID_CANNOT_BE_NULL_REPO = "사용자 ID는 null일 수 없습니다";
-        public static final String USER_NAME_CANNOT_BE_NULL_REPO = "사용자명은 null일 수 없습니다";
+        // 시스템 오류 메시지들
+        public static final String FAILED_TO_RETRIEVE_USER = "사용자 조회에 실패했습니다";
+        public static final String FAILED_TO_CREATE_USER = "사용자 생성에 실패했습니다";
     }
     
     // 사용자 관련 예외들
