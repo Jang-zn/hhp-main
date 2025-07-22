@@ -16,6 +16,11 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
 
     private final Map<Long, CouponHistory> couponHistories = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong(1L);
+    
+    public void clear() {
+        couponHistories.clear();
+        nextId.set(1L);
+    }
 
     @Override
     public boolean existsByUserAndCoupon(kr.hhplus.be.server.domain.entity.User user, kr.hhplus.be.server.domain.entity.Coupon coupon) {

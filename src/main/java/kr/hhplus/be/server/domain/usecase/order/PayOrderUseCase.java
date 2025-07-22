@@ -6,10 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
-import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.BalanceException;
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -48,14 +45,14 @@ public class PayOrderUseCase {
         // 주문 락 먼저 획득
         if (!lockingPort.acquireLock(paymentLockKey)) {
             log.warn("주문 락 획득 실패: orderId={}", orderId);
-            throw new OrderException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         // 잔액 락 획득 (충전과의 동시성 방지)
         if (!lockingPort.acquireLock(balanceLockKey)) {
             log.warn("잔액 락 획득 실패: userId={}", userId);
             lockingPort.releaseLock(paymentLockKey); // 주문 락 해제
-            throw new OrderException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         try {
@@ -184,6 +181,28 @@ public class PayOrderUseCase {
             
             // 보상 처리: 이미 처리된 아이템들의 재고를 복원
             rollbackConfirmedStock(processedItems);
+            
+            // InvalidReservation 예외 처리 - 실제 재고 부족인 경우에만 OutOfStock으로 변환
+            if (e instanceof ProductException.InvalidReservation) {
+                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e;
+                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
+                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
+                    throw new ProductException.OutOfStock();
+                }
+                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
+                throw invalidReservationException;
+            }
+            
+            // cause가 InvalidReservation인 경우도 처리
+            if (e.getCause() instanceof ProductException.InvalidReservation) {
+                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e.getCause();
+                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
+                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
+                    throw new ProductException.OutOfStock();
+                }
+                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
+                throw invalidReservationException;
+            }
             
             throw new RuntimeException("재고 확정 실패: " + e.getMessage(), e);
         }

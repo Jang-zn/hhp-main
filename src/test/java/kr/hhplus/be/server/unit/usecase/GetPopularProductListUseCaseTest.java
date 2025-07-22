@@ -19,7 +19,6 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 @DisplayName("GetPopularProductListUseCase 단위 테스트")
 class GetPopularProductListUseCaseTest {

@@ -6,6 +6,7 @@ import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Balance;
+import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 
@@ -32,10 +33,10 @@ public class BalanceController {
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
+            throw new CommonException.InvalidRequest();
         }
         if (request.getUserId() == null || request.getAmount() == null) {
-            throw new IllegalArgumentException("UserId and Amount are required");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
@@ -50,13 +51,13 @@ public class BalanceController {
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
         if (userId == null) {
-            throw new IllegalArgumentException("UserId cannot be null");
+            throw new UserException.InvalidUser();
         }
         
         Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
         
         if (balanceOpt.isEmpty()) {
-            throw new kr.hhplus.be.server.domain.exception.BalanceException.InvalidUser();
+            throw new UserException.InvalidUser();
         }
         
         Balance balance = balanceOpt.get();

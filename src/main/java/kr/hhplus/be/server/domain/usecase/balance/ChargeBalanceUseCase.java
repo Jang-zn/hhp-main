@@ -6,7 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -38,7 +38,7 @@ public class ChargeBalanceUseCase {
         String lockKey = "balance-" + userId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("락 획득 실패: userId={}", userId);
-            throw new BalanceException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         try {
@@ -46,7 +46,7 @@ public class ChargeBalanceUseCase {
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
                         log.warn("사용자 없음: userId={}", userId);
-                        return new BalanceException.InvalidUser();
+                        return new UserException.InvalidUser();
                     });
             
             // 기존 잔액 조회 또는 새 잔액 생성
@@ -74,7 +74,7 @@ public class ChargeBalanceUseCase {
             throw e;
         } catch (Exception e) {
             log.error("잔액 충전 중 예상치 못한 오류: userId={}, amount={}", userId, amount, e);
-            throw new BalanceException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         } finally {
             lockingPort.releaseLock(lockKey);
             log.debug("락 해제 완료: userId={}", userId);
@@ -83,7 +83,7 @@ public class ChargeBalanceUseCase {
     
     private void validateInputs(Long userId, BigDecimal amount) {
         if (userId == null) {
-            throw new BalanceException.InvalidUser();
+            throw new UserException.InvalidUser();
         }
         
         if (amount == null) {

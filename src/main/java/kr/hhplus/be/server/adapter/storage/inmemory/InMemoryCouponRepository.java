@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Coupon;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import org.springframework.stereotype.Repository;
 
@@ -16,11 +17,16 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
 
     private final Map<Long, Coupon> coupons = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong(1L);
+    
+    public void clear() {
+        coupons.clear();
+        nextId.set(1L);
+    }
 
     @Override
     public Optional<Coupon> findById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("Coupon ID cannot be null");
+            throw new CouponException.CouponIdCannotBeNull();
         }
         return Optional.ofNullable(coupons.get(id));
     }

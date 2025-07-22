@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import java.util.Collections;
 
 @DisplayName("GetCouponListUseCase 단위 테스트")
@@ -154,8 +154,8 @@ class GetCouponListUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("User not found");
+                .isInstanceOf(UserException.NotFound.class)
+                .hasMessage(UserException.Messages.USER_NOT_FOUND);
     }
 
     @Test
@@ -247,8 +247,8 @@ class GetCouponListUseCaseTest {
             
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User not found");
+                    .isInstanceOf(UserException.NotFound.class)
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
         } else {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))

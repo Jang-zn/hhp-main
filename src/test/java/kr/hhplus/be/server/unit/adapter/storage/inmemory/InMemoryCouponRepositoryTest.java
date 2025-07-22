@@ -3,6 +3,7 @@ package kr.hhplus.be.server.unit.adapter.storage.inmemory;
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryCouponRepository;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -264,8 +265,8 @@ class InMemoryCouponRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> couponRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Coupon ID cannot be null");
+                    .isInstanceOf(CouponException.CouponIdCannotBeNull.class)
+                    .hasMessage(CouponException.Messages.COUPON_ID_CANNOT_BE_NULL);
         }
 
         @Test

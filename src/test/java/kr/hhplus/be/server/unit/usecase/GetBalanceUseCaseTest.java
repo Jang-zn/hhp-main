@@ -2,7 +2,7 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
@@ -40,6 +40,7 @@ class GetBalanceUseCaseTest {
 
     private GetBalanceUseCase getBalanceUseCase;
 
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -51,6 +52,14 @@ class GetBalanceUseCaseTest {
     @Nested
     @DisplayName("성공 케이스 테스트")
     class SuccessTests {
+        
+        static Stream<Arguments> provideUserData() {
+            return Stream.of(
+                    Arguments.of(1L, "홍길동", "50000"),
+                    Arguments.of(2L, "김철수", "100000"),
+                    Arguments.of(3L, "이영희", "75000")
+            );
+        }
 
         @Test
         @DisplayName("성공케이스: DB에서 정상 잔액 조회")
@@ -103,7 +112,7 @@ class GetBalanceUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetBalanceUseCaseTest#provideUserData")
+        @MethodSource("provideUserData")
         @DisplayName("성공케이스: 다양한 사용자 잔액 조회 (DB)")
         void getBalance_WithDifferentUsers(Long userId, String userName, String amount) {
             // given
@@ -168,6 +177,13 @@ class GetBalanceUseCaseTest {
     @Nested
     @DisplayName("실패 케이스 테스트")
     class FailureTests {
+        
+        static Stream<Arguments> provideInvalidUserIds() {
+            return Stream.of(
+                    Arguments.of(-1L),
+                    Arguments.of(0L)
+            );
+        }
 
         @Test
         @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
@@ -179,7 +195,8 @@ class GetBalanceUseCaseTest {
 
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
-                    .isInstanceOf(BalanceException.InvalidUser.class);
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
 
             verify(balanceRepositoryPort, never()).findByUser(any());
         }
@@ -192,7 +209,8 @@ class GetBalanceUseCaseTest {
 
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
-                    .isInstanceOf(BalanceException.InvalidUser.class);
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
 
         @Test
@@ -214,7 +232,7 @@ class GetBalanceUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetBalanceUseCaseTest#provideInvalidUserIds")
+        @MethodSource("provideInvalidUserIds")
         @DisplayName("실패케이스: 다양한 비정상 사용자 ID로 잔액 조회")
         void getBalance_WithInvalidUserIds(Long invalidUserId) {
             // given
@@ -223,22 +241,8 @@ class GetBalanceUseCaseTest {
 
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(invalidUserId))
-                    .isInstanceOf(BalanceException.InvalidUser.class);
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
-    }
-
-    private static Stream<Arguments> provideUserData() {
-        return Stream.of(
-                Arguments.of(1L, "홍길동", "50000"),
-                Arguments.of(2L, "김철수", "100000"),
-                Arguments.of(3L, "이영희", "75000")
-        );
-    }
-
-    private static Stream<Arguments> provideInvalidUserIds() {
-        return Stream.of(
-                Arguments.of(-1L),
-                Arguments.of(0L)
-        );
     }
 }

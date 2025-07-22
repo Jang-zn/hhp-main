@@ -6,6 +6,7 @@ import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.springframework.validation.annotation.Validated;
@@ -33,6 +34,10 @@ public class ProductController {
     @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
     public List<ProductResponse> getProductList(@Valid ProductRequest request) {
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
         List<Product> products = getProductUseCase.execute(request.getLimit(), request.getOffset());
         return products.stream()
                 .map(product -> new ProductResponse(
@@ -47,6 +52,10 @@ public class ProductController {
     @ApiSuccess(summary = "인기 상품 조회")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts(@Valid ProductRequest request) {
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
         // 최근 N일간 인기 상품 조회
         List<Product> popularProducts = getPopularProductListUseCase.execute(request.getDays());
         return popularProducts.stream()

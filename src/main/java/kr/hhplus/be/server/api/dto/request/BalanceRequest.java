@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import kr.hhplus.be.server.domain.exception.*;
 
 import java.math.BigDecimal;
 
@@ -11,13 +12,13 @@ import java.math.BigDecimal;
 public class BalanceRequest {
     
     @Schema(description = "사용자 ID", example = "1", required = true)
-    @NotNull(message = "사용자 ID는 필수입니다")
-    @Positive(message = "사용자 ID는 양수여야 합니다")
+    @NotNull(message = UserException.Messages.INVALID_USER_ID)
+    @Positive(message = UserException.Messages.INVALID_USER_ID_POSITIVE)
     private Long userId;
     
     @Schema(description = "충전 금액", example = "10000", required = true)
-    @NotNull(message = "충전 금액은 필수입니다")
-    @DecimalMin(value = "0.0", inclusive = false, message = "충전 금액은 0보다 커야 합니다")
+    @NotNull(message = BalanceException.Messages.INVALID_AMOUNT_REQUIRED)
+    @DecimalMin(value = "0.0", inclusive = false, message = BalanceException.Messages.INVALID_AMOUNT_POSITIVE)
     private BigDecimal amount;
 
     // 기본 생성자

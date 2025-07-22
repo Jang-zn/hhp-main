@@ -7,7 +7,7 @@ import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -18,7 +18,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,7 +27,6 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BalanceController 단위 테스트")
@@ -42,6 +40,8 @@ class BalanceControllerTest {
     @Mock
     private GetBalanceUseCase getBalanceUseCase;
 
+
+
     @BeforeEach
     void setUp() {
         balanceController = new BalanceController(chargeBalanceUseCase, getBalanceUseCase);
@@ -50,6 +50,22 @@ class BalanceControllerTest {
     @Nested
     @DisplayName("잔액 충전 테스트")
     class ChargeBalanceTests {
+        
+        static Stream<Arguments> provideChargeData() {
+            return Stream.of(
+                    Arguments.of(1L, "10000"),
+                    Arguments.of(2L, "50000"),
+                    Arguments.of(3L, "100000")
+            );
+        }
+
+        static Stream<Arguments> provideInvalidChargeData() {
+            return Stream.of(
+                    Arguments.of("음수 금액", 1L, "-10000", BalanceException.InvalidAmount.class),
+                    Arguments.of("최소 금액 미만", 1L, "500", BalanceException.InvalidAmount.class),
+                    Arguments.of("최대 금액 초과", 1L, "2000000", BalanceException.InvalidAmount.class)
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 정상 잔액 충전")
@@ -81,7 +97,7 @@ class BalanceControllerTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.BalanceControllerTest#provideChargeData")
+        @MethodSource("provideChargeData")
         @DisplayName("성공케이스: 다양한 충전 금액으로 잔액 충전")
         void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
             // given
@@ -117,12 +133,12 @@ class BalanceControllerTest {
 
             
             when(chargeBalanceUseCase.execute(userId, chargeAmount))
-                    .thenThrow(new BalanceException.InvalidUser());
+                    .thenThrow(new UserException.InvalidUser());
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user for balance operation");
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
 
         @Test
@@ -139,7 +155,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage("Invalid amount for balance operation");
+                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
         }
 
         @Test
@@ -150,8 +166,8 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("UserId and Amount are required");
+                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class)
+                    .hasMessage(BalanceException.Messages.USERID_AND_AMOUNT_REQUIRED);
         }
 
         @Test
@@ -159,12 +175,12 @@ class BalanceControllerTest {
         void chargeBalance_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Request cannot be null");
+                    .isInstanceOf(CommonException.InvalidRequest.class)
+                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.BalanceControllerTest#provideInvalidChargeData")
+        @MethodSource("provideInvalidChargeData")
         @DisplayName("실패케이스: 비정상 충전 데이터")
         void chargeBalance_WithInvalidData(String description, Long userId, String amount, Class<? extends Exception> expectedException) {
             // given
@@ -183,6 +199,22 @@ class BalanceControllerTest {
     @Nested
     @DisplayName("잔액 조회 테스트")
     class GetBalanceTests {
+        
+        static Stream<Arguments> provideUserIds() {
+            return Stream.of(
+                    Arguments.of(1L),
+                    Arguments.of(100L),
+                    Arguments.of(999L)
+            );
+        }
+
+        static Stream<Arguments> provideInvalidUserIds() {
+            return Stream.of(
+                    Arguments.of(-1L),
+                    Arguments.of(0L),
+                    Arguments.of(Long.MAX_VALUE)
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 정상 잔액 조회")
@@ -211,7 +243,7 @@ class BalanceControllerTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.BalanceControllerTest#provideUserIds")
+        @MethodSource("provideUserIds")
         @DisplayName("성공케이스: 다양한 사용자 ID로 잔액 조회")
         void getBalance_WithDifferentUserIds(Long userId) {
             // given
@@ -244,8 +276,8 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(userId))
-                    .isInstanceOf(BalanceException.InvalidUser.class)
-                    .hasMessage("Invalid user for balance operation");
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
 
         @Test
@@ -253,12 +285,12 @@ class BalanceControllerTest {
         void getBalance_WithNullUserId() {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("UserId cannot be null");
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.controller.BalanceControllerTest#provideInvalidUserIds")
+        @MethodSource("provideInvalidUserIds")
         @DisplayName("실패케이스: 비정상 사용자 ID로 잔액 조회")
         void getBalance_WithInvalidUserIds(Long invalidUserId) {
             // given
@@ -266,40 +298,8 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(invalidUserId))
-                    .isInstanceOf(BalanceException.InvalidUser.class);
+                    .isInstanceOf(UserException.InvalidUser.class)
+                    .hasMessage(UserException.Messages.INVALID_USER_ID);
         }
-    }
-
-
-    private static Stream<Arguments> provideChargeData() {
-        return Stream.of(
-                Arguments.of(1L, "10000"),
-                Arguments.of(2L, "50000"),
-                Arguments.of(3L, "100000")
-        );
-    }
-
-    private static Stream<Arguments> provideUserIds() {
-        return Stream.of(
-                Arguments.of(1L),
-                Arguments.of(100L),
-                Arguments.of(999L)
-        );
-    }
-
-    private static Stream<Arguments> provideInvalidChargeData() {
-        return Stream.of(
-                Arguments.of("음수 금액", 1L, "-10000", BalanceException.InvalidAmount.class),
-                Arguments.of("최소 금액 미만", 1L, "500", BalanceException.InvalidAmount.class),
-                Arguments.of("최대 금액 초과", 1L, "2000000", BalanceException.InvalidAmount.class)
-        );
-    }
-
-    private static Stream<Arguments> provideInvalidUserIds() {
-        return Stream.of(
-                Arguments.of(-1L),
-                Arguments.of(0L),
-                Arguments.of(Long.MAX_VALUE)
-        );
     }
 }

@@ -51,7 +51,7 @@ class ProductTest {
             // when & then
             assertThatThrownBy(() -> product.reserveStock(10)) // 남은 재고는 5개인데 10개 예약
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage("Product out of stock");
+                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
         }
         
         @Test

@@ -5,26 +5,27 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import kr.hhplus.be.server.domain.exception.*;
 
 @Schema(description = "쿠폰 관련 요청")
 public class CouponRequest {
     
     @Schema(description = "사용자 ID", example = "1")
-    @NotNull(message = "사용자 ID는 필수입니다")
-    @Positive(message = "사용자 ID는 양수여야 합니다")
+    @NotNull(message = UserException.Messages.INVALID_USER_ID)
+    @Positive(message = UserException.Messages.INVALID_USER_ID_POSITIVE)
     private Long userId;
     
     @Schema(description = "쿠폰 ID", example = "1")
-    @Positive(message = "쿠폰 ID는 양수여야 합니다")
+    @Positive(message = CouponException.Messages.INVALID_COUPON_ID_POSITIVE)
     private Long couponId;
     
     @Schema(description = "페이지 크기", example = "10", defaultValue = "10")
-    @Positive(message = "limit은 양수여야 합니다")
-    @Max(value = 100, message = "limit은 100 이하여야 합니다")
+    @Positive(message = CommonException.Messages.INVALID_LIMIT)
+    @Max(value = 100, message = CommonException.Messages.LIMIT_EXCEEDED)
     private int limit = 10;
     
     @Schema(description = "페이지 오프셋", example = "0", defaultValue = "0")
-    @PositiveOrZero(message = "offset은 0 이상이어야 합니다")
+    @PositiveOrZero(message = CommonException.Messages.INVALID_OFFSET)
     private int offset = 0;
 
     // 기본 생성자
