@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
-import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.api.docs.annotation.ProductApiDocs;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
@@ -31,7 +31,7 @@ public class ProductController {
     private final GetProductUseCase getProductUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
 
-    @ApiSuccess(summary = "상품 목록 조회")
+    @ProductApiDocs(summary = "상품 목록 조회", description = "모든 상품 목록을 조회합니다")
     @GetMapping("/list")
     public List<ProductResponse> getProductList(@Valid ProductRequest request) {
         if (request == null) {
@@ -49,7 +49,7 @@ public class ProductController {
                 .collect(Collectors.toList());
     }
 
-    @ApiSuccess(summary = "인기 상품 조회")
+    @ProductApiDocs(summary = "인기 상품 조회", description = "지정된 기간 동안의 인기 상품을 조회합니다")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts(@Valid ProductRequest request) {
         if (request == null) {
