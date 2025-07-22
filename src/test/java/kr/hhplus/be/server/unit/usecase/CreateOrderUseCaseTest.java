@@ -10,9 +10,7 @@ import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.ProductException;
-import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -77,7 +75,7 @@ class CreateOrderUseCaseTest {
     @Nested
     @DisplayName("기본 주문 생성 테스트")
     class BasicOrderCreationTests {
-        
+
         @Test
         @DisplayName("성공케이스: 정상 주문 생성")
         void createOrder_Success() {
@@ -134,7 +132,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage("User not found");
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
                     
             verify(lockingPort).releaseLock("order-creation-" + userId);
         }
@@ -149,7 +147,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, emptyProductQuantities))
                     .isInstanceOf(OrderException.EmptyItems.class)
-                    .hasMessage("Order must contain at least one item");
+                    .hasMessage(OrderException.Messages.EMPTY_ITEMS);
         }
         
         @Test
@@ -224,7 +222,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage("User not found");
+                .hasMessage(UserException.Messages.USER_NOT_FOUND);
     }
 
     @Test
@@ -245,7 +243,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.NotFound.class)
-                .hasMessage("Product not found");
+                .hasMessage(ProductException.Messages.PRODUCT_NOT_FOUND);
     }
 
     @Test
@@ -273,7 +271,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.OutOfStock.class)
-                .hasMessage("Product out of stock");
+                .hasMessage(ProductException.Messages.OUT_OF_STOCK);
     }
 
     @Test
@@ -286,7 +284,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, emptyProductQuantities))
                 .isInstanceOf(OrderException.EmptyItems.class)
-                .hasMessage("Order must contain at least one item");
+                .hasMessage(OrderException.Messages.EMPTY_ITEMS);
     }
 
     @Test
@@ -392,9 +390,9 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.OutOfStock.class)
-                .hasMessage("Product out of stock");
+                .hasMessage(ProductException.Messages.OUT_OF_STOCK);
     }
-
+    
     @ParameterizedTest
     @MethodSource("provideInvalidUserIds")
     @DisplayName("다양한 비정상 사용자 ID로 주문 생성")
@@ -481,7 +479,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage("Product out of stock");
+                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
                     
             verify(lockingPort).releaseLock("order-creation-" + userId);
         }
@@ -502,8 +500,8 @@ class CreateOrderUseCaseTest {
 
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
-                    .isInstanceOf(OrderException.ConcurrencyConflict.class)
-                    .hasMessage("Concurrent order creation conflict");
+                    .isInstanceOf(CommonException.ConcurrencyConflict.class)
+                    .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
                     
             verify(lockingPort, never()).releaseLock(anyString()); // 락을 획득하지 못했으므로 release도 호출되지 않음
         }
@@ -633,8 +631,8 @@ class CreateOrderUseCaseTest {
             assertThat(executorService.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
         }
     }
-
-    private static Stream<Arguments> provideInvalidUserIds() {
+    
+    static Stream<Arguments> provideInvalidUserIds() {
         return Stream.of(
                 Arguments.of(-1L),
                 Arguments.of(0L),

@@ -6,10 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
-import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.BalanceException;
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -48,14 +45,14 @@ public class PayOrderUseCase {
         // 주문 락 먼저 획득
         if (!lockingPort.acquireLock(paymentLockKey)) {
             log.warn("주문 락 획득 실패: orderId={}", orderId);
-            throw new OrderException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         // 잔액 락 획득 (충전과의 동시성 방지)
         if (!lockingPort.acquireLock(balanceLockKey)) {
             log.warn("잔액 락 획득 실패: userId={}", userId);
             lockingPort.releaseLock(paymentLockKey); // 주문 락 해제
-            throw new OrderException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         try {

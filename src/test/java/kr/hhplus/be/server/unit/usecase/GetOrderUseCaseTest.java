@@ -6,8 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -58,6 +57,14 @@ class GetOrderUseCaseTest {
     @DisplayName("기본 주문 조회 테스트")
     class BasicOrderRetrievalTests {
         
+        static Stream<Arguments> provideOrderData() {
+            return Stream.of(
+                    Arguments.of(1L, 1L, "50000"),
+                    Arguments.of(2L, 2L, "100000"),
+                    Arguments.of(3L, 3L, "75000")
+            );
+        }
+        
         @Test
         @DisplayName("성공케이스: 정상 주문 조회")
         void getOrder_Success() {
@@ -100,7 +107,7 @@ class GetOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getOrderUseCase.execute(userId, orderId))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage("User not found");
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
         }
 
         @Test
@@ -140,7 +147,7 @@ class GetOrderUseCaseTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetOrderUseCaseTest#provideOrderData")
+        @MethodSource("provideOrderData")
         @DisplayName("성공케이스: 다양한 주문 조회")
         void getOrder_WithDifferentOrders(Long userId, Long orderId, String amount) {
             // given
@@ -360,11 +367,4 @@ class GetOrderUseCaseTest {
         }
     }
 
-    private static Stream<Arguments> provideOrderData() {
-        return Stream.of(
-                Arguments.of(1L, 1L, "50000"),
-                Arguments.of(2L, 2L, "100000"),
-                Arguments.of(3L, 3L, "75000")
-        );
-    }
 }

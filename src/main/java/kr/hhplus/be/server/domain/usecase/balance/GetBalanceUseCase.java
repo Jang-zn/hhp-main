@@ -5,7 +5,7 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,7 +29,7 @@ public class GetBalanceUseCase {
         // 입력 값 검증
         if (userId == null) {
             log.warn("잘못된 사용자 ID: null");
-            throw new BalanceException.InvalidUser();
+            throw new UserException.InvalidUser();
         }
         
         try {
@@ -48,7 +48,7 @@ public class GetBalanceUseCase {
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
                         log.warn("사용자 없음: userId={}", userId);
-                        return new BalanceException.InvalidUser();
+                        return new UserException.InvalidUser();
                     });
             
             // 잔액 조회
@@ -70,7 +70,7 @@ public class GetBalanceUseCase {
             throw e;
         } catch (Exception e) {
             log.error("잔액 조회 중 예상치 못한 오류: userId={}", userId, e);
-            throw new BalanceException.InvalidUser();
+            throw new UserException.InvalidUser();
         }
     }
     

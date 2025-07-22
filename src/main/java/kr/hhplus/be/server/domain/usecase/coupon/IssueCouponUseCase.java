@@ -7,7 +7,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -35,7 +35,7 @@ public class IssueCouponUseCase {
         String lockKey = "coupon-issue-" + couponId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("쿠폰 락 획득 실패: couponId={}", couponId);
-            throw new CouponException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         try {
@@ -43,7 +43,7 @@ public class IssueCouponUseCase {
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
                         log.warn("사용자 없음: userId={}", userId);
-                        return new IllegalArgumentException(CouponException.Messages.USER_NOT_FOUND);
+                        return new UserException.NotFound();
                     });
             
             // 쿠폰 조회

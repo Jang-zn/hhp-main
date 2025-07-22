@@ -6,7 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
-import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +55,15 @@ class GetOrderListUseCaseTest {
     @Nested
     @DisplayName("주문 목록 조회 성공 테스트")
     class SuccessTests {
+        
+        static Stream<Arguments> provideUserData() {
+            return Stream.of(
+                    Arguments.of(1L, "홍길동", 2),
+                    Arguments.of(2L, "김철수", 1),
+                    Arguments.of(3L, "이영희", 3),
+                    Arguments.of(4L, "박영수", 0)
+            );
+        }
         
         @Test
         @DisplayName("성공케이스: 캐시에서 주문 목록 조회 성공")
@@ -162,7 +171,7 @@ class GetOrderListUseCaseTest {
         }
         
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetOrderListUseCaseTest#provideUserData")
+        @MethodSource("provideUserData")
         @DisplayName("성공케이스: 다양한 사용자의 주문 목록 조회")
         void getOrderList_WithDifferentUsers(Long userId, String userName, int orderCount) {
             // given
@@ -203,6 +212,15 @@ class GetOrderListUseCaseTest {
     @DisplayName("주문 목록 조회 실패 테스트")
     class FailureTests {
         
+        static Stream<Arguments> provideInvalidUserIds() {
+            return Stream.of(
+                    Arguments.of(null, "UserId cannot be null"),
+                    Arguments.of(-1L, "UserId must be positive"),
+                    Arguments.of(0L, "UserId must be positive"),
+                    Arguments.of(-999L, "UserId must be positive")
+            );
+        }
+        
         @Test
         @DisplayName("실패케이스: 존재하지 않는 사용자의 주문 목록 조회")
         void getOrderList_UserNotFound() {
@@ -214,7 +232,7 @@ class GetOrderListUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getOrderListUseCase.execute(userId))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage("User not found");
+                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
                     
             verify(userRepositoryPort).findById(userId);
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
@@ -264,7 +282,7 @@ class GetOrderListUseCaseTest {
         }
         
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.usecase.GetOrderListUseCaseTest#provideInvalidUserIds")
+        @MethodSource("provideInvalidUserIds")
         @DisplayName("실패케이스: 다양한 비정상 사용자 ID 테스트")
         void getOrderList_WithInvalidUserIds(Long invalidUserId, String expectedMessage) {
             // when & then
@@ -428,21 +446,4 @@ class GetOrderListUseCaseTest {
         }
     }
     
-    private static Stream<Arguments> provideUserData() {
-        return Stream.of(
-                Arguments.of(1L, "홍길동", 2),
-                Arguments.of(2L, "김철수", 1),
-                Arguments.of(3L, "이영희", 3),
-                Arguments.of(4L, "박영수", 0)
-        );
-    }
-    
-    private static Stream<Arguments> provideInvalidUserIds() {
-        return Stream.of(
-                Arguments.of(null, "UserId cannot be null"),
-                Arguments.of(-1L, "UserId must be positive"),
-                Arguments.of(0L, "UserId must be positive"),
-                Arguments.of(-999L, "UserId must be positive")
-        );
-    }
 }

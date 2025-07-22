@@ -10,9 +10,7 @@ import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.exception.ProductException;
-import kr.hhplus.be.server.domain.exception.OrderException;
+import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -45,7 +43,7 @@ public class CreateOrderUseCase {
         String lockKey = "order-creation-" + userId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("락 획득 실패: userId={}", userId);
-            throw new OrderException.ConcurrencyConflict();
+            throw new CommonException.ConcurrencyConflict();
         }
         
         try {
