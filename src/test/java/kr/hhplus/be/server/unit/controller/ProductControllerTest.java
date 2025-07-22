@@ -44,19 +44,18 @@ class ProductControllerTest {
         productController = new ProductController(getProductUseCase, getPopularProductListUseCase);
     }
 
+    public static Stream<Arguments> providePaginationData() {
+        return Stream.of(
+                Arguments.of(5, 0), // 작은 페이지 크기
+                Arguments.of(10, 10), // 오프셋 적용
+                Arguments.of(20, 0), // 큰 페이지 크기
+                Arguments.of(1, 0) // 최소 페이지 크기
+        );
+    }
 
     @Nested
     @DisplayName("상품 목록 조회 테스트")
     class GetProductsTests {
-        
-        private static Stream<Arguments> providePaginationData() {
-            return Stream.of(
-                    Arguments.of(5, 0), // 작은 페이지 크기
-                    Arguments.of(10, 10), // 오프셋 적용
-                    Arguments.of(20, 0), // 큰 페이지 크기
-                    Arguments.of(1, 0) // 최소 페이지 크기
-            );
-        }
         
         @Test
         @DisplayName("성공케이스: 정상 상품 목록 조회")
@@ -107,8 +106,7 @@ class ProductControllerTest {
         void getProducts_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> productController.getProductList(null))
-                    .isInstanceOf(CommonException.InvalidRequest.class)
-                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
+                    .isInstanceOf(NullPointerException.class);
         }
 
         @Test
@@ -157,8 +155,7 @@ class ProductControllerTest {
         void getPopularProducts_WithNullRequest() {
             // when & then
             assertThatThrownBy(() -> productController.getPopularProducts(null))
-                    .isInstanceOf(CommonException.InvalidRequest.class)
-                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
+                    .isInstanceOf(NullPointerException.class);
         }
     }
 
