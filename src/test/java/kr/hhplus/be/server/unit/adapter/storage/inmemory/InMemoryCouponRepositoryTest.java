@@ -265,7 +265,7 @@ class InMemoryCouponRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> couponRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CouponException.CouponIdCannotBeNull.class)
                     .hasMessage(CouponException.Messages.COUPON_ID_CANNOT_BE_NULL);
         }
 
