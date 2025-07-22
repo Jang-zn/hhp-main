@@ -53,6 +53,10 @@ public class Product extends BaseEntity {
             throw new ProductException.InvalidReservation("Cannot confirm more than reserved quantity");
         }
         
+        if (this.stock < quantity) {
+            throw new ProductException.InvalidReservation("Cannot confirm reservation due to insufficient actual stock");
+        }
+        
         this.stock -= quantity;
         this.reservedStock -= quantity;
     }

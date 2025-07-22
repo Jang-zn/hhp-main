@@ -2,6 +2,7 @@ package kr.hhplus.be.server.domain.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -33,7 +34,7 @@ public class GetCouponListUseCase {
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
                         log.warn("사용자 없음: userId={}", userId);
-                        return new IllegalArgumentException("User not found");
+                        return new UserException.NotFound();
                     });
             
             // 캐시 키 생성
@@ -46,6 +47,10 @@ public class GetCouponListUseCase {
             
             return result;
             
+        } catch (UserException e) {
+            log.error("쿠폰 목록 조회 실패: userId={}, limit={}, offset={}, error={}", 
+                    userId, limit, offset, e.getMessage());
+            throw e;
         } catch (IllegalArgumentException e) {
             log.error("쿠폰 목록 조회 실패: userId={}, limit={}, offset={}, error={}", 
                     userId, limit, offset, e.getMessage());

@@ -182,6 +182,11 @@ public class PayOrderUseCase {
             // 보상 처리: 이미 처리된 아이템들의 재고를 복원
             rollbackConfirmedStock(processedItems);
             
+            // InvalidReservation 예외를 OutOfStock으로 변환
+            if (e instanceof ProductException.InvalidReservation || e.getCause() instanceof ProductException.InvalidReservation) {
+                throw new ProductException.OutOfStock();
+            }
+            
             throw new RuntimeException("재고 확정 실패: " + e.getMessage(), e);
         }
     }

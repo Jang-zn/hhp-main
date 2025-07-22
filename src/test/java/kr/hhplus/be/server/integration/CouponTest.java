@@ -167,7 +167,7 @@ public class CouponTest {
         @DisplayName("실패 케이스")
         class Failure {
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 400 Bad Request를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 404 Not Found를 반환한다")
             void issueCoupon_WithNonExistentUser_ShouldFail() throws Exception {
                 // given
                 long nonExistentUserId = 999L;
@@ -178,8 +178,9 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
-                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
+                        .andExpect(jsonPath("$.success").value(false))
+                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
             }
 
             @Test
@@ -408,17 +409,20 @@ public class CouponTest {
         @DisplayName("실패 케이스")
         class Failure {
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 400 Bad Request를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 404 Not Found를 반환한다")
             void getCoupons_WithNonExistentUser_ShouldFail() throws Exception {
                 // given
                 long nonExistentUserId = 999L;
 
                 // when & then
                 mockMvc.perform(get("/api/coupon/{userId}", nonExistentUserId)
+                                .param("limit", "10")
+                                .param("offset", "0")
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
-                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
+                        .andExpect(jsonPath("$.success").value(false))
+                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
             }
 
             @Test
