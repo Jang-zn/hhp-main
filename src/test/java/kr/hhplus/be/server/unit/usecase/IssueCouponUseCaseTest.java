@@ -328,7 +328,7 @@ class IssueCouponUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CouponException.CouponNotYetStarted.class)
                 .hasMessage(CouponException.Messages.COUPON_NOT_YET_STARTED);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);

@@ -182,9 +182,26 @@ public class PayOrderUseCase {
             // 보상 처리: 이미 처리된 아이템들의 재고를 복원
             rollbackConfirmedStock(processedItems);
             
-            // InvalidReservation 예외를 OutOfStock으로 변환
-            if (e instanceof ProductException.InvalidReservation || e.getCause() instanceof ProductException.InvalidReservation) {
-                throw new ProductException.OutOfStock();
+            // InvalidReservation 예외 처리 - 실제 재고 부족인 경우에만 OutOfStock으로 변환
+            if (e instanceof ProductException.InvalidReservation) {
+                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e;
+                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
+                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
+                    throw new ProductException.OutOfStock();
+                }
+                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
+                throw invalidReservationException;
+            }
+            
+            // cause가 InvalidReservation인 경우도 처리
+            if (e.getCause() instanceof ProductException.InvalidReservation) {
+                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e.getCause();
+                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
+                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
+                    throw new ProductException.OutOfStock();
+                }
+                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
+                throw invalidReservationException;
             }
             
             throw new RuntimeException("재고 확정 실패: " + e.getMessage(), e);
