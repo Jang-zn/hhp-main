@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
-import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
@@ -31,7 +31,7 @@ public class CouponController {
     private final IssueCouponUseCase issueCouponUseCase;
     private final GetCouponListUseCase getCouponListUseCase;
 
-    @ApiSuccess(summary = "쿠폰 발급")
+    @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
         if (request == null) {
@@ -50,7 +50,7 @@ public class CouponController {
         );
     }
 
-    @ApiSuccess(summary = "보유 쿠폰 조회")
+    @CouponApiDocs(summary = "보유 쿠폰 조회", description = "사용자가 보유한 쿠폰 목록을 조회합니다")
     @GetMapping("/{userId}")
     public List<CouponResponse> getCoupons(
             @PathVariable Long userId,

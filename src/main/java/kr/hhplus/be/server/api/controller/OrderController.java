@@ -5,8 +5,7 @@ import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
-import kr.hhplus.be.server.api.swagger.ApiCreate;
-import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.api.docs.annotation.OrderApiDocs;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.exception.CommonException;
@@ -41,7 +40,7 @@ public class OrderController {
     private final CheckOrderAccessUseCase checkOrderAccessUseCase;
     private final ValidateCouponUseCase validateCouponUseCase;
 
-    @ApiCreate(summary = "주문 생성")
+    @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
   
@@ -97,7 +96,7 @@ public class OrderController {
         );
     }
 
-    @ApiSuccess(summary = "주문 결제")
+    @OrderApiDocs(summary = "주문 결제", description = "주문을 결제 처리합니다")
     @PostMapping("/{orderId}/pay")
     public PaymentResponse payOrder(
             @PathVariable Long orderId,
@@ -120,7 +119,7 @@ public class OrderController {
         );
     }
 
-    @ApiSuccess(summary = "단일 주문 조회")
+    @OrderApiDocs(summary = "단일 주문 조회", description = "특정 주문의 상세 정보를 조회합니다")
     @GetMapping("/{orderId}")
     public OrderResponse getOrder(
             @PathVariable Long orderId,
@@ -155,7 +154,7 @@ public class OrderController {
         );
     }
 
-    @ApiSuccess(summary = "사용자 주문 목록 조회")
+    @OrderApiDocs(summary = "사용자 주문 목록 조회", description = "사용자의 모든 주문 목록을 조회합니다")
     @GetMapping("/user/{userId}")
     public List<OrderResponse> getUserOrders(@PathVariable Long userId) {
         if (userId == null) {

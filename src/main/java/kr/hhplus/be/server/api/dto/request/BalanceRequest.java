@@ -4,12 +4,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.domain.exception.*;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Schema(description = "잔액 관련 요청")
-public class BalanceRequest {
+public class BalanceRequest implements DocumentedDto {
     
     @Schema(description = "사용자 ID", example = "1", required = true)
     @NotNull(message = UserException.Messages.INVALID_USER_ID)
@@ -35,4 +37,12 @@ public class BalanceRequest {
     public void setUserId(Long userId) { this.userId = userId; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+    @Override
+    public Map<String, SchemaInfo> getFieldDocumentation() {
+        return Map.of(
+                "userId", new SchemaInfo("사용자 ID", "1"),
+                "amount", new SchemaInfo("충전 금액", "10000")
+        );
+    }
 }
