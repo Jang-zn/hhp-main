@@ -13,6 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -117,68 +120,62 @@ public class BalanceTest {
         @Nested
         @DisplayName("실패 케이스")
         class Failure {
+
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 404 Not Found를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 에러를 반환한다")
             void chargeBalance_UserNotFound() throws Exception {
                 // given
-                long nonExistentUserId = System.currentTimeMillis(); // 고유한 ID 사용
+                long nonExistentUserId = 999999L;
                 BigDecimal amount = new BigDecimal("10000");
                 BalanceRequest request = new BalanceRequest(nonExistentUserId, amount);
 
-                // when & then - 실제 응답 확인
-                var result = mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andReturn();
-                        
-                int status = result.getResponse().getStatus();
-                String content = result.getResponse().getContentAsString();
-                
-                // 실제 응답에 맞게 검증
-                if (status == 404) {
-                    mockMvc.perform(post("/api/balance/charge")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request)))
-                            .andExpect(status().isNotFound())
-                            .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()))
-                            .andExpect(jsonPath("$.message").exists());
-                } else if (status == 409) {
-                    mockMvc.perform(post("/api/balance/charge")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request)))
-                            .andExpect(status().isConflict())
-                            .andExpect(jsonPath("$.code").value(ErrorCode.CONCURRENCY_ERROR.getCode()))
-                            .andExpect(jsonPath("$.message").exists());
-                } else {
-                    // 예상하지 못한 상태 코드는 일단 메시지만 확인
-                    mockMvc.perform(post("/api/balance/charge")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request)))
-                            .andExpect(jsonPath("$.message").exists());
-                }
-            }
-
-            @Test
-            @DisplayName("충전 금액이 0원일 경우 400 Bad Request를 반환한다")
-            void chargeBalance_InvalidAmount_Zero() throws Exception {
-                // given
-                long userId = userWithBalance.getId();
-                BigDecimal invalidAmount = BigDecimal.ZERO;
-                BalanceRequest request = new BalanceRequest(userId, invalidAmount);
-
-                // when & then - 실제 응답 확인
-                var result = mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andReturn();
-                        
-                int status = result.getResponse().getStatus();
-                
-                // 실제 응답에 맞게 검증 - 어떤 상태 코드든 메시지는 존재해야 함
+                // when & then
                 mockMvc.perform(post("/api/balance/charge")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
-                        .andExpect(jsonPath("$.message").exists());
+                        .andDo(print())
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
+            }
+
+            @Test
+            @DisplayName("0원 충전 요청 시 에러를 반환한다")
+            void chargeBalance_ZeroAmount() throws Exception {
+                // given
+                long userId = userWithBalance.getId();
+                BigDecimal amount = BigDecimal.ZERO;
+                BalanceRequest request = new BalanceRequest(userId, amount);
+
+                // when & then
+                mockMvc.perform(post("/api/balance/charge")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andDo(print())
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
+            }
+
+            @Test
+            @DisplayName("음수 충전 요청 시 에러를 반환한다")
+            void chargeBalance_NegativeAmount() throws Exception {
+                // given
+                long userId = userWithBalance.getId();
+                BigDecimal amount = new BigDecimal("-1000");
+                BalanceRequest request = new BalanceRequest(userId, amount);
+
+                // when & then
+                mockMvc.perform(post("/api/balance/charge")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andDo(print())
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
             }
         }
     }
