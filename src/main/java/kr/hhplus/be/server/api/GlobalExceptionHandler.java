@@ -44,8 +44,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BalanceException.class, CouponException.class, OrderException.class, PaymentException.class, ProductException.class, UserException.class, CommonException.class})
     public ResponseEntity<CommonResponse<Object>> handleBusinessException(RuntimeException ex) {
         HttpStatus status = getStatusFromException(ex);
-        String errorCode = getErrorCode(ex);
-        return ResponseEntity.status(status).body(CommonResponse.failure(ex.getMessage(), errorCode));
+        ErrorCode errorCode = getErrorCodeFromException(ex);
+        return ResponseEntity.status(status).body(CommonResponse.failure(errorCode, ex.getMessage()));
     }
 
     /**
@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(errorMessage));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT, errorMessage));
     }
 
     /**
@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<CommonResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT, ex.getMessage()));
     }
 
     /**
@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<CommonResponse<Object>> handleIllegalStateException(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.BAD_REQUEST, ex.getMessage()));
     }
 
     /**
@@ -90,7 +90,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonResponse<Object>> handleAllUncaughtException(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.failure("알 수 없는 오류가 발생했습니다."));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
     /**
@@ -121,18 +121,41 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 도메인 예외에서 에러 코드 추출
+     * 도메인 예외에서 ErrorCode 매핑
      * 
      * @param ex 발생한 예외
-     * @return 에러 코드 (없으면 null)
+     * @return ErrorCode (매핑되지 않은 경우 INTERNAL_SERVER_ERROR)
      */
-    private String getErrorCode(RuntimeException ex) {
-        try {
-            // 리플렉션을 통해 getErrorCode 메서드 호출
-            return (String) ex.getClass().getMethod("getErrorCode").invoke(ex);
-        } catch (Exception e) {
-            // 에러 코드가 없는 예외의 경우 null 반환
-            return null;
-        }
+    private ErrorCode getErrorCodeFromException(RuntimeException ex) {
+        // 사용자 관련 예외
+        if (ex instanceof UserException.NotFound) return ErrorCode.USER_NOT_FOUND;
+        
+        // 잔액 관련 예외
+        if (ex instanceof BalanceException.NotFound) return ErrorCode.BALANCE_NOT_FOUND;
+        if (ex instanceof BalanceException.InsufficientBalance) return ErrorCode.INSUFFICIENT_BALANCE;
+        if (ex instanceof BalanceException.InvalidAmount) return ErrorCode.INVALID_AMOUNT;
+        
+        // 상품 관련 예외
+        if (ex instanceof ProductException.NotFound) return ErrorCode.PRODUCT_NOT_FOUND;
+        if (ex instanceof ProductException.OutOfStock) return ErrorCode.PRODUCT_OUT_OF_STOCK;
+        if (ex instanceof ProductException.InvalidReservation) return ErrorCode.INVALID_RESERVATION;
+        
+        // 주문 관련 예외
+        if (ex instanceof OrderException.NotFound) return ErrorCode.ORDER_NOT_FOUND;
+        if (ex instanceof OrderException.Unauthorized) return ErrorCode.FORBIDDEN;
+        
+        // 쿠폰 관련 예외
+        if (ex instanceof CouponException.NotFound) return ErrorCode.COUPON_NOT_FOUND;
+        if (ex instanceof CouponException.Expired) return ErrorCode.COUPON_EXPIRED;
+        if (ex instanceof CouponException.CouponNotYetStarted) return ErrorCode.COUPON_NOT_YET_STARTED;
+        if (ex instanceof CouponException.AlreadyIssued) return ErrorCode.COUPON_ALREADY_ISSUED;
+        if (ex instanceof CouponException.OutOfStock) return ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED;
+        if (ex instanceof CouponException.CouponStockExceeded) return ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED;
+        
+        // 동시성 관련 예외
+        if (ex instanceof CommonException.ConcurrencyConflict) return ErrorCode.CONCURRENCY_ERROR;
+        
+        // 기본값
+        return ErrorCode.INTERNAL_SERVER_ERROR;
     }
 } 
