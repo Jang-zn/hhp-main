@@ -11,7 +11,13 @@ public class InMemoryLockingAdapter implements LockingPort {
     
     private final Map<String, Thread> locks = new ConcurrentHashMap<>();
     
-    // 테스트를 위한 락 클리어 메서드
+    /**
+     * 테스트 전용 메서드: 모든 락을 클리어합니다.
+     * 프로덕션 코드에서 사용하지 마세요.
+     * 
+     * @deprecated 이 메서드는 테스트에서만 사용되어야 합니다.
+     */
+    @Deprecated(forRemoval = false)
     public void clearAllLocks() {
         locks.clear();
     }

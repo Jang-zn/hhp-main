@@ -231,15 +231,84 @@ public enum ErrorCode {
             return COUPON_NOT_FOUND; // 기본값
         }
         
-        // 동시성 관련 예외
-        if (ex instanceof CommonException.ConcurrencyConflict) {
-            return CONCURRENCY_ERROR;
-        }
-        
         // 기본값
         return INTERNAL_SERVER_ERROR;
     }
     
+    /**
+     * ErrorCode와 HttpStatus 매핑 (성능 최적화를 위한 정적 맵)
+     */
+    private static final Map<ErrorCode, HttpStatus> ERROR_CODE_HTTP_STATUS_MAP;
+    
+    static {
+        Map<ErrorCode, HttpStatus> map = new HashMap<>();
+        
+        // 성공 응답
+        map.put(SUCCESS, HttpStatus.OK);
+        
+        // 404 Not Found
+        map.put(USER_NOT_FOUND, HttpStatus.NOT_FOUND);
+        map.put(BALANCE_NOT_FOUND, HttpStatus.NOT_FOUND);
+        map.put(PRODUCT_NOT_FOUND, HttpStatus.NOT_FOUND);
+        map.put(ORDER_NOT_FOUND, HttpStatus.NOT_FOUND);
+        map.put(COUPON_NOT_FOUND, HttpStatus.NOT_FOUND);
+        map.put(NOT_FOUND, HttpStatus.NOT_FOUND);
+        
+        // 400 Bad Request
+        map.put(INVALID_AMOUNT, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_INPUT, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_USER_ID, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_PRODUCT_ID, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_ORDER_STATUS, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_ORDER_ITEMS, HttpStatus.BAD_REQUEST);
+        map.put(NEGATIVE_AMOUNT, HttpStatus.BAD_REQUEST);
+        map.put(AMOUNT_TOO_LARGE, HttpStatus.BAD_REQUEST);
+        map.put(MISSING_REQUIRED_FIELD, HttpStatus.BAD_REQUEST);
+        map.put(INVALID_FORMAT, HttpStatus.BAD_REQUEST);
+        map.put(VALUE_OUT_OF_RANGE, HttpStatus.BAD_REQUEST);
+        map.put(BAD_REQUEST, HttpStatus.BAD_REQUEST);
+        
+        // 401 Unauthorized
+        map.put(UNAUTHORIZED, HttpStatus.UNAUTHORIZED);
+        
+        // 403 Forbidden
+        map.put(FORBIDDEN, HttpStatus.FORBIDDEN);
+        
+        // 402 Payment Required
+        map.put(INSUFFICIENT_BALANCE, HttpStatus.PAYMENT_REQUIRED);
+        
+        // 405 Method Not Allowed
+        map.put(METHOD_NOT_ALLOWED, HttpStatus.METHOD_NOT_ALLOWED);
+        
+        // 409 Conflict
+        map.put(PRODUCT_OUT_OF_STOCK, HttpStatus.CONFLICT);
+        map.put(INVALID_RESERVATION, HttpStatus.CONFLICT);
+        map.put(CONCURRENCY_ERROR, HttpStatus.CONFLICT);
+        map.put(LOCK_ACQUISITION_FAILED, HttpStatus.CONFLICT);
+        map.put(USER_ALREADY_EXISTS, HttpStatus.CONFLICT);
+        map.put(ORDER_ALREADY_PAID, HttpStatus.BAD_REQUEST);
+        map.put(COUPON_ALREADY_USED, HttpStatus.CONFLICT);
+        map.put(COUPON_ALREADY_ISSUED, HttpStatus.BAD_REQUEST);
+        map.put(PRODUCT_PRICE_CHANGED, HttpStatus.CONFLICT);
+        map.put(ORDER_AMOUNT_MISMATCH, HttpStatus.CONFLICT);
+        
+        // 410 Gone
+        map.put(COUPON_EXPIRED, HttpStatus.GONE);
+        map.put(COUPON_ISSUE_LIMIT_EXCEEDED, HttpStatus.GONE);
+        map.put(ORDER_EXPIRED, HttpStatus.GONE);
+        map.put(COUPON_NOT_YET_STARTED, HttpStatus.BAD_REQUEST);
+        
+        // 415 Unsupported Media Type
+        map.put(UNSUPPORTED_MEDIA_TYPE, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        
+        // 500 Internal Server Error
+        map.put(INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
+        map.put(DATABASE_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
+        map.put(EXTERNAL_API_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
+        
+        ERROR_CODE_HTTP_STATUS_MAP = Map.copyOf(map); // 불변 맵으로 변환
+    }
+
     /**
      * ErrorCode로부터 HTTP 상태 코드 결정
      * @param errorCode ErrorCode enum
@@ -250,79 +319,13 @@ public enum ErrorCode {
             return HttpStatus.INTERNAL_SERVER_ERROR;
         }
         
-        // 성공
-        if (errorCode == SUCCESS) {
-            return HttpStatus.OK;
+        // 정적 맵에서 O(1) 조회
+        HttpStatus status = ERROR_CODE_HTTP_STATUS_MAP.get(errorCode);
+        if (status != null) {
+            return status;
         }
         
-        // 특정 에러 코드 우선 처리
-        if (errorCode == USER_NOT_FOUND || errorCode == BALANCE_NOT_FOUND || 
-            errorCode == PRODUCT_NOT_FOUND || errorCode == ORDER_NOT_FOUND || 
-            errorCode == COUPON_NOT_FOUND) {
-            return HttpStatus.NOT_FOUND;
-        }
-        
-        if (errorCode == INVALID_AMOUNT || errorCode == INVALID_INPUT) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        
-        if (errorCode == INSUFFICIENT_BALANCE) {
-            return HttpStatus.PAYMENT_REQUIRED;
-        }
-        
-        if (errorCode == PRODUCT_OUT_OF_STOCK || errorCode == INVALID_RESERVATION) {
-            return HttpStatus.CONFLICT;
-        }
-        
-        if (errorCode == UNAUTHORIZED) {
-            return HttpStatus.UNAUTHORIZED;
-        }
-        
-        if (errorCode == FORBIDDEN) {
-            return HttpStatus.FORBIDDEN;
-        }
-        
-        if (errorCode == COUPON_EXPIRED || errorCode == COUPON_ISSUE_LIMIT_EXCEEDED) {
-            return HttpStatus.GONE;
-        }
-        
-        if (errorCode == CONCURRENCY_ERROR || errorCode == LOCK_ACQUISITION_FAILED) {
-            return HttpStatus.CONFLICT;
-        }
-        
-        // Not Found 계열 (메시지 기반 체크)
-        if (errorCode.getMessage().contains("찾을 수 없습니다")) {
-            return HttpStatus.NOT_FOUND;
-        }
-        
-        // HTTP 상태 코드 직접 매핑
-        if (errorCode == BAD_REQUEST) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        
-        if (errorCode == NOT_FOUND) {
-            return HttpStatus.NOT_FOUND;
-        }
-        
-        if (errorCode == METHOD_NOT_ALLOWED) {
-            return HttpStatus.METHOD_NOT_ALLOWED;
-        }
-        
-        if (errorCode == UNSUPPORTED_MEDIA_TYPE) {
-            return HttpStatus.UNSUPPORTED_MEDIA_TYPE;
-        }
-        
-        // 입력 검증 에러
-        if (errorCode.isDomainError("V")) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        
-        // 시스템 에러 (E로 시작하지만 HTTP 상태 코드가 아닌 것들)
-        if (errorCode == INTERNAL_SERVER_ERROR || errorCode == DATABASE_ERROR || errorCode == EXTERNAL_API_ERROR) {
-            return HttpStatus.INTERNAL_SERVER_ERROR;
-        }
-        
-        // 기본값 (도메인 에러들)
+        // 맵에 없는 경우 기본값 반환
         return HttpStatus.BAD_REQUEST;
     }
 }
