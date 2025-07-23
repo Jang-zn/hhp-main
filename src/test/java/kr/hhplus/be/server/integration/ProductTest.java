@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryProductRepository;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,7 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data", hasSize(6)));
             }
@@ -83,7 +84,7 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data", hasSize(2)))
                         .andExpect(jsonPath("$.data[0].name", is("스마트폰")))
                         .andExpect(jsonPath("$.data[1].name", is("태블릿")));
@@ -103,7 +104,8 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -116,7 +118,8 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }
@@ -141,7 +144,7 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray());
             }
         }
@@ -158,7 +161,8 @@ public class ProductTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }

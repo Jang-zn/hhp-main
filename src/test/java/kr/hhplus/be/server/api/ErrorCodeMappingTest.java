@@ -65,11 +65,13 @@ class ErrorCodeMappingTest {
         return Stream.of(
             // 사용자 관련 예외
             Arguments.of(new UserException.NotFound(), ErrorCode.USER_NOT_FOUND),
+            Arguments.of(new UserException.InvalidUser(), ErrorCode.USER_NOT_FOUND),
             
             // 잔액 관련 예외
             Arguments.of(new BalanceException.NotFound(), ErrorCode.BALANCE_NOT_FOUND),
             Arguments.of(new BalanceException.InsufficientBalance(), ErrorCode.INSUFFICIENT_BALANCE),
             Arguments.of(new BalanceException.InvalidAmount(), ErrorCode.INVALID_AMOUNT),
+            Arguments.of(new BalanceException.UserIdAndAmountRequired(), ErrorCode.INVALID_INPUT),
             
             // 상품 관련 예외
             Arguments.of(new ProductException.NotFound(), ErrorCode.PRODUCT_NOT_FOUND),
@@ -79,6 +81,7 @@ class ErrorCodeMappingTest {
             // 주문 관련 예외
             Arguments.of(new OrderException.NotFound(), ErrorCode.ORDER_NOT_FOUND),
             Arguments.of(new OrderException.Unauthorized(), ErrorCode.FORBIDDEN),
+            Arguments.of(new OrderException.AlreadyPaid(), ErrorCode.ORDER_ALREADY_PAID),
             
             // 쿠폰 관련 예외
             Arguments.of(new CouponException.NotFound(), ErrorCode.COUPON_NOT_FOUND),

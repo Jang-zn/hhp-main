@@ -2,6 +2,8 @@ package kr.hhplus.be.server.api;
 
 import java.util.Map;
 import java.util.HashMap;
+import kr.hhplus.be.server.domain.exception.*;
+import org.springframework.http.HttpStatus;
 
 /**
  * API 에러 코드 및 메시지 관리 Enum
@@ -166,32 +168,34 @@ public enum ErrorCode {
         Map<Class<? extends RuntimeException>, ErrorCode> map = new HashMap<>();
         
         // 사용자 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.UserException.NotFound.class, USER_NOT_FOUND);
+        map.put(UserException.NotFound.class, USER_NOT_FOUND);
         
         // 잔액 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.BalanceException.NotFound.class, BALANCE_NOT_FOUND);
-        map.put(kr.hhplus.be.server.domain.exception.BalanceException.InsufficientBalance.class, INSUFFICIENT_BALANCE);
-        map.put(kr.hhplus.be.server.domain.exception.BalanceException.InvalidAmount.class, INVALID_AMOUNT);
+        map.put(BalanceException.NotFound.class, BALANCE_NOT_FOUND);
+        map.put(BalanceException.InsufficientBalance.class, INSUFFICIENT_BALANCE);
+        map.put(BalanceException.InvalidAmount.class, INVALID_AMOUNT);
+        map.put(BalanceException.UserIdAndAmountRequired.class, INVALID_INPUT);
         
         // 상품 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.ProductException.NotFound.class, PRODUCT_NOT_FOUND);
-        map.put(kr.hhplus.be.server.domain.exception.ProductException.OutOfStock.class, PRODUCT_OUT_OF_STOCK);
-        map.put(kr.hhplus.be.server.domain.exception.ProductException.InvalidReservation.class, INVALID_RESERVATION);
+        map.put(ProductException.NotFound.class, PRODUCT_NOT_FOUND);
+        map.put(ProductException.OutOfStock.class, PRODUCT_OUT_OF_STOCK);
+        map.put(ProductException.InvalidReservation.class, INVALID_RESERVATION);
         
         // 주문 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.OrderException.NotFound.class, ORDER_NOT_FOUND);
-        map.put(kr.hhplus.be.server.domain.exception.OrderException.Unauthorized.class, FORBIDDEN);
+        map.put(OrderException.NotFound.class, ORDER_NOT_FOUND);
+        map.put(OrderException.Unauthorized.class, FORBIDDEN);
+        map.put(OrderException.AlreadyPaid.class, ORDER_ALREADY_PAID);
         
         // 쿠폰 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.NotFound.class, COUPON_NOT_FOUND);
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.Expired.class, COUPON_EXPIRED);
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.CouponNotYetStarted.class, COUPON_NOT_YET_STARTED);
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.AlreadyIssued.class, COUPON_ALREADY_ISSUED);
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.OutOfStock.class, COUPON_ISSUE_LIMIT_EXCEEDED);
-        map.put(kr.hhplus.be.server.domain.exception.CouponException.CouponStockExceeded.class, COUPON_ISSUE_LIMIT_EXCEEDED);
+        map.put(CouponException.NotFound.class, COUPON_NOT_FOUND);
+        map.put(CouponException.Expired.class, COUPON_EXPIRED);
+        map.put(CouponException.CouponNotYetStarted.class, COUPON_NOT_YET_STARTED);
+        map.put(CouponException.AlreadyIssued.class, COUPON_ALREADY_ISSUED);
+        map.put(CouponException.OutOfStock.class, COUPON_ISSUE_LIMIT_EXCEEDED);
+        map.put(CouponException.CouponStockExceeded.class, COUPON_ISSUE_LIMIT_EXCEEDED);
         
         // 동시성 관련 예외
-        map.put(kr.hhplus.be.server.domain.exception.CommonException.ConcurrencyConflict.class, CONCURRENCY_ERROR);
+        map.put(CommonException.ConcurrencyConflict.class, CONCURRENCY_ERROR);
         
         EXCEPTION_CODE_MAP = Map.copyOf(map); // 불변 맵으로 변환
     }
@@ -201,32 +205,32 @@ public enum ErrorCode {
      */
     private static ErrorCode fromDomainExceptionFallback(RuntimeException ex) {
         // 사용자 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.UserException) {
+        if (ex instanceof UserException) {
             return USER_NOT_FOUND; // 기본값
         }
         
         // 잔액 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.BalanceException) {
+        if (ex instanceof BalanceException) {
             return INVALID_AMOUNT; // 기본값
         }
         
         // 상품 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.ProductException) {
+        if (ex instanceof ProductException) {
             return PRODUCT_NOT_FOUND; // 기본값
         }
         
         // 주문 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.OrderException) {
+        if (ex instanceof OrderException) {
             return ORDER_NOT_FOUND; // 기본값
         }
         
         // 쿠폰 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.CouponException) {
+        if (ex instanceof CouponException) {
             return COUPON_NOT_FOUND; // 기본값
         }
         
         // 동시성 관련 예외
-        if (ex instanceof kr.hhplus.be.server.domain.exception.CommonException.ConcurrencyConflict) {
+        if (ex instanceof CommonException.ConcurrencyConflict) {
             return CONCURRENCY_ERROR;
         }
         
@@ -239,74 +243,74 @@ public enum ErrorCode {
      * @param errorCode ErrorCode enum
      * @return 적절한 HTTP 상태 코드
      */
-    public static org.springframework.http.HttpStatus getHttpStatusFromErrorCode(ErrorCode errorCode) {
+    public static HttpStatus getHttpStatusFromErrorCode(ErrorCode errorCode) {
         if (errorCode == null) {
-            return org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+            return HttpStatus.INTERNAL_SERVER_ERROR;
         }
         
         // 성공
         if (errorCode == SUCCESS) {
-            return org.springframework.http.HttpStatus.OK;
+            return HttpStatus.OK;
         }
         
         // 특정 에러 코드 우선 처리
         if (errorCode == INSUFFICIENT_BALANCE) {
-            return org.springframework.http.HttpStatus.PAYMENT_REQUIRED;
+            return HttpStatus.PAYMENT_REQUIRED;
         }
         
         if (errorCode == PRODUCT_OUT_OF_STOCK || errorCode == INVALID_RESERVATION) {
-            return org.springframework.http.HttpStatus.CONFLICT;
+            return HttpStatus.CONFLICT;
         }
         
         if (errorCode == UNAUTHORIZED) {
-            return org.springframework.http.HttpStatus.UNAUTHORIZED;
+            return HttpStatus.UNAUTHORIZED;
         }
         
         if (errorCode == FORBIDDEN) {
-            return org.springframework.http.HttpStatus.FORBIDDEN;
+            return HttpStatus.FORBIDDEN;
         }
         
         if (errorCode == COUPON_EXPIRED || errorCode == COUPON_ISSUE_LIMIT_EXCEEDED) {
-            return org.springframework.http.HttpStatus.GONE;
+            return HttpStatus.GONE;
         }
         
         if (errorCode == CONCURRENCY_ERROR || errorCode == LOCK_ACQUISITION_FAILED) {
-            return org.springframework.http.HttpStatus.CONFLICT;
+            return HttpStatus.CONFLICT;
         }
         
         // Not Found 계열 (메시지 기반 체크)
         if (errorCode.getMessage().contains("찾을 수 없습니다")) {
-            return org.springframework.http.HttpStatus.NOT_FOUND;
+            return HttpStatus.NOT_FOUND;
         }
         
         // HTTP 상태 코드 직접 매핑
         if (errorCode == BAD_REQUEST) {
-            return org.springframework.http.HttpStatus.BAD_REQUEST;
+            return HttpStatus.BAD_REQUEST;
         }
         
         if (errorCode == NOT_FOUND) {
-            return org.springframework.http.HttpStatus.NOT_FOUND;
+            return HttpStatus.NOT_FOUND;
         }
         
         if (errorCode == METHOD_NOT_ALLOWED) {
-            return org.springframework.http.HttpStatus.METHOD_NOT_ALLOWED;
+            return HttpStatus.METHOD_NOT_ALLOWED;
         }
         
         if (errorCode == UNSUPPORTED_MEDIA_TYPE) {
-            return org.springframework.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+            return HttpStatus.UNSUPPORTED_MEDIA_TYPE;
         }
         
         // 입력 검증 에러
         if (errorCode.isDomainError("V")) {
-            return org.springframework.http.HttpStatus.BAD_REQUEST;
+            return HttpStatus.BAD_REQUEST;
         }
         
         // 시스템 에러 (E로 시작하지만 HTTP 상태 코드가 아닌 것들)
         if (errorCode == INTERNAL_SERVER_ERROR || errorCode == DATABASE_ERROR || errorCode == EXTERNAL_API_ERROR) {
-            return org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+            return HttpStatus.INTERNAL_SERVER_ERROR;
         }
         
         // 기본값 (도메인 에러들)
-        return org.springframework.http.HttpStatus.BAD_REQUEST;
+        return HttpStatus.BAD_REQUEST;
     }
 }
