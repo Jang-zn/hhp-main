@@ -43,9 +43,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({BalanceException.class, CouponException.class, OrderException.class, PaymentException.class, ProductException.class, UserException.class, CommonException.class})
     public ResponseEntity<CommonResponse<Object>> handleBusinessException(RuntimeException ex) {
-        HttpStatus status = getStatusFromException(ex);
-        ErrorCode errorCode = getErrorCodeFromException(ex);
-        return ResponseEntity.status(status).body(CommonResponse.failure(errorCode, ex.getMessage()));
+        // ErrorCode 자동 매핑
+        ErrorCode errorCode = ErrorCode.fromDomainException(ex);
+        HttpStatus status = ErrorCode.getHttpStatusFromErrorCode(errorCode);
+        
+        return ResponseEntity.status(status).body(
+            CommonResponse.failure(errorCode, ex.getMessage())
+        );
     }
 
     /**
@@ -93,69 +97,5 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
-    /**
-     * 예외 타입에 따른 HTTP 상태 코드 매핑
-     * 비즈니스 의미에 맞는 적절한 HTTP 상태 코드를 반환한다.
-     * 
-     * @param ex 발생한 예외
-     * @return 해당 예외에 적합한 HTTP 상태 코드
-     */
-    private HttpStatus getStatusFromException(RuntimeException ex) {
-        // 잔액 부족 관련 -> 402 Payment Required
-        if (ex instanceof BalanceException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
-        
-        // 쿠폰 만료/소진 -> 410 Gone (더 이상 사용할 수 없음)
-        if (ex instanceof CouponException.Expired || ex instanceof CouponException.OutOfStock) return HttpStatus.GONE;
-        
-        // 권한 없음 -> 403 Forbidden
-        if (ex instanceof OrderException.Unauthorized) return HttpStatus.FORBIDDEN;
-        
-        // 리소스 없음 -> 404 Not Found
-        if (ex instanceof ProductException.NotFound || ex instanceof OrderException.NotFound || ex instanceof CouponException.NotFound || ex instanceof UserException.NotFound || ex instanceof BalanceException.NotFound) return HttpStatus.NOT_FOUND;
-        
-        // 동시성 충돌, 재고 부족 -> 409 Conflict (리소스 상태 충돌)
-        if (ex instanceof CommonException.ConcurrencyConflict || ex instanceof ProductException.OutOfStock) return HttpStatus.CONFLICT;
-        
-        // 기타 모든 경우 -> 400 Bad Request
-        return HttpStatus.BAD_REQUEST;
-    }
-
-    /**
-     * 도메인 예외에서 ErrorCode 매핑
-     * 
-     * @param ex 발생한 예외
-     * @return ErrorCode (매핑되지 않은 경우 INTERNAL_SERVER_ERROR)
-     */
-    private ErrorCode getErrorCodeFromException(RuntimeException ex) {
-        // 사용자 관련 예외
-        if (ex instanceof UserException.NotFound) return ErrorCode.USER_NOT_FOUND;
-        
-        // 잔액 관련 예외
-        if (ex instanceof BalanceException.NotFound) return ErrorCode.BALANCE_NOT_FOUND;
-        if (ex instanceof BalanceException.InsufficientBalance) return ErrorCode.INSUFFICIENT_BALANCE;
-        if (ex instanceof BalanceException.InvalidAmount) return ErrorCode.INVALID_AMOUNT;
-        
-        // 상품 관련 예외
-        if (ex instanceof ProductException.NotFound) return ErrorCode.PRODUCT_NOT_FOUND;
-        if (ex instanceof ProductException.OutOfStock) return ErrorCode.PRODUCT_OUT_OF_STOCK;
-        if (ex instanceof ProductException.InvalidReservation) return ErrorCode.INVALID_RESERVATION;
-        
-        // 주문 관련 예외
-        if (ex instanceof OrderException.NotFound) return ErrorCode.ORDER_NOT_FOUND;
-        if (ex instanceof OrderException.Unauthorized) return ErrorCode.FORBIDDEN;
-        
-        // 쿠폰 관련 예외
-        if (ex instanceof CouponException.NotFound) return ErrorCode.COUPON_NOT_FOUND;
-        if (ex instanceof CouponException.Expired) return ErrorCode.COUPON_EXPIRED;
-        if (ex instanceof CouponException.CouponNotYetStarted) return ErrorCode.COUPON_NOT_YET_STARTED;
-        if (ex instanceof CouponException.AlreadyIssued) return ErrorCode.COUPON_ALREADY_ISSUED;
-        if (ex instanceof CouponException.OutOfStock) return ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED;
-        if (ex instanceof CouponException.CouponStockExceeded) return ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED;
-        
-        // 동시성 관련 예외
-        if (ex instanceof CommonException.ConcurrencyConflict) return ErrorCode.CONCURRENCY_ERROR;
-        
-        // 기본값
-        return ErrorCode.INTERNAL_SERVER_ERROR;
-    }
+    // 기존 매핑 메서드들은 ErrorCode.fromDomainException()으로 대체됨
 } 
