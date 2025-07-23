@@ -169,6 +169,7 @@ public enum ErrorCode {
         
         // 사용자 관련 예외
         map.put(UserException.NotFound.class, USER_NOT_FOUND);
+        map.put(UserException.InvalidUser.class, INVALID_USER_ID);
         
         // 잔액 관련 예외
         map.put(BalanceException.NotFound.class, BALANCE_NOT_FOUND);
@@ -185,6 +186,7 @@ public enum ErrorCode {
         map.put(OrderException.NotFound.class, ORDER_NOT_FOUND);
         map.put(OrderException.Unauthorized.class, FORBIDDEN);
         map.put(OrderException.AlreadyPaid.class, ORDER_ALREADY_PAID);
+        map.put(OrderException.EmptyItems.class, INVALID_INPUT);
         
         // 쿠폰 관련 예외
         map.put(CouponException.NotFound.class, COUPON_NOT_FOUND);
@@ -254,6 +256,16 @@ public enum ErrorCode {
         }
         
         // 특정 에러 코드 우선 처리
+        if (errorCode == USER_NOT_FOUND || errorCode == BALANCE_NOT_FOUND || 
+            errorCode == PRODUCT_NOT_FOUND || errorCode == ORDER_NOT_FOUND || 
+            errorCode == COUPON_NOT_FOUND) {
+            return HttpStatus.NOT_FOUND;
+        }
+        
+        if (errorCode == INVALID_AMOUNT || errorCode == INVALID_INPUT) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        
         if (errorCode == INSUFFICIENT_BALANCE) {
             return HttpStatus.PAYMENT_REQUIRED;
         }

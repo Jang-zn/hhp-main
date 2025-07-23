@@ -1,5 +1,6 @@
-package kr.hhplus.be.server.api;
+package kr.hhplus.be.server.unit.api;
 
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,7 @@ class ErrorCodeMappingTest {
         return Stream.of(
             // 사용자 관련 예외
             Arguments.of(new UserException.NotFound(), ErrorCode.USER_NOT_FOUND),
-            Arguments.of(new UserException.InvalidUser(), ErrorCode.USER_NOT_FOUND),
+            Arguments.of(new UserException.InvalidUser(), ErrorCode.INVALID_USER_ID),
             
             // 잔액 관련 예외
             Arguments.of(new BalanceException.NotFound(), ErrorCode.BALANCE_NOT_FOUND),
@@ -82,6 +83,7 @@ class ErrorCodeMappingTest {
             Arguments.of(new OrderException.NotFound(), ErrorCode.ORDER_NOT_FOUND),
             Arguments.of(new OrderException.Unauthorized(), ErrorCode.FORBIDDEN),
             Arguments.of(new OrderException.AlreadyPaid(), ErrorCode.ORDER_ALREADY_PAID),
+            Arguments.of(new OrderException.EmptyItems(), ErrorCode.INVALID_INPUT),
             
             // 쿠폰 관련 예외
             Arguments.of(new CouponException.NotFound(), ErrorCode.COUPON_NOT_FOUND),

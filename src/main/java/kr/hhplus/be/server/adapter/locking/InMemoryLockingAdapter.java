@@ -11,6 +11,11 @@ public class InMemoryLockingAdapter implements LockingPort {
     
     private final Map<String, Thread> locks = new ConcurrentHashMap<>();
     
+    // 테스트를 위한 락 클리어 메서드
+    public void clearAllLocks() {
+        locks.clear();
+    }
+    
     @Override
     public boolean acquireLock(String key) {
         Thread currentThread = Thread.currentThread();
