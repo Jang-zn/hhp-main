@@ -43,10 +43,16 @@ public class CouponController {
         
         CouponHistory couponHistory = issueCouponUseCase.execute(request.getUserId(), request.getCouponId());
         return new CouponResponse(
+                couponHistory.getId(),
                 couponHistory.getCoupon().getId(),
                 couponHistory.getCoupon().getCode(),
                 couponHistory.getCoupon().getDiscountRate(),
-                couponHistory.getCoupon().getEndDate()
+                couponHistory.getCoupon().getEndDate(),
+                couponHistory.getCoupon().getStatus(),
+                couponHistory.getStatus(),
+                couponHistory.getIssuedAt(),
+                couponHistory.getUsedAt(),
+                couponHistory.isUsable()
         );
     }
 
@@ -68,10 +74,16 @@ public class CouponController {
         List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
                 .map(history -> new CouponResponse(
+                        history.getId(),
                         history.getCoupon().getId(),
                         history.getCoupon().getCode(),
                         history.getCoupon().getDiscountRate(),
-                        history.getCoupon().getEndDate()
+                        history.getCoupon().getEndDate(),
+                        history.getCoupon().getStatus(),
+                        history.getStatus(),
+                        history.getIssuedAt(),
+                        history.getUsedAt(),
+                        history.isUsable()
                 ))
                 .collect(Collectors.toList());
     }

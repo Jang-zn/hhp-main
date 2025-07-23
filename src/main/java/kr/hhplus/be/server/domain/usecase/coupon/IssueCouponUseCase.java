@@ -3,6 +3,7 @@ package kr.hhplus.be.server.domain.usecase.coupon;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
@@ -53,8 +54,11 @@ public class IssueCouponUseCase {
                         return new CouponException.NotFound();
                     });
             
-            // 쿠폰 유효성 검증
-            validateCouponAvailability(coupon);
+            // 쿠폰 발급 가능성 검증 (상태 기반)
+            if (!coupon.isIssuable()) {
+                log.warn("발급 불가능한 쿠폰: couponId={}, status={}", couponId, coupon.getStatus());
+                throw new CouponException.CouponNotIssuable();
+            }
             
             // 중복 발급 검증
             if (couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)) {
@@ -62,7 +66,7 @@ public class IssueCouponUseCase {
                 throw new CouponException.AlreadyIssued();
             }
             
-            // 재고 감소
+            // 재고 감소 (내부적으로 상태 업데이트됨)
             coupon.decreaseStock(1);
             Coupon savedCoupon = couponRepositoryPort.save(coupon);
             
@@ -71,6 +75,7 @@ public class IssueCouponUseCase {
                     .user(user)
                     .coupon(savedCoupon)
                     .issuedAt(LocalDateTime.now())
+                    .status(CouponHistoryStatus.ISSUED)
                     .build();
             
             CouponHistory savedHistory = couponHistoryRepositoryPort.save(couponHistory);
@@ -107,22 +112,6 @@ public class IssueCouponUseCase {
         }
     }
     
-    private void validateCouponAvailability(Coupon coupon) {
-        LocalDateTime now = LocalDateTime.now();
-        
-        // 쿠폰 시작 시간 검증
-        if (now.isBefore(coupon.getStartDate())) {
-            throw new CouponException.CouponNotYetStarted();
-        }
-        
-        // 쿠폰 만료 시간 검증
-        if (now.isAfter(coupon.getEndDate())) {
-            throw new CouponException.Expired();
-        }
-        
-        // 쿠폰 재고 검증
-        if (coupon.getIssuedCount() >= coupon.getMaxIssuance()) {
-            throw new CouponException.OutOfStock();
-        }
-    }
+    // 기존 validateCouponAvailability 메서드는 제거
+    // 쿠폰 엔티티의 isIssuable() 메서드로 대체됨
 } 

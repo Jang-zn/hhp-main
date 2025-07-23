@@ -1,16 +1,19 @@
 package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Coupon;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Repository
 public class InMemoryCouponRepository implements CouponRepositoryPort {
@@ -34,7 +37,7 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
     @Override
     public Coupon save(Coupon coupon) {
         if (coupon == null) {
-            throw new IllegalArgumentException("Coupon cannot be null");
+            throw new CouponException.InvalidCouponData("Coupon cannot be null");
         }
         
         // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
@@ -51,6 +54,7 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
                         .issuedCount(coupon.getIssuedCount())
                         .startDate(coupon.getStartDate())
                         .endDate(coupon.getEndDate())
+                        .status(coupon.getStatus())
                         .product(coupon.getProduct())
                         .createdAt(existingCoupon.getCreatedAt())
                         .updatedAt(coupon.getUpdatedAt())
@@ -65,6 +69,7 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
                         .issuedCount(coupon.getIssuedCount())
                         .startDate(coupon.getStartDate())
                         .endDate(coupon.getEndDate())
+                        .status(coupon.getStatus() != null ? coupon.getStatus() : CouponStatus.INACTIVE)
                         .product(coupon.getProduct())
                         .createdAt(coupon.getCreatedAt())
                         .updatedAt(coupon.getUpdatedAt())
@@ -73,5 +78,29 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
         });
         
         return savedCoupon;
+    }
+
+    @Override
+    public List<Coupon> findByStatus(CouponStatus status) {
+        return coupons.values().stream()
+                .filter(coupon -> coupon.getStatus() == status)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Coupon> findExpiredCouponsNotInStatus(LocalDateTime now, CouponStatus... excludeStatuses) {
+        List<CouponStatus> excludeList = Arrays.asList(excludeStatuses);
+        
+        return coupons.values().stream()
+                .filter(coupon -> now.isAfter(coupon.getEndDate()))
+                .filter(coupon -> !excludeList.contains(coupon.getStatus()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countByStatus(CouponStatus status) {
+        return coupons.values().stream()
+                .filter(coupon -> coupon.getStatus() == status)
+                .count();
     }
 } 
