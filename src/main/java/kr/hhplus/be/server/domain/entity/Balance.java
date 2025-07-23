@@ -21,7 +21,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-@EqualsAndHashCode(callSuper = true, of = "id")
+@EqualsAndHashCode(callSuper = false)
 @ToString(exclude = "user") // 순환 참조 방지
 public class Balance extends BaseEntity {
 
