@@ -156,8 +156,7 @@ class InMemoryBalanceRepositoryTest {
         void save_WithNullBalance() {
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Balance cannot be null");
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
         }
 
         @Test
@@ -171,8 +170,7 @@ class InMemoryBalanceRepositoryTest {
 
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(balance))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Balance user cannot be null");
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
         }
     }
 
@@ -221,8 +219,7 @@ class InMemoryBalanceRepositoryTest {
         void findByUser_WithNullUser() {
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User cannot be null");
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
         }
 
         @Test
@@ -233,8 +230,7 @@ class InMemoryBalanceRepositoryTest {
             
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(user))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User ID cannot be null");
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
         }
 
         @Test

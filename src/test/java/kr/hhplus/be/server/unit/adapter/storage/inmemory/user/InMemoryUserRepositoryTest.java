@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryUserRepository;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.UserException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -147,8 +148,7 @@ class InMemoryUserRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> userRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User ID cannot be null");
+                    .isInstanceOf(UserException.InvalidUser.class);
         }
 
         @Test
@@ -195,8 +195,7 @@ class InMemoryUserRepositoryTest {
         void existsById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> userRepository.existsById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("User ID cannot be null");
+                    .isInstanceOf(UserException.InvalidUser.class);
         }
 
         @Test

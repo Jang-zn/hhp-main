@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -48,13 +49,13 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     @Override
     public CouponHistory save(CouponHistory couponHistory) {
         if (couponHistory == null) {
-            throw new CouponException.InvalidCouponHistoryData("CouponHistory cannot be null");
+            throw new CouponException.InvalidCouponHistoryData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (couponHistory.getUser() == null) {
-            throw new CouponException.InvalidUserData("CouponHistory user cannot be null");
+            throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (couponHistory.getCoupon() == null) {
-            throw new CouponException.InvalidCouponData("CouponHistory coupon cannot be null");
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
         // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
@@ -92,7 +93,7 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     @Override
     public Optional<CouponHistory> findById(Long id) {
         if (id == null) {
-            throw new CouponException.CouponIdCannotBeNull();
+            throw new CouponException.InvalidCouponHistoryData(ErrorCode.INVALID_INPUT.getMessage());
         }
         return Optional.ofNullable(couponHistories.get(id));
     }
@@ -100,10 +101,10 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     @Override
     public List<CouponHistory> findByUserWithPagination(User user, int limit, int offset) {
         if (user == null || user.getId() == null) {
-            throw new CouponException.InvalidUserData("User and User ID cannot be null");
+            throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (limit <= 0 || offset < 0) {
-            throw new CouponException.InvalidPaginationParams("Invalid limit or offset values");
+            throw new CouponException.InvalidPaginationParams(ErrorCode.INVALID_INPUT.getMessage());
         }
         
         return couponHistories.values().stream()
@@ -118,10 +119,10 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     @Override
     public List<CouponHistory> findByUserAndStatus(User user, CouponHistoryStatus status) {
         if (user == null || user.getId() == null) {
-            throw new CouponException.InvalidUserData("User and User ID cannot be null");
+            throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (status == null) {
-            throw new CouponException.InvalidCouponHistoryData("Status cannot be null");
+            throw new CouponException.InvalidCouponHistoryData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
         return couponHistories.values().stream()
@@ -144,7 +145,7 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     @Override
     public long countUsableCouponsByUser(User user) {
         if (user == null || user.getId() == null) {
-            throw new CouponException.InvalidUserData("User and User ID cannot be null");
+            throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
         LocalDateTime now = LocalDateTime.now();

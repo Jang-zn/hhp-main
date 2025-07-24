@@ -3,13 +3,14 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import org.springframework.stereotype.Repository;
-
-import java.util.ArrayList;
+import kr.hhplus.be.server.domain.entity.User;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kr.hhplus.be.server.domain.exception.OrderException;
+
 
 @Repository
 public class InMemoryOrderRepository implements OrderRepositoryPort {
@@ -20,13 +21,13 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     @Override
     public Order save(Order order) {
         if (order == null) {
-            throw new IllegalArgumentException("Order cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         if (order.getUser() == null) {
-            throw new IllegalArgumentException("Order user cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         if (order.getUser().getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         
         // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
@@ -66,10 +67,10 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     @Override
     public List<Order> findByUser(kr.hhplus.be.server.domain.entity.User user) {
         if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         if (user.getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         
         return orders.values().stream()
@@ -80,15 +81,15 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     }
 
     @Override
-    public Optional<Order> findByIdAndUser(Long orderId, kr.hhplus.be.server.domain.entity.User user) {
+    public Optional<Order> findByIdAndUser(Long orderId, User user) {
         if (orderId == null) {
-            throw new IllegalArgumentException("Order ID cannot be null");
+            throw new OrderException.OrderIdCannotBeNull();
         }
         if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         if (user.getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new OrderException.OrderCannotBeNull();
         }
         
         return Optional.ofNullable(orders.get(orderId))
@@ -100,7 +101,7 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     @Override
     public Optional<Order> findById(Long orderId) {
         if (orderId == null) {
-            throw new IllegalArgumentException("Order ID cannot be null");
+            throw new OrderException.OrderIdCannotBeNull();
         }
         
         return Optional.ofNullable(orders.get(orderId));

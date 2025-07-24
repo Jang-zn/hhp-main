@@ -5,12 +5,15 @@ import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import org.springframework.stereotype.Repository;
+import kr.hhplus.be.server.api.ErrorCode;
+import kr.hhplus.be.server.domain.exception.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import kr.hhplus.be.server.domain.exception.CommonException;
 
 @Repository
 public class InMemoryEventLogRepository implements EventLogRepositoryPort {
@@ -21,13 +24,13 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     @Override
     public EventLog save(EventLog eventLog) {
         if (eventLog == null) {
-            throw new IllegalArgumentException("EventLog cannot be null");
+            throw new CommonException.InvalidInput();
         }
         if (eventLog.getEventType() == null) {
-            throw new IllegalArgumentException("EventLog eventType cannot be null");
+            throw new CommonException.InvalidInput();
         }
         if (eventLog.getStatus() == null) {
-            throw new IllegalArgumentException("EventLog status cannot be null");
+            throw new CommonException.InvalidInput();
         }
         
         Long eventLogId = eventLog.getId() != null ? eventLog.getId() : nextId.getAndIncrement();
@@ -60,7 +63,7 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     @Override
     public List<EventLog> findByStatus(EventStatus status) {
         if (status == null) {
-            throw new IllegalArgumentException("EventStatus cannot be null");
+            throw new CommonException.InvalidInput();
         }
         return eventLogs.values().stream()
                 .filter(eventLog -> eventLog.getStatus() == status)
@@ -70,7 +73,7 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     @Override
     public List<EventLog> findByEventType(EventType eventType) {
         if (eventType == null) {
-            throw new IllegalArgumentException("EventType cannot be null");
+            throw new CommonException.InvalidInput();
         }
         return eventLogs.values().stream()
                 .filter(eventLog -> eventLog.getEventType() == eventType)

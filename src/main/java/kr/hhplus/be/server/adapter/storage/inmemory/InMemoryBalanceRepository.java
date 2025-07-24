@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -43,10 +44,10 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     @Override
     public Optional<Balance> findByUser(@NotNull User user) {
         if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         if (user.getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         return Optional.ofNullable(userBalances.get(user.getId()));
     }
@@ -54,13 +55,19 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     @Override
     public Balance save(@NotNull Balance balance) {
         if (balance == null) {
-            throw new IllegalArgumentException("Balance cannot be null");
+            throw new BalanceException.BalanceCannotBeNull();
         }
         if (balance.getUser() == null) {
-            throw new IllegalArgumentException("Balance user cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         if (balance.getUser().getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
+        }
+        if (balance.getAmount() == null) {
+            throw new BalanceException.AmountCannotBeNull();
+        }
+        if (balance.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BalanceException.InvalidAmountPositive();
         }
         
         Long userId = balance.getUser().getId();

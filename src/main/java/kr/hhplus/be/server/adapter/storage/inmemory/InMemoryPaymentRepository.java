@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import kr.hhplus.be.server.domain.exception.PaymentException;
 
 @Repository
 public class InMemoryPaymentRepository implements PaymentRepositoryPort {
@@ -22,7 +23,7 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public Optional<Payment> findById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("Payment ID cannot be null");
+            throw new PaymentException.PaymentIdCannotBeNull();
         }
         return Optional.ofNullable(payments.get(id));
     }
@@ -30,7 +31,7 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public List<Payment> findByOrderId(Long orderId) {
         if (orderId == null) {
-            throw new IllegalArgumentException("Order ID cannot be null");
+            throw new PaymentException.PaymentIdCannotBeNull();
         }
         return payments.values().stream()
                 .filter(payment -> payment.getOrder() != null && payment.getOrder().getId().equals(orderId))
@@ -40,13 +41,16 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public Payment save(Payment payment) {
         if (payment == null) {
-            throw new IllegalArgumentException("Payment cannot be null");
+            throw new PaymentException.PaymentCannotBeNull();
         }
         if (payment.getUser() == null) {
-            throw new IllegalArgumentException("Payment user cannot be null");
+            throw new PaymentException.PaymentCannotBeNull();
         }
         if (payment.getOrder() == null) {
-            throw new IllegalArgumentException("Payment order cannot be null");
+            throw new PaymentException.PaymentCannotBeNull();
+        }
+        if (payment.getAmount() != null && payment.getAmount().compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new PaymentException.PaymentAmountCannotBeNegative();
         }
         
         Long paymentId = payment.getId() != null ? payment.getId() : nextId.getAndIncrement();
@@ -81,10 +85,10 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     @Override
     public Payment updateStatus(Long paymentId, PaymentStatus status) {
         if (paymentId == null) {
-            throw new IllegalArgumentException("Payment ID cannot be null");
+            throw new PaymentException.PaymentIdCannotBeNull();
         }
         if (status == null) {
-            throw new IllegalArgumentException("Payment status cannot be null");
+            throw new PaymentException.PaymentStatusCannotBeNull();
         }
         
         return payments.compute(paymentId, (key, existingPayment) -> {

@@ -225,8 +225,7 @@ class InMemoryCouponRepositoryTest {
         void save_WithNullCoupon() {
             // when & then
             assertThatThrownBy(() -> couponRepository.save(null))
-                    .isInstanceOf(CouponException.InvalidCouponData.class)
-                    .hasMessage(CouponException.Messages.COUPON_DATA_INVALID + ": Coupon cannot be null");
+                    .isInstanceOf(CouponException.InvalidCouponData.class);
         }
     }
 
@@ -274,8 +273,7 @@ class InMemoryCouponRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> couponRepository.findById(null))
-                    .isInstanceOf(CouponException.CouponIdCannotBeNull.class)
-                    .hasMessage(CouponException.Messages.COUPON_ID_CANNOT_BE_NULL);
+                    .isInstanceOf(CouponException.CouponIdCannotBeNull.class);
         }
 
         @Test

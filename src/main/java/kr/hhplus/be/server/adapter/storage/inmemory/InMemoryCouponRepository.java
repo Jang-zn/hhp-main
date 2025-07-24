@@ -4,8 +4,10 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -37,7 +39,24 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
     @Override
     public Coupon save(Coupon coupon) {
         if (coupon == null) {
-            throw new CouponException.InvalidCouponData("Coupon cannot be null");
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (coupon.getCode() == null) {
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (coupon.getDiscountRate() == null 
+            || coupon.getDiscountRate().compareTo(BigDecimal.ZERO) < 0 
+            || coupon.getDiscountRate().compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (coupon.getMaxIssuance() < 0 || coupon.getMaxIssuance() < coupon.getIssuedCount()) {
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (coupon.getStartDate() == null || coupon.getEndDate() == null) {
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (coupon.getStartDate().isAfter(coupon.getEndDate())) {
+            throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
         // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
