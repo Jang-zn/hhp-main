@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import java.util.Collections;
 
 @DisplayName("GetCouponListUseCase 단위 테스트")
@@ -163,7 +164,7 @@ class GetCouponListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -256,7 +257,7 @@ class GetCouponListUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         } else {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))

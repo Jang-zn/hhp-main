@@ -10,6 +10,7 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.CommonException;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
@@ -114,7 +115,7 @@ class UseCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> useCouponUseCase.execute(userId, couponHistoryIds, order))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -142,7 +143,7 @@ class UseCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> useCouponUseCase.execute(userId, couponHistoryIds, order))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-use-999");
     }
@@ -179,7 +180,7 @@ class UseCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> useCouponUseCase.execute(userId, couponHistoryIds, order))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-use-1");
     }
@@ -208,7 +209,7 @@ class UseCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> useCouponUseCase.execute(userId, couponHistoryIds, order))
                 .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
     }
 
     @ParameterizedTest

@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
 import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -186,7 +187,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.NotFound.class)
-                .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
+                .hasMessage(ErrorCode.ORDER_NOT_FOUND.getMessage());
         
         verify(lockingPort, times(2)).releaseLock(anyString());
     }
@@ -215,7 +216,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.Unauthorized.class)
-                .hasMessage(OrderException.Messages.UNAUTHORIZED_ACCESS);
+                .hasMessage(ErrorCode.FORBIDDEN.getMessage());
     }
 
     @Test
@@ -240,7 +241,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -266,7 +267,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(BalanceException.InsufficientBalance.class)
-                .hasMessage(BalanceException.Messages.INSUFFICIENT_BALANCE);
+                .hasMessage(ErrorCode.INSUFFICIENT_BALANCE.getMessage());
     }
 
     @Test
@@ -282,7 +283,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
     }
 
     @Test
@@ -334,7 +335,7 @@ class PayOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> payOrderUseCase.execute(orderId, userId, couponId))
                 .isInstanceOf(OrderException.Unauthorized.class)
-                .hasMessage(OrderException.Messages.UNAUTHORIZED_ACCESS);
+                .hasMessage(ErrorCode.FORBIDDEN.getMessage());
     }
 
     @Test

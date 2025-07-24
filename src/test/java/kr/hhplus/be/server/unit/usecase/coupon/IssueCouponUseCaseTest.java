@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 
 @DisplayName("IssueCouponUseCase 단위 테스트")
 class IssueCouponUseCaseTest {
@@ -157,7 +158,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -180,7 +181,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -213,7 +214,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.Expired.class)
-                .hasMessage(CouponException.Messages.COUPON_EXPIRED);
+                .hasMessage(ErrorCode.COUPON_EXPIRED.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -246,7 +247,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.OutOfStock.class)
-                .hasMessage(CouponException.Messages.COUPON_OUT_OF_STOCK);
+                .hasMessage(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -280,7 +281,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.AlreadyIssued.class)
-                .hasMessage(CouponException.Messages.COUPON_ALREADY_ISSUED);
+                .hasMessage(ErrorCode.COUPON_ALREADY_ISSUED.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -337,7 +338,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CouponException.CouponNotYetStarted.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_YET_STARTED);
+                .hasMessage(ErrorCode.COUPON_NOT_YET_STARTED.getMessage());
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -354,7 +355,7 @@ class IssueCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                 .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
                 
         verify(lockingPort, never()).releaseLock(anyString());
     }
@@ -478,7 +479,7 @@ class IssueCouponUseCaseTest {
             // when & then
             assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
                     .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                    .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                    .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
             
             verify(lockingPort).acquireLock("coupon-issue-" + couponId);
             verify(lockingPort, never()).releaseLock(anyString());

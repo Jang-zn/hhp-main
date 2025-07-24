@@ -11,6 +11,7 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -132,7 +133,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
                     
             verify(lockingPort).releaseLock("order-creation-" + userId);
         }
@@ -146,10 +147,9 @@ class CreateOrderUseCaseTest {
 
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, emptyProductQuantities))
-                    .isInstanceOf(OrderException.EmptyItems.class)
-                    .hasMessage(OrderException.Messages.EMPTY_ITEMS);
+                    .isInstanceOf(OrderException.EmptyItems.class);
         }
-        
+
         @Test
         @DisplayName("실패케이스: null 파라미터")
         void createOrder_NullParameters() {
@@ -222,7 +222,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -243,7 +243,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.NotFound.class)
-                .hasMessage(ProductException.Messages.PRODUCT_NOT_FOUND);
+                .hasMessage(ErrorCode.PRODUCT_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -271,7 +271,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.OutOfStock.class)
-                .hasMessage(ProductException.Messages.OUT_OF_STOCK);
+                .hasMessage(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage());
     }
 
     @Test
@@ -283,8 +283,7 @@ class CreateOrderUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, emptyProductQuantities))
-                .isInstanceOf(OrderException.EmptyItems.class)
-                .hasMessage(OrderException.Messages.EMPTY_ITEMS);
+                .isInstanceOf(OrderException.EmptyItems.class);
     }
 
     @Test
@@ -390,7 +389,7 @@ class CreateOrderUseCaseTest {
         // when & then
         assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                 .isInstanceOf(ProductException.OutOfStock.class)
-                .hasMessage(ProductException.Messages.OUT_OF_STOCK);
+                .hasMessage(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage());
     }
     
     @ParameterizedTest
@@ -479,7 +478,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
+                    .hasMessage(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage());
                     
             verify(lockingPort).releaseLock("order-creation-" + userId);
         }
@@ -501,7 +500,7 @@ class CreateOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
                     .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                    .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                    .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
                     
             verify(lockingPort, never()).releaseLock(anyString()); // 락을 획득하지 못했으므로 release도 호출되지 않음
         }

@@ -3,6 +3,7 @@ package kr.hhplus.be.server.unit.usecase.coupon;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,7 +98,7 @@ class ValidateCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> validateCouponUseCase.execute(couponIds))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -114,7 +115,7 @@ class ValidateCouponUseCaseTest {
         // when & then
         assertThatThrownBy(() -> validateCouponUseCase.execute(couponIds))
                 .isInstanceOf(CouponException.NotFound.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
         
         verify(couponRepositoryPort).findById(1L);
         verify(couponRepositoryPort).findById(999L);
