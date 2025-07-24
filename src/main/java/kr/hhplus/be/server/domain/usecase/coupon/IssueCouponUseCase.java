@@ -55,8 +55,8 @@ public class IssueCouponUseCase {
                     });
             
             // 쿠폰 발급 가능성 검증 (상태 기반)
-            coupon.updateStatusBasedOnConditions(); // 상태 업데이트
-            if (!coupon.getStatus().isIssuable()) {
+            coupon.updateStatusIfNeeded(); // 상태 업데이트
+            if (!coupon.canIssue()) {
                 log.warn("발급 불가능한 쿠폰: couponId={}, status={}", couponId, coupon.getStatus());
                 
                 // 상태에 따른 구체적인 예외 던지기

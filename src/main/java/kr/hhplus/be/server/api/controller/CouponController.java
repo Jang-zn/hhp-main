@@ -52,7 +52,7 @@ public class CouponController {
                 couponHistory.getStatus(),
                 couponHistory.getIssuedAt(),
                 couponHistory.getUsedAt(),
-                couponHistory.isUsable()
+                couponHistory.canUse()
         );
     }
 
@@ -83,7 +83,7 @@ public class CouponController {
                         history.getStatus(),
                         history.getIssuedAt(),
                         history.getUsedAt(),
-                        history.isUsable()
+                        history.canUse()
                 ))
                 .collect(Collectors.toList());
     }

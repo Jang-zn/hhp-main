@@ -101,23 +101,31 @@ public class Coupon extends BaseEntity {
         
         // 재고 소진 시 상태 업데이트
         if (this.issuedCount >= this.maxIssuance) {
-            this.status = CouponStatus.SOLD_OUT;
+            updateStatus(CouponStatus.SOLD_OUT);
         }
     }
 
     /**
-     * 쿠폰 발급이 가능한지 확인합니다.
+     * 쿠폰 발급이 가능한지 확인합니다 (상태 변경 없이 순수 조회).
      */
-    public boolean isIssuable() {
+    public boolean canIssue() {
+        LocalDateTime now = LocalDateTime.now();
+        CouponStatus currentStatus = calculateStatus(now);
+        return currentStatus.isIssuable();
+    }
+
+    /**
+     * 쿠폰 상태를 조건에 따라 업데이트합니다.
+     */
+    public void updateStatusIfNeeded() {
         updateStatusBasedOnConditions();
-        return this.status.isIssuable();
     }
 
     /**
      * 강제로 쿠폰을 비활성화합니다.
      */
     public void disable() {
-        this.status = CouponStatus.DISABLED;
+        updateStatus(CouponStatus.DISABLED);
     }
 
     /**

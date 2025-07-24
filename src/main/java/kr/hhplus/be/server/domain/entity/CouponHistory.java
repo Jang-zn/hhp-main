@@ -61,32 +61,36 @@ public class CouponHistory extends BaseEntity {
         
         // 쿠폰 만료 여부 확인
         if (LocalDateTime.now().isAfter(this.coupon.getEndDate())) {
-            this.status = CouponHistoryStatus.EXPIRED;
             throw new CouponException.Expired();
         }
         
-        this.status = CouponHistoryStatus.USED;
+        updateStatus(CouponHistoryStatus.USED);
         this.usedAt = LocalDateTime.now();
         this.usedOrder = order;
     }
 
     /**
-     * 쿠폰이 사용 가능한지 확인합니다.
+     * 쿠폰이 사용 가능한지 확인합니다 (상태 변경 없이 순수 조회).
      */
-    public boolean isUsable() {
+    public boolean canUse() {
         // 현재 상태가 발급됨인지 확인
         if (this.status != CouponHistoryStatus.ISSUED) {
             return false;
         }
         
         // 쿠폰 만료 여부 확인
-        if (LocalDateTime.now().isAfter(this.coupon.getEndDate())) {
-            // 만료 상태로 업데이트
-            this.status = CouponHistoryStatus.EXPIRED;
-            return false;
+        return !LocalDateTime.now().isAfter(this.coupon.getEndDate());
+    }
+
+    /**
+     * 만료된 쿠폰의 상태를 업데이트합니다.
+     */
+    public void updateStatusIfExpired() {
+        // 현재 상태가 발급됨이고 만료된 경우에만 업데이트
+        if (this.status == CouponHistoryStatus.ISSUED && 
+            LocalDateTime.now().isAfter(this.coupon.getEndDate())) {
+            updateStatus(CouponHistoryStatus.EXPIRED);
         }
-        
-        return true;
     }
 
     /**
@@ -94,7 +98,7 @@ public class CouponHistory extends BaseEntity {
      */
     public void expire() {
         if (this.status == CouponHistoryStatus.ISSUED) {
-            this.status = CouponHistoryStatus.EXPIRED;
+            updateStatus(CouponHistoryStatus.EXPIRED);
         }
     }
 } 
