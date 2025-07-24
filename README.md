@@ -84,11 +84,7 @@ Ports ← Adapter Layer
 **책임**:
 
 - REST API 엔드포인트 제공
-<<<<<<< HEAD
 - 커스텀 검증 로직을 통한 요청 데이터 검증
-=======
-- Validation을 통한 요청 데이터 검증
->>>>>>> bb60a2a3dc91c5c9868b15b7e4bfe9b2d57c3b6d
 - 도메인 객체를 DTO로 변환
 - 전역 예외 처리로 일관된 에러 응답 생성
 - Swagger를 통한 API 문서 자동 생성
