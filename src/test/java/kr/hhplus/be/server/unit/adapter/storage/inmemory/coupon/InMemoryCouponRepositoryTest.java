@@ -127,7 +127,7 @@ class InMemoryCouponRepositoryTest {
         }
 
         @Test
-        @DisplayName("성공케이스: 발급 수량이 최대 발급 수를 초과한 쿠폰")
+        @DisplayName("실패케이스: 발급 수량이 최대 발급 수를 초과한 쿠폰")
         void save_CouponWithExceededIssuance() {
             // given
             Coupon overIssuedCoupon = Coupon.builder()
@@ -141,12 +141,9 @@ class InMemoryCouponRepositoryTest {
                     .status(CouponStatus.SOLD_OUT)
                     .build();
 
-            // when
-            Coupon savedCoupon = couponRepository.save(overIssuedCoupon);
-
-            // then
-            assertThat(savedCoupon).isNotNull();
-            assertThat(savedCoupon.getIssuedCount()).isGreaterThan(savedCoupon.getMaxIssuance());
+            // when & then
+            assertThatThrownBy(() -> couponRepository.save(overIssuedCoupon))
+                    .isInstanceOf(CouponException.InvalidCouponData.class);
         }
 
         @Test
@@ -173,7 +170,7 @@ class InMemoryCouponRepositoryTest {
         }
 
         @Test
-        @DisplayName("성공케이스: 시작일이 종료일보다 늦은 쿠폰")
+        @DisplayName("실패케이스: 시작일이 종료일보다 늦은 쿠폰")
         void save_CouponWithInvalidDateRange() {
             // given
             LocalDateTime now = LocalDateTime.now();
@@ -188,12 +185,9 @@ class InMemoryCouponRepositoryTest {
                     .status(CouponStatus.INACTIVE)
                     .build();
 
-            // when
-            Coupon savedCoupon = couponRepository.save(invalidDateCoupon);
-
-            // then
-            assertThat(savedCoupon).isNotNull();
-            assertThat(savedCoupon.getStartDate()).isAfter(savedCoupon.getEndDate());
+            // when & then
+            assertThatThrownBy(() -> couponRepository.save(invalidDateCoupon))
+                    .isInstanceOf(CouponException.InvalidCouponData.class);
         }
 
         @ParameterizedTest

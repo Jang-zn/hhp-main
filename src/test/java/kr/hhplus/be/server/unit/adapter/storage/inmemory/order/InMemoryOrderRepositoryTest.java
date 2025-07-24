@@ -3,6 +3,7 @@ package kr.hhplus.be.server.unit.adapter.storage.inmemory;
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryOrderRepository;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.exception.OrderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -180,8 +181,7 @@ class InMemoryOrderRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> orderRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Order ID cannot be null");
+                    .isInstanceOf(OrderException.OrderIdCannotBeNull.class);
         }
 
         @Test

@@ -156,7 +156,7 @@ class InMemoryBalanceRepositoryTest {
         void save_WithNullBalance() {
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(null))
-                    .isInstanceOf(BalanceException.InvalidAmount.class);
+                    .isInstanceOf(BalanceException.BalanceCannotBeNull.class);
         }
 
         @Test
@@ -170,7 +170,7 @@ class InMemoryBalanceRepositoryTest {
 
             // when & then
             assertThatThrownBy(() -> balanceRepository.save(balance))
-                    .isInstanceOf(BalanceException.InvalidAmount.class);
+                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
         }
     }
 
@@ -219,7 +219,7 @@ class InMemoryBalanceRepositoryTest {
         void findByUser_WithNullUser() {
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(null))
-                    .isInstanceOf(BalanceException.InvalidAmount.class);
+                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
         }
 
         @Test
@@ -230,7 +230,7 @@ class InMemoryBalanceRepositoryTest {
             
             // when & then
             assertThatThrownBy(() -> balanceRepository.findByUser(user))
-                    .isInstanceOf(BalanceException.InvalidAmount.class);
+                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
         }
 
         @Test

@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

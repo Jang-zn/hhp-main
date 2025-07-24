@@ -148,7 +148,7 @@ class InMemoryUserRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> userRepository.findById(null))
-                    .isInstanceOf(UserException.InvalidUser.class);
+                    .isInstanceOf(UserException.UserIdCannotBeNull.class);
         }
 
         @Test
@@ -195,7 +195,7 @@ class InMemoryUserRepositoryTest {
         void existsById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> userRepository.existsById(null))
-                    .isInstanceOf(UserException.InvalidUser.class);
+                    .isInstanceOf(UserException.UserIdCannotBeNull.class);
         }
 
         @Test
