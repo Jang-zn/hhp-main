@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -155,7 +156,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -172,7 +173,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                     .isInstanceOf(CouponException.NotFound.class)
-                    .hasMessage(CouponException.Messages.COUPON_NOT_FOUND);
+                    .hasMessage(ErrorCode.COUPON_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -226,7 +227,9 @@ class CouponControllerTest {
         when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(mockHistories);
 
         // when
-        CouponRequest request = new CouponRequest(limit, offset);
+        CouponRequest request = new CouponRequest(userId, null); // userId를 명시적으로 전달
+        request.setLimit(limit);
+        request.setOffset(offset);
         List<CouponResponse> response = couponController.getCoupons(userId, request);
 
         // then
@@ -259,7 +262,9 @@ class CouponControllerTest {
         when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(mockHistories);
         
         // when
-        CouponRequest request = new CouponRequest(limit, offset);
+        CouponRequest request = new CouponRequest(userId, null);
+        request.setLimit(limit);
+        request.setOffset(offset);
         List<CouponResponse> response = couponController.getCoupons(userId, request);
 
         // then
@@ -273,7 +278,9 @@ class CouponControllerTest {
         void getCoupons_UserNotFound() {
             // given
             Long invalidUserId = 999L;
-            CouponRequest request = new CouponRequest(10, 0);
+            CouponRequest request = new CouponRequest(invalidUserId, null);
+            request.setLimit(10);
+            request.setOffset(0);
             
             when(getCouponListUseCase.execute(invalidUserId, 10, 0))
                 .thenThrow(new UserException.NotFound());
@@ -281,7 +288,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(invalidUserId, request))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -293,7 +300,7 @@ class CouponControllerTest {
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(null, request))
                     .isInstanceOf(UserException.UserIdCannotBeNull.class)
-                    .hasMessage(UserException.Messages.USER_ID_CANNOT_BE_NULL);
+                    .hasMessage(ErrorCode.MISSING_REQUIRED_FIELD.getMessage());
         }
 
         @Test
@@ -305,7 +312,7 @@ class CouponControllerTest {
 
             // when & then
             assertThatThrownBy(() -> couponController.getCoupons(userId, invalidRequest))
-                    .isInstanceOf(CommonException.InvalidPagination.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }   
     }
 

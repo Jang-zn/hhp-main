@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,7 +62,6 @@ class BalanceControllerTest {
 
         static Stream<Arguments> provideInvalidChargeData() {
             return Stream.of(
-                    Arguments.of("음수 금액", 1L, "-10000", BalanceException.InvalidAmount.class),
                     Arguments.of("최소 금액 미만", 1L, "500", BalanceException.InvalidAmount.class),
                     Arguments.of("최대 금액 초과", 1L, "2000000", BalanceException.InvalidAmount.class)
             );
@@ -138,7 +138,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @Test
@@ -149,13 +149,10 @@ class BalanceControllerTest {
             BigDecimal invalidAmount = new BigDecimal("-10000");
             BalanceRequest request = new BalanceRequest(userId, invalidAmount);
 
-            when(chargeBalanceUseCase.execute(userId, invalidAmount))
-                    .thenThrow(new BalanceException.InvalidAmount());
-
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(ErrorCode.NEGATIVE_AMOUNT.getMessage());
         }
 
         @Test
@@ -166,8 +163,8 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class)
-                    .hasMessage(BalanceException.Messages.USERID_AND_AMOUNT_REQUIRED);
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @Test
@@ -176,7 +173,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(null))
                     .isInstanceOf(CommonException.InvalidRequest.class)
-                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
+                    .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
         }
 
         @ParameterizedTest
@@ -277,7 +274,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(userId))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @Test
@@ -286,7 +283,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(null))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @ParameterizedTest
@@ -299,7 +296,7 @@ class BalanceControllerTest {
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(invalidUserId))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
     }
 }

@@ -18,6 +18,7 @@ import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
 import kr.hhplus.be.server.domain.usecase.order.CheckOrderAccessUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -170,7 +171,7 @@ class OrderControllerTest {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @Test
@@ -189,7 +190,7 @@ class OrderControllerTest {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
                     .isInstanceOf(OrderException.EmptyItems.class)
-                    .hasMessage(OrderException.Messages.EMPTY_ITEMS);
+                    .hasMessage(ErrorCode.INVALID_ORDER_ITEMS.getMessage());
         }
 
         @Test
@@ -210,7 +211,7 @@ class OrderControllerTest {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(request))
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
+                    .hasMessage(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage());
         }
     }
 
@@ -294,7 +295,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(orderId, request))
                     .isInstanceOf(OrderException.NotFound.class)
-                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
+                    .hasMessage(ErrorCode.ORDER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -310,7 +311,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(orderId, request))
                     .isInstanceOf(BalanceException.InsufficientBalance.class)
-                    .hasMessage(BalanceException.Messages.INSUFFICIENT_BALANCE);
+                    .hasMessage(ErrorCode.INSUFFICIENT_BALANCE.getMessage());
         }
     }
 
@@ -499,7 +500,7 @@ class OrderControllerTest {
             // when & then
             assertThatThrownBy(() -> orderController.createOrder(null))
                     .isInstanceOf(CommonException.InvalidRequest.class)
-                    .hasMessage(CommonException.Messages.REQUEST_CANNOT_BE_NULL);
+                    .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
         }
 
         @Test
@@ -509,7 +510,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(null, request))
                     .isInstanceOf(OrderException.OrderIdCannotBeNull.class)
-                    .hasMessage(OrderException.Messages.ORDER_ID_CANNOT_BE_NULL);
+                    .hasMessage(ErrorCode.MISSING_REQUIRED_FIELD.getMessage());
         }
 
         @ParameterizedTest
@@ -524,7 +525,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(null, null);
             assertThatThrownBy(() -> orderController.payOrder(invalidOrderId, request))
                     .isInstanceOf(OrderException.NotFound.class)
-                    .hasMessage(OrderException.Messages.ORDER_NOT_FOUND);
+                    .hasMessage(ErrorCode.ORDER_NOT_FOUND.getMessage());
         }
     }
 

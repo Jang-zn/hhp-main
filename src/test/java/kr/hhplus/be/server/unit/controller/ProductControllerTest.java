@@ -114,11 +114,10 @@ class ProductControllerTest {
         void getProducts_WithInvalidPagination() {
             // given
             ProductRequest invalidRequest = new ProductRequest(-1, -1);
-            when(getProductUseCase.execute(-1, -1)).thenThrow(new CommonException.InvalidPagination());
             
             // when & then
             assertThatThrownBy(() -> productController.getProductList(invalidRequest))
-                    .isInstanceOf(CommonException.InvalidPagination.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
