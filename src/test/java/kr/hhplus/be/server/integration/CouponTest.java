@@ -8,6 +8,9 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
@@ -92,6 +95,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build();
         availableCoupon = couponRepositoryPort.save(availableCoupon);
 
@@ -103,6 +107,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().minusDays(30))
                 .endDate(LocalDateTime.now().minusDays(1))
+                .status(CouponStatus.EXPIRED)
                 .build();
         expiredCoupon = couponRepositoryPort.save(expiredCoupon);
 
@@ -114,6 +119,7 @@ public class CouponTest {
                 .issuedCount(1)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.SOLD_OUT)
                 .build();
         outOfStockCoupon = couponRepositoryPort.save(outOfStockCoupon);
 
@@ -125,6 +131,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().plusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.INACTIVE)
                 .build();
         notStartedCoupon = couponRepositoryPort.save(notStartedCoupon);
     }
@@ -156,7 +163,7 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.couponId").value(availableCoupon.getId()))
                         .andExpect(jsonPath("$.data.code").value("AVAILABLE_COUPON"))
                         .andExpect(jsonPath("$.data.discountRate").value(0.10));
@@ -179,8 +186,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.USER_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -196,8 +203,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -212,8 +219,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isGone())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_EXPIRED));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_EXPIRED.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_EXPIRED.getMessage()));
             }
 
             @Test
@@ -228,8 +235,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isGone())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_OUT_OF_STOCK));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getMessage()));
             }
 
             @Test
@@ -244,8 +251,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_NOT_YET_STARTED));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_YET_STARTED.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_NOT_YET_STARTED.getMessage()));
             }
 
             @Test
@@ -257,6 +264,7 @@ public class CouponTest {
                         .user(testUser)
                         .coupon(availableCoupon)
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build();
                 couponHistoryRepositoryPort.save(history);
 
@@ -268,8 +276,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_ALREADY_ISSUED));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_ALREADY_ISSUED.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_ALREADY_ISSUED.getMessage()));
             }
 
             @Test
@@ -284,7 +292,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -299,7 +308,8 @@ public class CouponTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }
@@ -328,6 +338,7 @@ public class CouponTest {
                         .issuedCount(0)
                         .startDate(LocalDateTime.now().minusDays(1))
                         .endDate(LocalDateTime.now().plusDays(30))
+                        .status(CouponStatus.ACTIVE)
                         .build();
                 coupon = couponRepositoryPort.save(coupon);
 
@@ -336,6 +347,7 @@ public class CouponTest {
                         .user(user)
                         .coupon(coupon)
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build();
                 couponHistoryRepositoryPort.save(history);
 
@@ -346,7 +358,7 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data", hasSize(1)))
                         .andExpect(jsonPath("$.data[0].couponId").value(coupon.getId()))
@@ -363,7 +375,7 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data", hasSize(0)));
             }
@@ -381,6 +393,7 @@ public class CouponTest {
                             .issuedCount(0)
                             .startDate(LocalDateTime.now().minusDays(1))
                             .endDate(LocalDateTime.now().plusDays(30))
+                            .status(CouponStatus.ACTIVE)
                             .build();
                     coupon = couponRepositoryPort.save(coupon);
 
@@ -388,6 +401,7 @@ public class CouponTest {
                             .user(testUser)
                             .coupon(coupon)
                             .issuedAt(LocalDateTime.now().minusMinutes(i))
+                            .status(CouponHistoryStatus.ISSUED)
                             .build();
                     couponHistoryRepositoryPort.save(history);
                 }
@@ -399,7 +413,7 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data", hasSize(2)));
             }
@@ -421,8 +435,8 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.USER_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -434,7 +448,8 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -446,7 +461,8 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -458,7 +474,8 @@ public class CouponTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }

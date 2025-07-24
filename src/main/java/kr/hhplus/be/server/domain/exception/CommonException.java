@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.domain.exception;
 
+import kr.hhplus.be.server.api.ErrorCode;
+
 public class CommonException extends RuntimeException {
     private final String errorCode;
     
@@ -12,53 +14,47 @@ public class CommonException extends RuntimeException {
         return errorCode;
     }
     
-    // 메시지 상수들
-    public static class Messages {
-        // Validation 메시지들 (공통)
-        public static final String INVALID_LIMIT = "limit은 양수여야 합니다";
-        public static final String LIMIT_EXCEEDED = "limit은 100을 초과할 수 없습니다";
-        public static final String INVALID_OFFSET = "offset은 0 이상이어야 합니다";
-        
-        // UseCase 메시지들 (공통)
-        public static final String REQUEST_CANNOT_BE_NULL = "요청은 null일 수 없습니다";
-        public static final String INVALID_PAGINATION_PARAMETERS = "잘못된 페이징 매개변수입니다";
-        public static final String CONCURRENCY_CONFLICT = "동시성 충돌이 발생했습니다";
-    }
     
     // 공통 예외들
     public static class InvalidPagination extends CommonException {
         public InvalidPagination() {
-            super("ERR_COMMON_INVALID_PAGINATION", Messages.INVALID_PAGINATION_PARAMETERS);
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage());
         }
     }
     
     public static class ConcurrencyConflict extends CommonException {
         public ConcurrencyConflict() {
-            super("ERR_COMMON_CONCURRENCY_CONFLICT", Messages.CONCURRENCY_CONFLICT);
+            super(ErrorCode.CONCURRENCY_ERROR.getCode(), ErrorCode.CONCURRENCY_ERROR.getMessage());
         }
     }
 
     public static class InvalidRequest extends CommonException {
         public InvalidRequest() {
-            super("ERR_COMMON_INVALID_REQUEST", Messages.REQUEST_CANNOT_BE_NULL);
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage());
         }
     }
 
     public static class InvalidLimit extends CommonException {
         public InvalidLimit() {
-            super("ERR_COMMON_INVALID_LIMIT", Messages.INVALID_LIMIT);
+            super(ErrorCode.VALUE_OUT_OF_RANGE.getCode(), ErrorCode.VALUE_OUT_OF_RANGE.getMessage());
         }
     }
 
     public static class LimitExceeded extends CommonException {
         public LimitExceeded() {
-            super("ERR_COMMON_LIMIT_EXCEEDED", Messages.LIMIT_EXCEEDED);
+            super(ErrorCode.VALUE_OUT_OF_RANGE.getCode(), ErrorCode.VALUE_OUT_OF_RANGE.getMessage());
         }
     }
 
     public static class InvalidOffset extends CommonException {
         public InvalidOffset() {
-            super("ERR_COMMON_INVALID_OFFSET", Messages.INVALID_OFFSET);
+            super(ErrorCode.VALUE_OUT_OF_RANGE.getCode(), ErrorCode.VALUE_OUT_OF_RANGE.getMessage());
+        }
+    }
+
+    public static class InvalidInput extends CommonException {
+        public InvalidInput() {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage());
         }
     }
 } 

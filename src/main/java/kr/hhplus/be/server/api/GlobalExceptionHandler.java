@@ -43,9 +43,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({BalanceException.class, CouponException.class, OrderException.class, PaymentException.class, ProductException.class, UserException.class, CommonException.class})
     public ResponseEntity<CommonResponse<Object>> handleBusinessException(RuntimeException ex) {
-        HttpStatus status = getStatusFromException(ex);
-        String errorCode = getErrorCode(ex);
-        return ResponseEntity.status(status).body(CommonResponse.failure(ex.getMessage(), errorCode));
+        // ErrorCode 자동 매핑
+        ErrorCode errorCode = ErrorCode.fromDomainException(ex);
+        HttpStatus status = ErrorCode.getHttpStatusFromErrorCode(errorCode);
+        
+        return ResponseEntity.status(status).body(
+            CommonResponse.failure(errorCode, ex.getMessage())
+        );
     }
 
     /**
@@ -58,7 +62,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(errorMessage));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT, errorMessage));
     }
 
     /**
@@ -68,7 +72,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<CommonResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT, ex.getMessage()));
     }
 
     /**
@@ -78,7 +82,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<CommonResponse<Object>> handleIllegalStateException(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.BAD_REQUEST, ex.getMessage()));
     }
 
     /**
@@ -90,49 +94,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonResponse<Object>> handleAllUncaughtException(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.failure("알 수 없는 오류가 발생했습니다."));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
-    /**
-     * 예외 타입에 따른 HTTP 상태 코드 매핑
-     * 비즈니스 의미에 맞는 적절한 HTTP 상태 코드를 반환한다.
-     * 
-     * @param ex 발생한 예외
-     * @return 해당 예외에 적합한 HTTP 상태 코드
-     */
-    private HttpStatus getStatusFromException(RuntimeException ex) {
-        // 잔액 부족 관련 -> 402 Payment Required
-        if (ex instanceof BalanceException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
-        
-        // 쿠폰 만료/소진 -> 410 Gone (더 이상 사용할 수 없음)
-        if (ex instanceof CouponException.Expired || ex instanceof CouponException.OutOfStock) return HttpStatus.GONE;
-        
-        // 권한 없음 -> 403 Forbidden
-        if (ex instanceof OrderException.Unauthorized) return HttpStatus.FORBIDDEN;
-        
-        // 리소스 없음 -> 404 Not Found
-        if (ex instanceof ProductException.NotFound || ex instanceof OrderException.NotFound || ex instanceof CouponException.NotFound || ex instanceof UserException.NotFound || ex instanceof BalanceException.NotFound) return HttpStatus.NOT_FOUND;
-        
-        // 동시성 충돌, 재고 부족 -> 409 Conflict (리소스 상태 충돌)
-        if (ex instanceof CommonException.ConcurrencyConflict || ex instanceof ProductException.OutOfStock) return HttpStatus.CONFLICT;
-        
-        // 기타 모든 경우 -> 400 Bad Request
-        return HttpStatus.BAD_REQUEST;
-    }
-
-    /**
-     * 도메인 예외에서 에러 코드 추출
-     * 
-     * @param ex 발생한 예외
-     * @return 에러 코드 (없으면 null)
-     */
-    private String getErrorCode(RuntimeException ex) {
-        try {
-            // 리플렉션을 통해 getErrorCode 메서드 호출
-            return (String) ex.getClass().getMethod("getErrorCode").invoke(ex);
-        } catch (Exception e) {
-            // 에러 코드가 없는 예외의 경우 null 반환
-            return null;
-        }
-    }
+    // 기존 매핑 메서드들은 ErrorCode.fromDomainException()으로 대체됨
 } 

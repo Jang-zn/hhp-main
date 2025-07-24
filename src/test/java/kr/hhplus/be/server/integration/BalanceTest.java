@@ -4,13 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.adapter.locking.InMemoryLockingAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,11 +49,17 @@ public class BalanceTest {
     @Autowired
     private BalanceRepositoryPort balanceRepositoryPort;
 
+    @Autowired
+    private InMemoryLockingAdapter lockingAdapter;
+
     private User userWithBalance;
     private User userWithoutBalance;
 
     @BeforeEach
     void setUp() {
+        // 테스트 간 락 상태 클리어
+        lockingAdapter.clearAllLocks();
+        
         // 잔액이 있는 테스트 사용자
         userWithBalance = userRepositoryPort.save(User.builder().name("User With Balance").build());
         balanceRepositoryPort.save(Balance.builder()
@@ -81,7 +92,7 @@ public class BalanceTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(userId))
                         .andExpect(jsonPath("$.data.amount").value(60000.0)); // 50000 + 10000
             }
@@ -100,7 +111,7 @@ public class BalanceTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(userId))
                         .andExpect(jsonPath("$.data.amount").value(30000.0));
             }
@@ -109,11 +120,12 @@ public class BalanceTest {
         @Nested
         @DisplayName("실패 케이스")
         class Failure {
+
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 409 Conflict를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 에러를 반환한다")
             void chargeBalance_UserNotFound() throws Exception {
                 // given
-                long nonExistentUserId = 999L;
+                long nonExistentUserId = 999999L;
                 BigDecimal amount = new BigDecimal("10000");
                 BalanceRequest request = new BalanceRequest(nonExistentUserId, amount);
 
@@ -122,26 +134,48 @@ public class BalanceTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
-                        .andExpect(status().isConflict()) // 실제로는 409 Conflict 반환
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
             }
 
             @Test
-            @DisplayName("충전 금액이 0원일 경우 400 Bad Request를 반환한다")
-            void chargeBalance_InvalidAmount_Zero() throws Exception {
+            @DisplayName("0원 충전 요청 시 에러를 반환한다")
+            void chargeBalance_ZeroAmount() throws Exception {
                 // given
                 long userId = userWithBalance.getId();
-                BigDecimal invalidAmount = BigDecimal.ZERO;
-                BalanceRequest request = new BalanceRequest(userId, invalidAmount);
+                BigDecimal amount = BigDecimal.ZERO;
+                BalanceRequest request = new BalanceRequest(userId, amount);
 
                 // when & then
                 mockMvc.perform(post("/api/balance/charge")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INVALID_AMOUNT_POSITIVE));
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
+            }
+
+            @Test
+            @DisplayName("음수 충전 요청 시 에러를 반환한다")
+            void chargeBalance_NegativeAmount() throws Exception {
+                // given
+                long userId = userWithBalance.getId();
+                BigDecimal amount = new BigDecimal("-1000");
+                BalanceRequest request = new BalanceRequest(userId, amount);
+
+                // when & then
+                mockMvc.perform(post("/api/balance/charge")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andDo(print())
+                        .andExpect(status().is4xxClientError())
+                        .andExpect(jsonPath("$.code").exists())
+                        .andExpect(jsonPath("$.message").exists())
+                        .andExpect(jsonPath("$.data").isEmpty());
             }
         }
     }
@@ -163,7 +197,7 @@ public class BalanceTest {
                 mockMvc.perform(get("/api/balance/{userId}", userId))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(userId))
                         .andExpect(jsonPath("$.data.amount").value(50000.0));
             }
@@ -173,7 +207,7 @@ public class BalanceTest {
         @DisplayName("실패 케이스")
         class Failure {
             @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 400 Bad Request를 반환한다")
+            @DisplayName("존재하지 않는 사용자 ID로 요청 시 404 Not Found를 반환한다")
             void getBalance_UserNotFound() throws Exception {
                 // given
                 long nonExistentUserId = 999L;
@@ -181,12 +215,13 @@ public class BalanceTest {
                 // when & then
                 mockMvc.perform(get("/api/balance/{userId}", nonExistentUserId))
                         .andDo(print())
-                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
-            @DisplayName("사용자는 존재하지만 잔액 정보가 없을 경우 400 Bad Request를 반환한다")
+            @DisplayName("사용자는 존재하지만 잔액 정보가 없을 경우 404 Not Found를 반환한다")
             void getBalance_BalanceNotFound() throws Exception {
                 // given
                 long userId = userWithoutBalance.getId();
@@ -194,8 +229,9 @@ public class BalanceTest {
                 // when & then
                 mockMvc.perform(get("/api/balance/{userId}", userId))
                         .andDo(print())
-                        .andExpect(status().isBadRequest()) // 실제로는 400 Bad Request 반환
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }

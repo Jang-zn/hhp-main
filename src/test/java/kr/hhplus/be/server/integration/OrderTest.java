@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.entity.OrderStatus;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
@@ -117,7 +118,7 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(testUser.getId()))
                         .andExpect(jsonPath("$.data.status").value("PENDING"))
                         .andExpect(jsonPath("$.data.items[0].name").value(product1.getName()));
@@ -141,7 +142,7 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(testUser.getId()))
                         .andExpect(jsonPath("$.data.status").value("PENDING"));
             }
@@ -169,8 +170,8 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -192,8 +193,8 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // ProductException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(ProductException.Messages.PRODUCT_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.PRODUCT_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -214,8 +215,8 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isConflict()) // ProductException.OutOfStock는 409 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(ProductException.Messages.OUT_OF_STOCK));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.PRODUCT_OUT_OF_STOCK.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -237,8 +238,8 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // CouponException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -256,7 +257,8 @@ public class OrderTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.success").value(false));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }
@@ -279,7 +281,7 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.orderId").value(orderId))
                         .andExpect(jsonPath("$.data.userId").value(testUser.getId()));
             }
@@ -300,8 +302,8 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // OrderException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.ORDER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
 
             @Test
@@ -322,8 +324,8 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isForbidden()) // OrderException.Unauthorized는 403 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.UNAUTHORIZED_ACCESS));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }
@@ -351,7 +353,7 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data.length()").value(2)); // createdOrder + 새로 생성된 주문
             }
@@ -367,7 +369,7 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data").isArray())
                         .andExpect(jsonPath("$.data.length()").value(0));
             }
@@ -387,8 +389,8 @@ public class OrderTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").exists());
             }
         }
     }

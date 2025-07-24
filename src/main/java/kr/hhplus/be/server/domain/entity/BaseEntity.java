@@ -15,30 +15,30 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @SuperBuilder
-@MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
+// @MappedSuperclass
+// @EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // @Id
+    // @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    // @CreatedDate
+    // @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
-    @LastModifiedDate
-    @Column(name = "updated_at")
+    // @LastModifiedDate
+    // @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    @PrePersist
-    protected void onCreate() {
+    // @PrePersist
+    public void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
     
-    @PreUpdate
-    protected void onUpdate() {
+    // @PreUpdate
+    public void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
 } 

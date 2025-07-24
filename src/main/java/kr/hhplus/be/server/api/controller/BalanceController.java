@@ -1,10 +1,9 @@
 package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import kr.hhplus.be.server.api.docs.annotation.BalanceApiDocs;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
-import kr.hhplus.be.server.api.swagger.ApiSuccess;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
@@ -28,16 +27,14 @@ public class BalanceController {
     private final ChargeBalanceUseCase chargeBalanceUseCase;
     private final GetBalanceUseCase getBalanceUseCase;
 
-    @ApiSuccess(summary = "잔액 충전")
+    @BalanceApiDocs(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-    public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
+    public BalanceResponse chargeBalance(@RequestBody BalanceRequest request) {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
-        if (request.getUserId() == null || request.getAmount() == null) {
-            throw new BalanceException.UserIdAndAmountRequired();
-        }
+        request.validate();
         
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
         return new BalanceResponse(
@@ -47,7 +44,7 @@ public class BalanceController {
         );
     }
 
-    @ApiSuccess(summary = "잔액 조회")
+    @BalanceApiDocs(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable Long userId) {
         if (userId == null) {

@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.entity.OrderStatus;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
@@ -121,7 +122,7 @@ public class PaymentTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.orderId").value(orderId))
                         .andExpect(jsonPath("$.data.status").value("PAID"));
             }
@@ -143,8 +144,8 @@ public class PaymentTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isNotFound()) // OrderException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.ORDER_NOT_FOUND));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.ORDER_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -160,8 +161,8 @@ public class PaymentTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isBadRequest()) // OrderException.AlreadyPaid는 400 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.ALREADY_PAID));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_ALREADY_PAID.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.ORDER_ALREADY_PAID.getMessage()));
             }
 
             @Test
@@ -183,8 +184,8 @@ public class PaymentTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isPaymentRequired()) // BalanceException.InsufficientBalance는 402 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INSUFFICIENT_BALANCE));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.INSUFFICIENT_BALANCE.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.INSUFFICIENT_BALANCE.getMessage()));
             }
 
             @Test
@@ -217,8 +218,8 @@ public class PaymentTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andDo(print())
                         .andExpect(status().isConflict()) // ProductException.OutOfStock는 409 반환
-                        .andExpect(jsonPath("$.success").value(false))
-                        .andExpect(jsonPath("$.message").value(ProductException.Messages.OUT_OF_STOCK));
+                        .andExpect(jsonPath("$.code").value(ErrorCode.PRODUCT_OUT_OF_STOCK.getCode()))
+                        .andExpect(jsonPath("$.message").value(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage()));
             }
         }
     }

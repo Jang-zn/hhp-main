@@ -10,19 +10,19 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-@Entity
+// @Entity
 public class OrderItem extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
+    // @ManyToOne
+    // @JoinColumn(name = "order_id")
     private Order order;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
+    // @ManyToOne
+    // @JoinColumn(name = "product_id")
     private Product product;
 
     private int quantity;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    // @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal price;
 } 

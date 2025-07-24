@@ -32,9 +32,10 @@ public class ChargeBalanceUseCase {
     public Balance execute(Long userId, BigDecimal amount) {
         log.info("잔액 충전 요청: userId={}, amount={}", userId, amount);
         
-        // 입력 값 검증
+        // 입력 값 검증 (락 획득 전에 빠르게 검증)
         validateInputs(userId, amount);
         
+        // 입력이 유효한 경우에만 락 획득
         String lockKey = "balance-" + userId;
         if (!lockingPort.acquireLock(lockKey)) {
             log.warn("락 획득 실패: userId={}", userId);
