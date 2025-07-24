@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.docs.annotation.BalanceApiDocs;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
@@ -31,13 +30,11 @@ public class BalanceController {
     @BalanceApiDocs(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
-    public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
+    public BalanceResponse chargeBalance(@RequestBody BalanceRequest request) {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
-        if (request.getUserId() == null || request.getAmount() == null) {
-            throw new BalanceException.UserIdAndAmountRequired();
-        }
+        request.validate();
         
         Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
         return new BalanceResponse(

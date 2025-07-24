@@ -37,6 +37,7 @@ public class ProductController {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
+        request.validate();
         
         List<Product> products = getProductUseCase.execute(request.getLimit(), request.getOffset());
         return products.stream()
@@ -55,6 +56,7 @@ public class ProductController {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
+        request.validate();
         
         // 최근 N일간 인기 상품 조회
         List<Product> popularProducts = getPopularProductListUseCase.execute(request.getDays());

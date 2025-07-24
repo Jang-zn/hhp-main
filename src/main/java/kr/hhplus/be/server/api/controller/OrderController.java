@@ -48,6 +48,7 @@ public class OrderController {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
+        request.validate();
         
         // 상품 수량 정보를 Map<Long, Integer> 형태로 변환
         Map<Long, Integer> productQuantities;
@@ -107,6 +108,7 @@ public class OrderController {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
+        request.validate();
         
         Payment payment = payOrderUseCase.execute(orderId, request.getUserId(), request.getCouponId());
         
