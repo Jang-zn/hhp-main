@@ -37,23 +37,16 @@ public class InMemoryEventLogRepository implements EventLogRepositoryPort {
         
         EventLog savedEventLog = eventLogs.compute(eventLogId, (key, existingEventLog) -> {
             if (existingEventLog != null) {
-                return EventLog.builder()
-                        .id(existingEventLog.getId())
-                        .eventType(eventLog.getEventType())
-                        .payload(eventLog.getPayload())
-                        .status(eventLog.getStatus())
-                        .createdAt(existingEventLog.getCreatedAt())
-                        .updatedAt(eventLog.getUpdatedAt())
-                        .build();
+                eventLog.onUpdate();
+                eventLog.setId(existingEventLog.getId());
+                eventLog.setCreatedAt(existingEventLog.getCreatedAt());
+                return eventLog;
             } else {
-                return EventLog.builder()
-                        .id(eventLogId)
-                        .eventType(eventLog.getEventType())
-                        .payload(eventLog.getPayload())
-                        .status(eventLog.getStatus())
-                        .createdAt(eventLog.getCreatedAt())
-                        .updatedAt(eventLog.getUpdatedAt())
-                        .build();
+                eventLog.onCreate();
+                if (eventLog.getId() == null) {
+                    eventLog.setId(eventLogId);
+                }
+                return eventLog;
             }
         });
         

@@ -57,25 +57,16 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
         
         Payment savedPayment = payments.compute(paymentId, (key, existingPayment) -> {
             if (existingPayment != null) {
-                return Payment.builder()
-                        .id(existingPayment.getId())
-                        .order(payment.getOrder())
-                        .user(payment.getUser())
-                        .amount(payment.getAmount())
-                        .status(payment.getStatus())
-                        .createdAt(existingPayment.getCreatedAt())
-                        .updatedAt(payment.getUpdatedAt())
-                        .build();
+                payment.onUpdate();
+                payment.setId(existingPayment.getId());
+                payment.setCreatedAt(existingPayment.getCreatedAt());
+                return payment;
             } else {
-                return Payment.builder()
-                        .id(paymentId)
-                        .order(payment.getOrder())
-                        .user(payment.getUser())
-                        .amount(payment.getAmount())
-                        .status(payment.getStatus())
-                        .createdAt(payment.getCreatedAt())
-                        .updatedAt(payment.getUpdatedAt())
-                        .build();
+                payment.onCreate();
+                if (payment.getId() == null) {
+                    payment.setId(paymentId);
+                }
+                return payment;
             }
         });
         

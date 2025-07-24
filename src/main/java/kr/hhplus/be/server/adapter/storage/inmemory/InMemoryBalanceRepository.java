@@ -75,31 +75,25 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
         // 동기화 블록을 사용하여 두 맵을 원자적으로 업데이트
         synchronized (this) {
             Balance existingBalance = userBalances.get(userId);
-            Balance savedBalance;
-            
+
             if (existingBalance != null) {
-                savedBalance = Balance.builder()
-                        .id(existingBalance.getId())
-                        .user(balance.getUser())
-                        .amount(balance.getAmount())
-                        .createdAt(existingBalance.getCreatedAt())
-                        .updatedAt(balance.getUpdatedAt())
-                        .build();
+                // 기존 엔티티 업데이트
+                balance.onUpdate(); // updatedAt 설정
+                // 기존 ID와 createdAt 유지
+                balance.setId(existingBalance.getId());
+                balance.setCreatedAt(existingBalance.getCreatedAt());
             } else {
-                Long id = balance.getId() != null ? balance.getId() : nextId.getAndIncrement();
-                savedBalance = Balance.builder()
-                        .id(id)
-                        .user(balance.getUser())
-                        .amount(balance.getAmount())
-                        .createdAt(balance.getCreatedAt())
-                        .updatedAt(balance.getUpdatedAt())
-                        .build();
+                // 새로운 엔티티 생성
+                balance.onCreate(); // createdAt, updatedAt 설정
+                if (balance.getId() == null) {
+                    balance.setId(nextId.getAndIncrement());
+                }
             }
-            
-            userBalances.put(userId, savedBalance);
-            balances.put(savedBalance.getId(), savedBalance);
-            
-            return savedBalance;
+
+            userBalances.put(userId, balance);
+            balances.put(balance.getId(), balance);
+
+            return balance;
         }
     }
 } 

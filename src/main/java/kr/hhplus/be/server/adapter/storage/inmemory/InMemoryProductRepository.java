@@ -49,25 +49,16 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
         
         Product savedProduct = products.compute(productId, (key, existingProduct) -> {
             if (existingProduct != null) {
-                return Product.builder()
-                        .id(existingProduct.getId())
-                        .name(product.getName())
-                        .price(product.getPrice())
-                        .stock(product.getStock())
-                        .reservedStock(product.getReservedStock())
-                        .createdAt(existingProduct.getCreatedAt())
-                        .updatedAt(product.getUpdatedAt())
-                        .build();
+                product.onUpdate();
+                product.setId(existingProduct.getId());
+                product.setCreatedAt(existingProduct.getCreatedAt());
+                return product;
             } else {
-                return Product.builder()
-                        .id(productId)
-                        .name(product.getName())
-                        .price(product.getPrice())
-                        .stock(product.getStock())
-                        .reservedStock(product.getReservedStock())
-                        .createdAt(product.getCreatedAt())
-                        .updatedAt(product.getUpdatedAt())
-                        .build();
+                product.onCreate();
+                if (product.getId() == null) {
+                    product.setId(productId);
+                }
+                return product;
             }
         });
         

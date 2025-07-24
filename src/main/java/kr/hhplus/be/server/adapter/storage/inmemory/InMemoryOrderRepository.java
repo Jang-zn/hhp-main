@@ -35,29 +35,16 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
         
         Order savedOrder = orders.compute(orderId, (key, existingOrder) -> {
             if (existingOrder != null) {
-                // 기존 주문 업데이트
-                return Order.builder()
-                        .id(existingOrder.getId())
-                        .user(order.getUser())
-                        .totalAmount(order.getTotalAmount())
-                        .status(order.getStatus())
-                        .items(order.getItems())
-                        .payments(order.getPayments())
-                        .createdAt(existingOrder.getCreatedAt())
-                        .updatedAt(order.getUpdatedAt())
-                        .build();
+                order.onUpdate();
+                order.setId(existingOrder.getId());
+                order.setCreatedAt(existingOrder.getCreatedAt());
+                return order;
             } else {
-                // 새로운 주문 생성
-                return Order.builder()
-                        .id(orderId)
-                        .user(order.getUser())
-                        .totalAmount(order.getTotalAmount())
-                        .status(order.getStatus())
-                        .items(order.getItems())
-                        .payments(order.getPayments())
-                        .createdAt(order.getCreatedAt())
-                        .updatedAt(order.getUpdatedAt())
-                        .build();
+                order.onCreate();
+                if (order.getId() == null) {
+                    order.setId(orderId);
+                }
+                return order;
             }
         });
         

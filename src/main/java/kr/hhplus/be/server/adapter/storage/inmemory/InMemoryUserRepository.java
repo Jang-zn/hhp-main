@@ -42,19 +42,16 @@ public class InMemoryUserRepository implements UserRepositoryPort {
         
         User savedUser = users.compute(userId, (key, existingUser) -> {
             if (existingUser != null) {
-                return User.builder()
-                        .id(existingUser.getId())
-                        .name(user.getName())
-                        .createdAt(existingUser.getCreatedAt())
-                        .updatedAt(user.getUpdatedAt())
-                        .build();
+                user.onUpdate();
+                user.setId(existingUser.getId());
+                user.setCreatedAt(existingUser.getCreatedAt());
+                return user;
             } else {
-                return User.builder()
-                        .id(userId)
-                        .name(user.getName())
-                        .createdAt(user.getCreatedAt())
-                        .updatedAt(user.getUpdatedAt())
-                        .build();
+                user.onCreate();
+                if (user.getId() == null) {
+                    user.setId(userId);
+                }
+                return user;
             }
         });
         

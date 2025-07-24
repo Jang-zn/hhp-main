@@ -64,35 +64,16 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
         
         Coupon savedCoupon = coupons.compute(couponId, (key, existingCoupon) -> {
             if (existingCoupon != null) {
-                // 기존 쿠폰 업데이트
-                return Coupon.builder()
-                        .id(existingCoupon.getId())
-                        .code(coupon.getCode())
-                        .discountRate(coupon.getDiscountRate())
-                        .maxIssuance(coupon.getMaxIssuance())
-                        .issuedCount(coupon.getIssuedCount())
-                        .startDate(coupon.getStartDate())
-                        .endDate(coupon.getEndDate())
-                        .status(coupon.getStatus())
-                        .product(coupon.getProduct())
-                        .createdAt(existingCoupon.getCreatedAt())
-                        .updatedAt(coupon.getUpdatedAt())
-                        .build();
+                coupon.onUpdate();
+                coupon.setId(existingCoupon.getId());
+                coupon.setCreatedAt(existingCoupon.getCreatedAt());
+                return coupon;
             } else {
-                // 새로운 쿠폰 생성
-                return Coupon.builder()
-                        .id(couponId)
-                        .code(coupon.getCode())
-                        .discountRate(coupon.getDiscountRate())
-                        .maxIssuance(coupon.getMaxIssuance())
-                        .issuedCount(coupon.getIssuedCount())
-                        .startDate(coupon.getStartDate())
-                        .endDate(coupon.getEndDate())
-                        .status(coupon.getStatus() != null ? coupon.getStatus() : CouponStatus.INACTIVE)
-                        .product(coupon.getProduct())
-                        .createdAt(coupon.getCreatedAt())
-                        .updatedAt(coupon.getUpdatedAt())
-                        .build();
+                coupon.onCreate();
+                if (coupon.getId() == null) {
+                    coupon.setId(couponId);
+                }
+                return coupon;
             }
         });
         

@@ -63,27 +63,16 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
         
         CouponHistory savedHistory = couponHistories.compute(historyId, (key, existingHistory) -> {
             if (existingHistory != null) {
-                // 기존 히스토리 업데이트
-                return CouponHistory.builder()
-                        .id(existingHistory.getId())
-                        .user(couponHistory.getUser())
-                        .coupon(couponHistory.getCoupon())
-                        .issuedAt(couponHistory.getIssuedAt())
-                        .status(couponHistory.getStatus())
-                        .usedAt(couponHistory.getUsedAt())
-                        .usedOrder(couponHistory.getUsedOrder())
-                        .build();
+                couponHistory.onUpdate();
+                couponHistory.setId(existingHistory.getId());
+                couponHistory.setCreatedAt(existingHistory.getCreatedAt());
+                return couponHistory;
             } else {
-                // 새로운 히스토리 생성
-                return CouponHistory.builder()
-                        .id(historyId)
-                        .user(couponHistory.getUser())
-                        .coupon(couponHistory.getCoupon())
-                        .issuedAt(couponHistory.getIssuedAt())
-                        .status(couponHistory.getStatus() != null ? couponHistory.getStatus() : CouponHistoryStatus.ISSUED)
-                        .usedAt(couponHistory.getUsedAt())
-                        .usedOrder(couponHistory.getUsedOrder())
-                        .build();
+                couponHistory.onCreate();
+                if (couponHistory.getId() == null) {
+                    couponHistory.setId(historyId);
+                }
+                return couponHistory;
             }
         });
         
