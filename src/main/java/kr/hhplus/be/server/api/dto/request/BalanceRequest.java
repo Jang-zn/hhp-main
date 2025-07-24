@@ -1,11 +1,8 @@
 package kr.hhplus.be.server.api.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
-import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -14,13 +11,9 @@ import java.util.Map;
 public class BalanceRequest implements DocumentedDto {
     
     @Schema(description = "사용자 ID", example = "1", required = true)
-    @NotNull(message = UserException.Messages.INVALID_USER_ID)
-    @Positive(message = UserException.Messages.INVALID_USER_ID_POSITIVE)
     private Long userId;
     
     @Schema(description = "충전 금액", example = "10000", required = true)
-    @NotNull(message = BalanceException.Messages.INVALID_AMOUNT_REQUIRED)
-    @DecimalMin(value = "0.0", inclusive = false, message = BalanceException.Messages.INVALID_AMOUNT_POSITIVE)
     private BigDecimal amount;
 
     // 기본 생성자
@@ -37,6 +30,25 @@ public class BalanceRequest implements DocumentedDto {
     public void setUserId(Long userId) { this.userId = userId; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+    
+    /**
+     * 요청 데이터 검증
+     * @throws IllegalArgumentException 검증 실패 시
+     */
+    public void validate() {
+        if (userId == null) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
+        }
+        if (userId <= 0) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
+        }
+        if (amount == null) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_AMOUNT.getMessage());
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(ErrorCode.NEGATIVE_AMOUNT.getMessage());
+        }
+    }
 
     @Override
     public Map<String, SchemaInfo> getFieldDocumentation() {
