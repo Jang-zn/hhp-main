@@ -7,6 +7,7 @@ import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -107,7 +108,7 @@ class GetOrderUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getOrderUseCase.execute(userId, orderId))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         }
 
         @Test

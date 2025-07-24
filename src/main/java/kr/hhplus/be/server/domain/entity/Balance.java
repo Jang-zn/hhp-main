@@ -9,14 +9,14 @@ import kr.hhplus.be.server.domain.exception.BalanceException;
 
 import java.math.BigDecimal;
 
-@Entity
-@Table(
-    name = "balances",
-    indexes = {
-        @Index(name = "idx_balance_user", columnList = "user_id"),
-        @Index(name = "idx_balance_amount", columnList = "amount")
-    }
-)
+// @Entity
+// @Table(
+//     name = "balances",
+//     indexes = {
+//         @Index(name = "idx_balance_user", columnList = "user_id"),
+//         @Index(name = "idx_balance_amount", columnList = "amount")
+//     }
+// )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -25,18 +25,18 @@ import java.math.BigDecimal;
 @ToString(exclude = "user") // 순환 참조 방지
 public class Balance extends BaseEntity {
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    // @OneToOne(fetch = FetchType.LAZY, optional = false)
+    // @JoinColumn(name = "user_id", nullable = false, unique = true)
     @NotNull
     private User user;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    // @Column(nullable = false, precision = 19, scale = 2)
     @NotNull
     @DecimalMin(value = "0.00", message = "잔액은 0 이상이어야 합니다")
     private BigDecimal amount;
 
-    @Version // 낙관적 락
-    private Long version;
+    // @Version // 낙관적 락 - JPA 사용 시 사용
+    // private Long version;
 
     // 비즈니스 메서드
     public void addAmount(@NotNull BigDecimal amount) {

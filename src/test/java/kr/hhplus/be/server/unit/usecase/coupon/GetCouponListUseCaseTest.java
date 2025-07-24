@@ -1,8 +1,10 @@
-package kr.hhplus.be.server.unit.usecase;
+package kr.hhplus.be.server.unit.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import java.util.Collections;
 
 @DisplayName("GetCouponListUseCase 단위 테스트")
@@ -72,8 +75,10 @@ class GetCouponListUseCaseTest {
                                 .issuedCount(50)
                                 .startDate(LocalDateTime.now().minusDays(1))
                                 .endDate(LocalDateTime.now().plusDays(30))
+                                .status(CouponStatus.ACTIVE)
                                 .build())
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build(),
                 CouponHistory.builder()
                         .user(user)
@@ -84,8 +89,10 @@ class GetCouponListUseCaseTest {
                                 .issuedCount(30)
                                 .startDate(LocalDateTime.now().minusDays(5))
                                 .endDate(LocalDateTime.now().plusDays(25))
+                                .status(CouponStatus.ACTIVE)
                                 .build())
                         .issuedAt(LocalDateTime.now().minusDays(3))
+                        .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         
@@ -124,8 +131,10 @@ class GetCouponListUseCaseTest {
                                 .issuedCount(10)
                                 .startDate(LocalDateTime.now().minusDays(1))
                                 .endDate(LocalDateTime.now().plusDays(10))
+                                .status(CouponStatus.ACTIVE)
                                 .build())
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         
@@ -155,7 +164,7 @@ class GetCouponListUseCaseTest {
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
                 .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -248,7 +257,7 @@ class GetCouponListUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(UserException.Messages.USER_NOT_FOUND);
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         } else {
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
@@ -279,8 +288,10 @@ class GetCouponListUseCaseTest {
                                 .issuedCount(50)
                                 .startDate(LocalDateTime.now().minusDays(1))
                                 .endDate(LocalDateTime.now().plusDays(30))
+                                .status(CouponStatus.ACTIVE)
                                 .build())
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         

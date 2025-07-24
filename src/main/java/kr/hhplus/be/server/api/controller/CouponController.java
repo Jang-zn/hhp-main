@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
@@ -33,20 +32,27 @@ public class CouponController {
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
-    public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
+    public CouponResponse issueCoupon(@RequestBody CouponRequest request) {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
+        request.validate();
         if (request.getUserId() == null || request.getCouponId() == null) {
             throw new CouponException.UserIdAndCouponIdRequired();
         }
         
         CouponHistory couponHistory = issueCouponUseCase.execute(request.getUserId(), request.getCouponId());
         return new CouponResponse(
+                couponHistory.getId(),
                 couponHistory.getCoupon().getId(),
                 couponHistory.getCoupon().getCode(),
                 couponHistory.getCoupon().getDiscountRate(),
-                couponHistory.getCoupon().getEndDate()
+                couponHistory.getCoupon().getEndDate(),
+                couponHistory.getCoupon().getStatus(),
+                couponHistory.getStatus(),
+                couponHistory.getIssuedAt(),
+                couponHistory.getUsedAt(),
+                couponHistory.canUse()
         );
     }
 
@@ -54,24 +60,28 @@ public class CouponController {
     @GetMapping("/{userId}")
     public List<CouponResponse> getCoupons(
             @PathVariable Long userId,
-            @Valid CouponRequest request) {
+            CouponRequest request) {
         if (userId == null) {
             throw new UserException.UserIdCannotBeNull();
         }
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
-        if (request.getLimit() < 0 || request.getOffset() < 0) {
-            throw new CommonException.InvalidPagination();
-        }
+        request.validate();
         
         List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
                 .map(history -> new CouponResponse(
+                        history.getId(),
                         history.getCoupon().getId(),
                         history.getCoupon().getCode(),
                         history.getCoupon().getDiscountRate(),
-                        history.getCoupon().getEndDate()
+                        history.getCoupon().getEndDate(),
+                        history.getCoupon().getStatus(),
+                        history.getStatus(),
+                        history.getIssuedAt(),
+                        history.getUsedAt(),
+                        history.canUse()
                 ))
                 .collect(Collectors.toList());
     }

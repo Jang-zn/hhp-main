@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kr.hhplus.be.server.domain.exception.ProductException;
 
 @Repository
 public class InMemoryProductRepository implements ProductRepositoryPort {
@@ -24,7 +25,7 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
     @Override
     public Optional<Product> findById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("Product ID cannot be null");
+            throw new ProductException.InvalidProductId();
         }
         return Optional.ofNullable(products.get(id));
     }
@@ -32,32 +33,32 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
     @Override
     public Product save(Product product) {
         if (product == null) {
-            throw new IllegalArgumentException("Product cannot be null");
+            throw new ProductException.ProductCannotBeNull();
+        }
+        if (product.getName() == null) {
+            throw new ProductException.ProductNameCannotBeNull();
+        }
+        if (product.getPrice() != null && product.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new ProductException.ProductPriceCannotBeNegative();
+        }
+        if (product.getStock() < 0) {
+            throw new ProductException.ProductStockCannotBeNegative();
         }
         
         Long productId = product.getId() != null ? product.getId() : nextId.getAndIncrement();
         
         Product savedProduct = products.compute(productId, (key, existingProduct) -> {
             if (existingProduct != null) {
-                return Product.builder()
-                        .id(existingProduct.getId())
-                        .name(product.getName())
-                        .price(product.getPrice())
-                        .stock(product.getStock())
-                        .reservedStock(product.getReservedStock())
-                        .createdAt(existingProduct.getCreatedAt())
-                        .updatedAt(product.getUpdatedAt())
-                        .build();
+                product.onUpdate();
+                product.setId(existingProduct.getId());
+                product.setCreatedAt(existingProduct.getCreatedAt());
+                return product;
             } else {
-                return Product.builder()
-                        .id(productId)
-                        .name(product.getName())
-                        .price(product.getPrice())
-                        .stock(product.getStock())
-                        .reservedStock(product.getReservedStock())
-                        .createdAt(product.getCreatedAt())
-                        .updatedAt(product.getUpdatedAt())
-                        .build();
+                product.onCreate();
+                if (product.getId() == null) {
+                    product.setId(productId);
+                }
+                return product;
             }
         });
         
@@ -73,10 +74,10 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
     @Override
     public List<Product> findAllWithPagination(int limit, int offset) {
         if (limit <= 0) {
-            throw new IllegalArgumentException("Limit must be greater than 0");
+            throw new ProductException.InvalidProductQuantityNegative();
         }
         if (offset < 0) {
-            throw new IllegalArgumentException("Offset cannot be negative");
+            throw new ProductException.InvalidProductQuantityNegative();
         }
         
         return products.values().stream()

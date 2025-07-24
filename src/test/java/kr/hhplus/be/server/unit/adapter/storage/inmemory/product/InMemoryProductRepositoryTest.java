@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryProductRepository;
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.exception.ProductException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -124,7 +125,7 @@ class InMemoryProductRepositoryTest {
         }
 
         @Test
-        @DisplayName("성공케이스: 음수 재고를 가진 상품")
+        @DisplayName("실패케이스: 음수 재고를 가진 상품")
         void save_WithNegativeStock() {
             // given
             Product product = Product.builder()
@@ -135,12 +136,9 @@ class InMemoryProductRepositoryTest {
                     .reservedStock(0)
                     .build();
 
-            // when
-            Product savedProduct = productRepository.save(product);
-
-            // then
-            assertThat(savedProduct).isNotNull();
-            assertThat(savedProduct.getStock()).isEqualTo(-5);
+            // when & then
+            assertThatThrownBy(() -> productRepository.save(product))
+                    .isInstanceOf(ProductException.ProductStockCannotBeNegative.class);
         }
 
         @ParameterizedTest
@@ -169,7 +167,7 @@ class InMemoryProductRepositoryTest {
         void save_WithNullProduct() {
             // when & then
             assertThatThrownBy(() -> productRepository.save(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(ProductException.ProductCannotBeNull.class);
         }
     }
 
@@ -213,7 +211,7 @@ class InMemoryProductRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> productRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(ProductException.InvalidProductId.class);
         }
 
         @Test
@@ -323,18 +321,15 @@ class InMemoryProductRepositoryTest {
 
         // when & then - 음수 limit
         assertThatThrownBy(() -> productRepository.findAllWithPagination(-1, 0))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Limit must be greater than 0");
+                .isInstanceOf(ProductException.InvalidProductQuantityNegative.class);
 
         // when & then - 음수 offset
         assertThatThrownBy(() -> productRepository.findAllWithPagination(10, -1))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Offset cannot be negative");
+                .isInstanceOf(ProductException.InvalidProductQuantityNegative.class);
 
             // when & then - 0 limit
             assertThatThrownBy(() -> productRepository.findAllWithPagination(0, 0))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Limit must be greater than 0");
+                    .isInstanceOf(ProductException.InvalidProductQuantityNegative.class);
         }
     }
 

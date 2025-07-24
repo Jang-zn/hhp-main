@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.domain.exception;
 
+import kr.hhplus.be.server.api.ErrorCode;
+
 public class CouponException extends RuntimeException {
     private final String errorCode;
     
@@ -12,81 +14,113 @@ public class CouponException extends RuntimeException {
         return errorCode;
     }
     
-    // 메시지 상수들
-    public static class Messages {
-        // UseCase 메시지들
-        public static final String FAILED_TO_RETRIEVE_COUPON_LIST = "쿠폰 목록을 가져오는데 실패했습니다";
-        public static final String COUPON_NOT_YET_STARTED = "쿠폰이 아직 시작되지 않았습니다";
-        public static final String COUPON_STOCK_EXCEEDED = "쿠폰 재고를 초과했습니다";
-        
-        // 비즈니스 로직 메시지들
-        public static final String COUPON_NOT_FOUND = "쿠폰을 찾을 수 없습니다";
-        public static final String COUPON_EXPIRED = "쿠폰이 만료되었습니다";
-        public static final String COUPON_OUT_OF_STOCK = "쿠폰 재고가 소진되었습니다";
-        public static final String COUPON_ALREADY_ISSUED = "이미 발급받은 쿠폰입니다";
-        public static final String INVALID_COUPON_ID_POSITIVE = "쿠폰 ID는 양수여야 합니다";
-        public static final String COUPON_ID_CANNOT_BE_NULL = "쿠폰 ID는 null일 수 없습니다";
-        public static final String USERID_AND_COUPONID_REQUIRED = "사용자 ID와 쿠폰 ID가 필요합니다";
-    }
     
     // 쿠폰 관련 예외들
     public static class NotFound extends CouponException {
         public NotFound() {
-            super("ERR_COUPON_NOT_FOUND", Messages.COUPON_NOT_FOUND);
+            super(ErrorCode.COUPON_NOT_FOUND.getCode(), ErrorCode.COUPON_NOT_FOUND.getMessage());
         }
     }
     
     public static class Expired extends CouponException {
         public Expired() {
-            super("ERR_COUPON_EXPIRED", Messages.COUPON_EXPIRED);
+            super(ErrorCode.COUPON_EXPIRED.getCode(), ErrorCode.COUPON_EXPIRED.getMessage());
         }
     }
     
     public static class OutOfStock extends CouponException {
         public OutOfStock() {
-            super("ERR_COUPON_OUT_OF_STOCK", Messages.COUPON_OUT_OF_STOCK);
+            super(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getCode(), ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getMessage());
         }
     }
     
     public static class AlreadyIssued extends CouponException {
         public AlreadyIssued() {
-            super("ERR_COUPON_ALREADY_ISSUED", Messages.COUPON_ALREADY_ISSUED);
+            super(ErrorCode.COUPON_ALREADY_ISSUED.getCode(), ErrorCode.COUPON_ALREADY_ISSUED.getMessage());
         }
     }
 
     public static class FailedToRetrieveCouponList extends CouponException {
         public FailedToRetrieveCouponList() {
-            super("ERR_COUPON_FAILED_TO_RETRIEVE_LIST", Messages.FAILED_TO_RETRIEVE_COUPON_LIST);
+            super(ErrorCode.DATABASE_ERROR.getCode(), ErrorCode.DATABASE_ERROR.getMessage());
         }
     }
 
     public static class CouponNotYetStarted extends CouponException {
         public CouponNotYetStarted() {
-            super("ERR_COUPON_NOT_YET_STARTED", Messages.COUPON_NOT_YET_STARTED);
+            super(ErrorCode.COUPON_NOT_YET_STARTED.getCode(), ErrorCode.COUPON_NOT_YET_STARTED.getMessage());
         }
     }
 
     public static class CouponStockExceeded extends CouponException {
         public CouponStockExceeded() {
-            super("ERR_COUPON_STOCK_EXCEEDED", Messages.COUPON_STOCK_EXCEEDED);
+            super(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getCode(), ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getMessage());
         }
     }
 
     public static class InvalidCouponIdPositive extends CouponException {
         public InvalidCouponIdPositive() {
-            super("ERR_COUPON_INVALID_ID_POSITIVE", Messages.INVALID_COUPON_ID_POSITIVE);
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage());
         }
     }
 
     public static class CouponIdCannotBeNull extends CouponException {
         public CouponIdCannotBeNull() {
-            super("ERR_COUPON_ID_CANNOT_BE_NULL", Messages.COUPON_ID_CANNOT_BE_NULL);
+            super(ErrorCode.MISSING_REQUIRED_FIELD.getCode(), ErrorCode.MISSING_REQUIRED_FIELD.getMessage());
         }
     }
 
     public static class UserIdAndCouponIdRequired extends CouponException {
         public UserIdAndCouponIdRequired() {
-            super("ERR_COUPON_USERID_AND_COUPONID_REQUIRED", Messages.USERID_AND_COUPONID_REQUIRED);
+            super(ErrorCode.MISSING_REQUIRED_FIELD.getCode(), ErrorCode.MISSING_REQUIRED_FIELD.getMessage());
+        }
+    }
+
+    public static class InvalidStatusTransition extends CouponException {
+        public InvalidStatusTransition(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
+        }
+    }
+
+    public static class InvalidHistoryStatusTransition extends CouponException {
+        public InvalidHistoryStatusTransition(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
+        }
+    }
+
+    public static class CouponNotUsable extends CouponException {
+        public CouponNotUsable() {
+            super(ErrorCode.BAD_REQUEST.getCode(), ErrorCode.BAD_REQUEST.getMessage());
+        }
+    }
+
+    public static class CouponNotIssuable extends CouponException {
+        public CouponNotIssuable() {
+            super(ErrorCode.BAD_REQUEST.getCode(), ErrorCode.BAD_REQUEST.getMessage());
+        }
+    }
+
+    public static class InvalidCouponData extends CouponException {
+        public InvalidCouponData(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
+        }
+    }
+
+    public static class InvalidUserData extends CouponException {
+        public InvalidUserData(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
+        }
+    }
+
+    public static class InvalidCouponHistoryData extends CouponException {
+        public InvalidCouponHistoryData(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
+        }
+    }
+
+    public static class InvalidPaginationParams extends CouponException {
+        public InvalidPaginationParams(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), ErrorCode.INVALID_INPUT.getMessage() + ": " + message);
         }
     }
 } 

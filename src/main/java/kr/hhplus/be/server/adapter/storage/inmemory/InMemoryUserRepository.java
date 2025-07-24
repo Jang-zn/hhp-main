@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kr.hhplus.be.server.domain.exception.UserException;
 
 @Repository
 public class InMemoryUserRepository implements UserRepositoryPort {
@@ -23,7 +24,7 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     @Override
     public Optional<User> findById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new UserException.UserIdCannotBeNull();
         }
         return Optional.ofNullable(users.get(id));
     }
@@ -31,26 +32,26 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     @Override
     public User save(User user) {
         if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            throw new UserException.UserCannotBeNull();
+        }
+        if (user.getName() == null) {
+            throw new UserException.UserNameCannotBeNull();
         }
         
         Long userId = user.getId() != null ? user.getId() : nextId.getAndIncrement();
         
         User savedUser = users.compute(userId, (key, existingUser) -> {
             if (existingUser != null) {
-                return User.builder()
-                        .id(existingUser.getId())
-                        .name(user.getName())
-                        .createdAt(existingUser.getCreatedAt())
-                        .updatedAt(user.getUpdatedAt())
-                        .build();
+                user.onUpdate();
+                user.setId(existingUser.getId());
+                user.setCreatedAt(existingUser.getCreatedAt());
+                return user;
             } else {
-                return User.builder()
-                        .id(userId)
-                        .name(user.getName())
-                        .createdAt(user.getCreatedAt())
-                        .updatedAt(user.getUpdatedAt())
-                        .build();
+                user.onCreate();
+                if (user.getId() == null) {
+                    user.setId(userId);
+                }
+                return user;
             }
         });
         
@@ -60,7 +61,7 @@ public class InMemoryUserRepository implements UserRepositoryPort {
     @Override
     public boolean existsById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new UserException.UserIdCannotBeNull();
         }
         return users.containsKey(id);
     }

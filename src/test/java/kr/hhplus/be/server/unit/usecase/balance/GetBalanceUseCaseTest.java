@@ -3,6 +3,7 @@ package kr.hhplus.be.server.unit.usecase;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
@@ -196,7 +197,7 @@ class GetBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
 
             verify(balanceRepositoryPort, never()).findByUser(any());
         }
@@ -210,7 +211,7 @@ class GetBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(userId))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
 
         @Test
@@ -242,7 +243,7 @@ class GetBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> getBalanceUseCase.execute(invalidUserId))
                     .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(UserException.Messages.INVALID_USER_ID);
+                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
         }
     }
 }

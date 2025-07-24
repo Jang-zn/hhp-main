@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
+import kr.hhplus.be.server.domain.exception.BalanceException;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -43,10 +44,10 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     @Override
     public Optional<Balance> findByUser(@NotNull User user) {
         if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         if (user.getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         return Optional.ofNullable(userBalances.get(user.getId()));
     }
@@ -54,13 +55,19 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     @Override
     public Balance save(@NotNull Balance balance) {
         if (balance == null) {
-            throw new IllegalArgumentException("Balance cannot be null");
+            throw new BalanceException.BalanceCannotBeNull();
         }
         if (balance.getUser() == null) {
-            throw new IllegalArgumentException("Balance user cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
         }
         if (balance.getUser().getId() == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+            throw new BalanceException.UserIdAndAmountRequired();
+        }
+        if (balance.getAmount() == null) {
+            throw new BalanceException.AmountCannotBeNull();
+        }
+        if (balance.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BalanceException.InvalidAmountPositive();
         }
         
         Long userId = balance.getUser().getId();
@@ -68,31 +75,25 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
         // 동기화 블록을 사용하여 두 맵을 원자적으로 업데이트
         synchronized (this) {
             Balance existingBalance = userBalances.get(userId);
-            Balance savedBalance;
-            
+
             if (existingBalance != null) {
-                savedBalance = Balance.builder()
-                        .id(existingBalance.getId())
-                        .user(balance.getUser())
-                        .amount(balance.getAmount())
-                        .createdAt(existingBalance.getCreatedAt())
-                        .updatedAt(balance.getUpdatedAt())
-                        .build();
+                // 기존 엔티티 업데이트
+                balance.onUpdate(); // updatedAt 설정
+                // 기존 ID와 createdAt 유지
+                balance.setId(existingBalance.getId());
+                balance.setCreatedAt(existingBalance.getCreatedAt());
             } else {
-                Long id = balance.getId() != null ? balance.getId() : nextId.getAndIncrement();
-                savedBalance = Balance.builder()
-                        .id(id)
-                        .user(balance.getUser())
-                        .amount(balance.getAmount())
-                        .createdAt(balance.getCreatedAt())
-                        .updatedAt(balance.getUpdatedAt())
-                        .build();
+                // 새로운 엔티티 생성
+                balance.onCreate(); // createdAt, updatedAt 설정
+                if (balance.getId() == null) {
+                    balance.setId(nextId.getAndIncrement());
+                }
             }
-            
-            userBalances.put(userId, savedBalance);
-            balances.put(savedBalance.getId(), savedBalance);
-            
-            return savedBalance;
+
+            userBalances.put(userId, balance);
+            balances.put(balance.getId(), balance);
+
+            return balance;
         }
     }
 } 

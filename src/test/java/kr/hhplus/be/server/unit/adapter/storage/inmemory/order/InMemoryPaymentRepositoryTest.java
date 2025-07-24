@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
+import kr.hhplus.be.server.domain.exception.PaymentException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -194,8 +195,7 @@ class InMemoryPaymentRepositoryTest {
         void findById_WithNullId() {
             // when & then
             assertThatThrownBy(() -> paymentRepository.findById(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Payment ID cannot be null");
+                    .isInstanceOf(PaymentException.PaymentIdCannotBeNull.class);
         }
 
         @Test

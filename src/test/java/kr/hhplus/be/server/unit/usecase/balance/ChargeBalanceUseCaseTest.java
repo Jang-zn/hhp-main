@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
 
 @DisplayName("ChargeBalanceUseCase 단위 테스트")
 class ChargeBalanceUseCaseTest {
@@ -226,7 +227,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
+                    .hasMessage(ErrorCode.INVALID_AMOUNT.getMessage());
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -243,7 +244,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
+                    .hasMessage(ErrorCode.INVALID_AMOUNT.getMessage());
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -260,7 +261,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
+                    .hasMessage(ErrorCode.INVALID_AMOUNT.getMessage());
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -277,7 +278,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(BalanceException.InvalidAmount.class)
-                    .hasMessage(BalanceException.Messages.INVALID_AMOUNT);
+                    .hasMessage(ErrorCode.INVALID_AMOUNT.getMessage());
                     
             // 락 관련 호출이 없어야 함
             verify(lockingPort, never()).acquireLock(anyString());
@@ -296,7 +297,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                    .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                    .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
                     
             verify(lockingPort).acquireLock("balance-" + userId);
             verify(lockingPort, never()).releaseLock(anyString());
@@ -330,7 +331,7 @@ class ChargeBalanceUseCaseTest {
             // when & then
             assertThatThrownBy(() -> chargeBalanceUseCase.execute(userId, chargeAmount))
                     .isInstanceOf(CommonException.ConcurrencyConflict.class)
-                    .hasMessage(CommonException.Messages.CONCURRENCY_CONFLICT);
+                    .hasMessage(ErrorCode.CONCURRENCY_ERROR.getMessage());
             verify(lockingPort).releaseLock("balance-" + userId);
         }
 
