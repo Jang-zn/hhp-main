@@ -84,7 +84,7 @@ Ports ← Adapter Layer
 **책임**:
 
 - REST API 엔드포인트 제공
-- Bean Validation을 통한 요청 데이터 검증
+- 커스텀 검증 로직을 통한 요청 데이터 검증
 - 도메인 객체를 DTO로 변환
 - 전역 예외 처리로 일관된 에러 응답 생성
 - Swagger를 통한 API 문서 자동 생성
@@ -204,18 +204,31 @@ public enum CouponStatus {
 
 ```java
 public class Coupon {
-    public boolean isIssuable() {
-        updateStatusBasedOnConditions();
-        return status.isIssuable();
+    public boolean canIssue() {
+        LocalDateTime now = LocalDateTime.now();
+        CouponStatus currentStatus = calculateStatus(now);
+        return currentStatus.isIssuable();
     }
 
     public void decreaseStock(int quantity) {
-        if (issuedCount + quantity > maxIssuance) {
-            throw new CouponException(COUPON_STOCK_EXCEEDED);
+        if (this.issuedCount + quantity > this.maxIssuance) {
+            throw new CouponException.CouponStockExceeded();
         }
-        issuedCount += quantity;
-        if (issuedCount >= maxIssuance) {
-            status = CouponStatus.SOLD_OUT;
+        
+        this.issuedCount += quantity;
+        
+        // 재고 소진 시 상태 업데이트
+        if (this.issuedCount >= this.maxIssuance) {
+            updateStatus(CouponStatus.SOLD_OUT);
+        }
+    }
+    
+    public void updateStatusBasedOnConditions() {
+        LocalDateTime now = LocalDateTime.now();
+        CouponStatus newStatus = calculateStatus(now);
+        
+        if (this.status != newStatus && this.status.canTransitionTo(newStatus)) {
+            this.status = newStatus;
         }
     }
 }
@@ -240,19 +253,42 @@ public class Product {
     private int reservedStock;
 
     public void reserveStock(int quantity) {
+        validateQuantity(quantity);
+        
         if (!hasAvailableStock(quantity)) {
-            throw new ProductException(OUT_OF_STOCK);
+            throw new ProductException.OutOfStock();
         }
-        reservedStock += quantity;
+        
+        this.reservedStock += quantity;
     }
 
     public void confirmReservation(int quantity) {
-        stock -= quantity;
-        reservedStock -= quantity;
+        validateQuantity(quantity);
+        
+        if (this.reservedStock < quantity) {
+            throw new ProductException.InvalidReservation("Cannot confirm more than reserved quantity");
+        }
+        
+        if (this.stock < quantity) {
+            throw new ProductException.InvalidReservation("Cannot confirm reservation due to insufficient actual stock");
+        }
+        
+        this.stock -= quantity;
+        this.reservedStock -= quantity;
     }
 
     public boolean hasAvailableStock(int quantity) {
-        return (stock - reservedStock) >= quantity;
+        return (this.stock - this.reservedStock) >= quantity;
+    }
+    
+    public void cancelReservation(int quantity) {
+        validateQuantity(quantity);
+        
+        if (this.reservedStock < quantity) {
+            throw new ProductException.InvalidReservation("Cannot cancel more than reserved quantity");
+        }
+        
+        this.reservedStock -= quantity;
     }
 }
 ```
@@ -304,9 +340,31 @@ public boolean canTransitionTo(CouponStatus newStatus) {
 - 포트 인터페이스로 MySQL, Redis 등으로 전환 용이
 
 ```java
+@Override
 public Coupon save(Coupon coupon) {
+    if (coupon == null) {
+        throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+    }
+    
+    // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
     Long couponId = coupon.getId() != null ? coupon.getId() : nextId.getAndIncrement();
-    return coupons.compute(couponId, (key, existing) -> existing != null ? updateExisting(coupon) : createNew(coupon));
+    
+    Coupon savedCoupon = coupons.compute(couponId, (key, existingCoupon) -> {
+        if (existingCoupon != null) {
+            coupon.onUpdate();
+            coupon.setId(existingCoupon.getId());
+            coupon.setCreatedAt(existingCoupon.getCreatedAt());
+            return coupon;
+        } else {
+            coupon.onCreate();
+            if (coupon.getId() == null) {
+                coupon.setId(couponId);
+            }
+            return coupon;
+        }
+    });
+    
+    return savedCoupon;
 }
 ```
 
@@ -347,9 +405,21 @@ try {
 
 ```java
 public enum ErrorCode {
-    USER_NOT_FOUND("U001", "User not found", HttpStatus.NOT_FOUND),
-    COUPON_EXPIRED("C002", "Coupon expired", HttpStatus.GONE),
-    OUT_OF_STOCK("P002", "Out of stock", HttpStatus.CONFLICT);
+    USER_NOT_FOUND("U001", "사용자를 찾을 수 없습니다."),
+    COUPON_EXPIRED("C002", "만료된 쿠폰입니다."),
+    PRODUCT_OUT_OF_STOCK("P002", "상품 재고가 부족합니다.");
+    
+    private final String code;
+    private final String message;
+    
+    public String getMessage() {
+        return message;
+    }
+    
+    public static HttpStatus getHttpStatusFromErrorCode(ErrorCode errorCode) {
+        // HTTP 상태 코드 매핑 로직
+        return ERROR_CODE_HTTP_STATUS_MAP.get(errorCode);
+    }
 }
 ```
 
@@ -385,8 +455,8 @@ public void expireCoupons() {
 
 ### 상품
 
-- **GET /api/product/{id}**: 상품 조회
-- **GET /api/product/popular**: 인기 상품 목록
+- **GET /api/product/list**: 상품 목록 조회 (페이지네이션 지원)
+- **GET /api/product/popular**: 인기 상품 목록 (최근 N일간)
 
 ### 주문
 
