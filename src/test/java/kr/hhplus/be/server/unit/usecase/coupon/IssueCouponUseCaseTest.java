@@ -212,8 +212,8 @@ class IssueCouponUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.CouponNotIssuable.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
+                .isInstanceOf(CouponException.Expired.class)
+                .hasMessage(CouponException.Messages.COUPON_EXPIRED);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -245,8 +245,8 @@ class IssueCouponUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.CouponNotIssuable.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
+                .isInstanceOf(CouponException.OutOfStock.class)
+                .hasMessage(CouponException.Messages.COUPON_OUT_OF_STOCK);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -336,8 +336,8 @@ class IssueCouponUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.CouponNotIssuable.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
+                .isInstanceOf(CouponException.CouponNotYetStarted.class)
+                .hasMessage(CouponException.Messages.COUPON_NOT_YET_STARTED);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }

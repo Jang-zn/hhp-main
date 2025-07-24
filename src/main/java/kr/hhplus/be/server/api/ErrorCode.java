@@ -195,6 +195,7 @@ public enum ErrorCode {
         map.put(CouponException.AlreadyIssued.class, COUPON_ALREADY_ISSUED);
         map.put(CouponException.OutOfStock.class, COUPON_ISSUE_LIMIT_EXCEEDED);
         map.put(CouponException.CouponStockExceeded.class, COUPON_ISSUE_LIMIT_EXCEEDED);
+        map.put(CouponException.CouponNotIssuable.class, BAD_REQUEST);
         map.put(CouponException.InvalidCouponData.class, INVALID_INPUT);
         map.put(CouponException.InvalidUserData.class, INVALID_INPUT);
         map.put(CouponException.InvalidCouponHistoryData.class, INVALID_INPUT);

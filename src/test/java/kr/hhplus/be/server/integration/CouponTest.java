@@ -8,6 +8,8 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
@@ -93,6 +95,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build();
         availableCoupon = couponRepositoryPort.save(availableCoupon);
 
@@ -104,6 +107,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().minusDays(30))
                 .endDate(LocalDateTime.now().minusDays(1))
+                .status(CouponStatus.EXPIRED)
                 .build();
         expiredCoupon = couponRepositoryPort.save(expiredCoupon);
 
@@ -115,6 +119,7 @@ public class CouponTest {
                 .issuedCount(1)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.SOLD_OUT)
                 .build();
         outOfStockCoupon = couponRepositoryPort.save(outOfStockCoupon);
 
@@ -126,6 +131,7 @@ public class CouponTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().plusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.INACTIVE)
                 .build();
         notStartedCoupon = couponRepositoryPort.save(notStartedCoupon);
     }
@@ -258,6 +264,7 @@ public class CouponTest {
                         .user(testUser)
                         .coupon(availableCoupon)
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build();
                 couponHistoryRepositoryPort.save(history);
 
@@ -331,6 +338,7 @@ public class CouponTest {
                         .issuedCount(0)
                         .startDate(LocalDateTime.now().minusDays(1))
                         .endDate(LocalDateTime.now().plusDays(30))
+                        .status(CouponStatus.ACTIVE)
                         .build();
                 coupon = couponRepositoryPort.save(coupon);
 
@@ -339,6 +347,7 @@ public class CouponTest {
                         .user(user)
                         .coupon(coupon)
                         .issuedAt(LocalDateTime.now())
+                        .status(CouponHistoryStatus.ISSUED)
                         .build();
                 couponHistoryRepositoryPort.save(history);
 
@@ -384,6 +393,7 @@ public class CouponTest {
                             .issuedCount(0)
                             .startDate(LocalDateTime.now().minusDays(1))
                             .endDate(LocalDateTime.now().plusDays(30))
+                            .status(CouponStatus.ACTIVE)
                             .build();
                     coupon = couponRepositoryPort.save(coupon);
 
@@ -391,6 +401,7 @@ public class CouponTest {
                             .user(testUser)
                             .coupon(coupon)
                             .issuedAt(LocalDateTime.now().minusMinutes(i))
+                            .status(CouponHistoryStatus.ISSUED)
                             .build();
                     couponHistoryRepositoryPort.save(history);
                 }
