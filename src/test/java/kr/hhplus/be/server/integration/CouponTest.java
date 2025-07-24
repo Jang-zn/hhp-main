@@ -187,7 +187,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.USER_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -204,7 +204,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isNotFound())
                         .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_FOUND.getCode()))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_NOT_FOUND));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -220,7 +220,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isGone())
                         .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_EXPIRED.getCode()))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_EXPIRED));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_EXPIRED.getMessage()));
             }
 
             @Test
@@ -236,7 +236,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isGone())
                         .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getCode()))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_OUT_OF_STOCK));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_ISSUE_LIMIT_EXCEEDED.getMessage()));
             }
 
             @Test
@@ -252,7 +252,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_YET_STARTED.getCode()))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_NOT_YET_STARTED));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_NOT_YET_STARTED.getMessage()));
             }
 
             @Test
@@ -277,7 +277,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_ALREADY_ISSUED.getCode()))
-                        .andExpect(jsonPath("$.message").value(CouponException.Messages.COUPON_ALREADY_ISSUED));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.COUPON_ALREADY_ISSUED.getMessage()));
             }
 
             @Test
@@ -436,7 +436,7 @@ public class CouponTest {
                         .andDo(print())
                         .andExpect(status().isNotFound()) // UserException.NotFound는 404 Not Found 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
-                        .andExpect(jsonPath("$.message").value(UserException.Messages.USER_NOT_FOUND));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.USER_NOT_FOUND.getMessage()));
             }
 
             @Test

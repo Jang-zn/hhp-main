@@ -60,7 +60,10 @@ public class CouponRequest implements DocumentedDto {
      * @throws IllegalArgumentException 검증 실패 시
      */
     public void validate() {
-        if (userId != null && userId <= 0) {
+        if (userId == null) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
+        }
+        if (userId <= 0) {
             throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
         }
         if (couponId != null && couponId <= 0) {

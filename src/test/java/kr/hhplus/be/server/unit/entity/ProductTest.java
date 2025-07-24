@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.entity;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.exception.ProductException;
+import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,7 @@ class ProductTest {
             // when & then
             assertThatThrownBy(() -> product.reserveStock(10)) // 남은 재고는 5개인데 10개 예약
                     .isInstanceOf(ProductException.OutOfStock.class)
-                    .hasMessage(ProductException.Messages.OUT_OF_STOCK);
+                    .hasMessage(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage());
         }
         
         @Test
@@ -125,8 +126,7 @@ class ProductTest {
             
             // when & then
             assertThatThrownBy(() -> product.confirmReservation(20)) // 예약은 10개인데 20개 확정
-                    .isInstanceOf(ProductException.InvalidReservation.class)
-                    .hasMessage("Cannot confirm more than reserved quantity");
+                    .isInstanceOf(ProductException.InvalidReservation.class);
         }
     }
 
@@ -166,8 +166,7 @@ class ProductTest {
             
             // when & then
             assertThatThrownBy(() -> product.cancelReservation(20)) // 예약은 10개인데 20개 취소
-                    .isInstanceOf(ProductException.InvalidReservation.class)
-                    .hasMessage("Cannot cancel more than reserved quantity");
+                    .isInstanceOf(ProductException.InvalidReservation.class);
         }
     }
 

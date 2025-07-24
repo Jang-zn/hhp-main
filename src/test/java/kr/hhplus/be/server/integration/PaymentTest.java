@@ -145,7 +145,7 @@ public class PaymentTest {
                         .andDo(print())
                         .andExpect(status().isNotFound()) // OrderException.NotFound는 404 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.ORDER_NOT_FOUND));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.ORDER_NOT_FOUND.getMessage()));
             }
 
             @Test
@@ -162,7 +162,7 @@ public class PaymentTest {
                         .andDo(print())
                         .andExpect(status().isBadRequest()) // OrderException.AlreadyPaid는 400 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_ALREADY_PAID.getCode()))
-                        .andExpect(jsonPath("$.message").value(OrderException.Messages.ALREADY_PAID));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.ORDER_ALREADY_PAID.getMessage()));
             }
 
             @Test
@@ -185,7 +185,7 @@ public class PaymentTest {
                         .andDo(print())
                         .andExpect(status().isPaymentRequired()) // BalanceException.InsufficientBalance는 402 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.INSUFFICIENT_BALANCE.getCode()))
-                        .andExpect(jsonPath("$.message").value(BalanceException.Messages.INSUFFICIENT_BALANCE));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.INSUFFICIENT_BALANCE.getMessage()));
             }
 
             @Test
@@ -219,7 +219,7 @@ public class PaymentTest {
                         .andDo(print())
                         .andExpect(status().isConflict()) // ProductException.OutOfStock는 409 반환
                         .andExpect(jsonPath("$.code").value(ErrorCode.PRODUCT_OUT_OF_STOCK.getCode()))
-                        .andExpect(jsonPath("$.message").value(ProductException.Messages.OUT_OF_STOCK));
+                        .andExpect(jsonPath("$.message").value(ErrorCode.PRODUCT_OUT_OF_STOCK.getMessage()));
             }
         }
     }
