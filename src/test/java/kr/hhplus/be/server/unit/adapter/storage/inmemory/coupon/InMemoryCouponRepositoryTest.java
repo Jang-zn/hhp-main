@@ -1,8 +1,9 @@
-package kr.hhplus.be.server.unit.adapter.storage.inmemory;
+package kr.hhplus.be.server.unit.adapter.storage.inmemory.coupon;
 
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryCouponRepository;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,7 @@ class InMemoryCouponRepositoryTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now())
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .product(product)
                 .build();
 
@@ -76,7 +78,7 @@ class InMemoryCouponRepositoryTest {
     }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryCouponRepositoryTest#provideCouponData")
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.coupon.InMemoryCouponRepositoryTest#provideCouponData")
         @DisplayName("성공케이스: 다양한 쿠폰 데이터로 저장")
         void save_WithDifferentCouponData(String code, String discountRate, int maxIssuance) {
             // given
@@ -88,6 +90,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build();
 
             // when
@@ -112,6 +115,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(50)
                     .startDate(LocalDateTime.now().minusDays(10))
                     .endDate(LocalDateTime.now().minusDays(1))
+                    .status(CouponStatus.EXPIRED)
                     .build();
 
             // when
@@ -134,6 +138,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(150) // 최대 발급 수 초과
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.SOLD_OUT)
                     .build();
 
             // when
@@ -156,6 +161,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(7))
+                    .status(CouponStatus.ACTIVE)
                     .build();
 
             // when
@@ -179,6 +185,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(now.plusDays(10))
                     .endDate(now.plusDays(5)) // 시작일보다 빠른 종료일
+                    .status(CouponStatus.INACTIVE)
                     .build();
 
             // when
@@ -190,7 +197,7 @@ class InMemoryCouponRepositoryTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryCouponRepositoryTest#provideEdgeCaseDiscountRates")
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.coupon.InMemoryCouponRepositoryTest#provideEdgeCaseDiscountRates")
         @DisplayName("성공케이스: 극한값 할인율으로 쿠폰 저장")
         void save_WithEdgeCaseDiscountRates(String description, String discountRate) {
             // given
@@ -202,6 +209,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build();
 
             // when
@@ -217,8 +225,8 @@ class InMemoryCouponRepositoryTest {
         void save_WithNullCoupon() {
             // when & then
             assertThatThrownBy(() -> couponRepository.save(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Coupon cannot be null");
+                    .isInstanceOf(CouponException.InvalidCouponData.class)
+                    .hasMessage(CouponException.Messages.COUPON_DATA_INVALID + ": Coupon cannot be null");
         }
     }
 
@@ -238,6 +246,7 @@ class InMemoryCouponRepositoryTest {
                 .issuedCount(10)
                 .startDate(LocalDateTime.now())
                 .endDate(LocalDateTime.now().plusDays(15))
+                .status(CouponStatus.ACTIVE)
                 .build();
         Coupon savedCoupon = couponRepository.save(coupon);
 
@@ -280,7 +289,7 @@ class InMemoryCouponRepositoryTest {
         }
 
         @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryCouponRepositoryTest#provideInvalidCouponIds")
+        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.coupon.InMemoryCouponRepositoryTest#provideInvalidCouponIds")
         @DisplayName("실패케이스: 유효하지 않은 쿠폰 ID들로 조회")
         void findById_WithInvalidIds(Long invalidId) {
             // when
@@ -365,6 +374,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build();
             couponRepository.save(initialCoupon);
             int numberOfThreads = 5;
@@ -433,6 +443,7 @@ class InMemoryCouponRepositoryTest {
                     .issuedCount(0)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build();
             couponRepository.save(baseCoupon);
 
@@ -511,6 +522,159 @@ class InMemoryCouponRepositoryTest {
             executor.shutdown();
             boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
             assertThat(terminated).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("만료 쿠폰 조회 테스트")
+    class ExpirationTests {
+        
+        @Test
+        @DisplayName("성공케이스: 만료된 쿠폰 조회")
+        void findExpiredCouponsNotInStatus_Success() {
+            // given
+            LocalDateTime now = LocalDateTime.now();
+            
+            // 만료된 ACTIVE 쿠폰
+            Coupon expiredActiveCoupon = Coupon.builder()
+                    .id(1L)
+                    .code("EXPIRED_ACTIVE")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(100)
+                    .issuedCount(50)
+                    .startDate(now.minusDays(10))
+                    .endDate(now.minusDays(1))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            
+            // 만료된 SOLD_OUT 쿠폰
+            Coupon expiredSoldOutCoupon = Coupon.builder()
+                    .id(2L)
+                    .code("EXPIRED_SOLDOUT")
+                    .discountRate(new BigDecimal("0.15"))
+                    .maxIssuance(100)
+                    .issuedCount(100)
+                    .startDate(now.minusDays(20))
+                    .endDate(now.minusDays(5))
+                    .status(CouponStatus.SOLD_OUT)
+                    .build();
+            
+            // 이미 EXPIRED 상태인 쿠폰 (제외되어야 함)
+            Coupon alreadyExpiredCoupon = Coupon.builder()
+                    .id(3L)
+                    .code("ALREADY_EXPIRED")
+                    .discountRate(new BigDecimal("0.20"))
+                    .maxIssuance(100)
+                    .issuedCount(50)
+                    .startDate(now.minusDays(15))
+                    .endDate(now.minusDays(2))
+                    .status(CouponStatus.EXPIRED)
+                    .build();
+            
+            // DISABLED 상태인 쿠폰 (제외되어야 함)
+            Coupon disabledCoupon = Coupon.builder()
+                    .id(4L)
+                    .code("DISABLED")
+                    .discountRate(new BigDecimal("0.25"))
+                    .maxIssuance(100)
+                    .issuedCount(10)
+                    .startDate(now.minusDays(30))
+                    .endDate(now.minusDays(3))
+                    .status(CouponStatus.DISABLED)
+                    .build();
+            
+            // 유효한 쿠폰 (제외되어야 함)
+            Coupon validCoupon = Coupon.builder()
+                    .id(5L)
+                    .code("VALID")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(100)
+                    .issuedCount(30)
+                    .startDate(now.minusDays(5))
+                    .endDate(now.plusDays(10))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            
+            couponRepository.save(expiredActiveCoupon);
+            couponRepository.save(expiredSoldOutCoupon);
+            couponRepository.save(alreadyExpiredCoupon);
+            couponRepository.save(disabledCoupon);
+            couponRepository.save(validCoupon);
+            
+            // when
+            List<Coupon> expiredCoupons = couponRepository.findExpiredCouponsNotInStatus(
+                    now, CouponStatus.EXPIRED, CouponStatus.DISABLED
+            );
+            
+            // then
+            assertThat(expiredCoupons).hasSize(2);
+            assertThat(expiredCoupons).extracting(Coupon::getCode)
+                    .containsExactlyInAnyOrder("EXPIRED_ACTIVE", "EXPIRED_SOLDOUT");
+        }
+        
+        @Test
+        @DisplayName("성공케이스: 만료된 쿠폰이 없는 경우")
+        void findExpiredCouponsNotInStatus_NoExpiredCoupons() {
+            // given
+            LocalDateTime now = LocalDateTime.now();
+            
+            Coupon validCoupon = Coupon.builder()
+                    .id(1L)
+                    .code("VALID_COUPON")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(100)
+                    .issuedCount(30)
+                    .startDate(now.minusDays(5))
+                    .endDate(now.plusDays(10))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            
+            couponRepository.save(validCoupon);
+            
+            // when
+            List<Coupon> expiredCoupons = couponRepository.findExpiredCouponsNotInStatus(
+                    now, CouponStatus.EXPIRED, CouponStatus.DISABLED
+            );
+            
+            // then
+            assertThat(expiredCoupons).isEmpty();
+        }
+        
+        @Test
+        @DisplayName("성공케이스: 다양한 상태 제외 조건")
+        void findExpiredCouponsNotInStatus_WithDifferentExclusions() {
+            // given
+            LocalDateTime now = LocalDateTime.now();
+            
+            Coupon expiredActiveCoupon = Coupon.builder()
+                    .id(1L)
+                    .code("EXPIRED_ACTIVE")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(100)
+                    .issuedCount(50)
+                    .startDate(now.minusDays(10))
+                    .endDate(now.minusDays(1))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            
+            couponRepository.save(expiredActiveCoupon);
+            
+            // when - ACTIVE 상태만 제외
+            List<Coupon> expiredCoupons = couponRepository.findExpiredCouponsNotInStatus(
+                    now, CouponStatus.ACTIVE
+            );
+            
+            // then - ACTIVE 상태는 제외되므로 빈 결과
+            assertThat(expiredCoupons).isEmpty();
+            
+            // when - EXPIRED 상태만 제외
+            expiredCoupons = couponRepository.findExpiredCouponsNotInStatus(
+                    now, CouponStatus.EXPIRED
+            );
+            
+            // then - ACTIVE 상태의 만료된 쿠폰이 조회됨
+            assertThat(expiredCoupons).hasSize(1);
+            assertThat(expiredCoupons.get(0).getCode()).isEqualTo("EXPIRED_ACTIVE");
         }
     }
 
