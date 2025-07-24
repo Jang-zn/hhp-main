@@ -12,27 +12,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-@Entity
+// @Entity
 public class CouponHistory extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
+    // @ManyToOne
+    // @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "coupon_id")
+    // @ManyToOne
+    // @JoinColumn(name = "coupon_id")
     private Coupon coupon;
 
     private LocalDateTime issuedAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    // @Enumerated(EnumType.STRING)
+    // @Column(nullable = false)
     private CouponHistoryStatus status;
 
     private LocalDateTime usedAt;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
+    // @ManyToOne
+    // @JoinColumn(name = "order_id")
     private Order usedOrder;
 
     /**
