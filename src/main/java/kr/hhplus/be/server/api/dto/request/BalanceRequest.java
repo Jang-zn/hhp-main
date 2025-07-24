@@ -3,6 +3,8 @@ package kr.hhplus.be.server.api.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.api.ErrorCode;
+import kr.hhplus.be.server.domain.exception.UserException; // 추가
+import kr.hhplus.be.server.domain.exception.BalanceException; // 추가
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -15,6 +17,10 @@ public class BalanceRequest implements DocumentedDto {
     
     @Schema(description = "충전 금액", example = "10000", required = true)
     private BigDecimal amount;
+
+    // ChargeBalanceUseCase와 동일한 상수 정의
+    private static final BigDecimal MIN_CHARGE_AMOUNT = new BigDecimal("1000");
+    private static final BigDecimal MAX_CHARGE_AMOUNT = new BigDecimal("1000000");
 
     // 기본 생성자
     public BalanceRequest() {}
@@ -36,17 +42,18 @@ public class BalanceRequest implements DocumentedDto {
      * @throws IllegalArgumentException 검증 실패 시
      */
     public void validate() {
-        if (userId == null) {
-            throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
-        }
-        if (userId <= 0) {
-            throw new IllegalArgumentException(ErrorCode.INVALID_USER_ID.getMessage());
+        if (userId == null || userId <= 0) { // userId가 null이거나 0 이하일 경우
+            throw new UserException.InvalidUser();
         }
         if (amount == null) {
-            throw new IllegalArgumentException(ErrorCode.INVALID_AMOUNT.getMessage());
+            throw new BalanceException.InvalidAmount();
         }
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(ErrorCode.NEGATIVE_AMOUNT.getMessage());
+        // 금액 범위 검증 추가
+        if (amount.compareTo(MIN_CHARGE_AMOUNT) < 0 || amount.compareTo(MAX_CHARGE_AMOUNT) > 0) {
+            throw new BalanceException.InvalidAmount();
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) { // 0 이하일 경우
+            throw new BalanceException.InvalidAmount();
         }
     }
 

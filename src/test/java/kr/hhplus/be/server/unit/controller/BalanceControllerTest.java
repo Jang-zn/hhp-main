@@ -151,8 +151,7 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(ErrorCode.NEGATIVE_AMOUNT.getMessage());
+                    .isInstanceOf(BalanceException.InvalidAmount.class);
         }
 
         @Test
@@ -163,8 +162,7 @@ class BalanceControllerTest {
 
             // when & then
             assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
+                    .isInstanceOf(UserException.InvalidUser.class);
         }
 
         @Test
@@ -183,12 +181,8 @@ class BalanceControllerTest {
             // given
             BalanceRequest request = new BalanceRequest(userId, new BigDecimal(amount));
 
-            
-            when(chargeBalanceUseCase.execute(userId, new BigDecimal(amount)))
-                    .thenThrow(expectedException);
-
             // when & then
-            assertThatThrownBy(() -> balanceController.chargeBalance(request))
+            assertThatThrownBy(() -> request.validate())
                     .isInstanceOf(expectedException);
         }
     }
