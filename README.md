@@ -373,8 +373,6 @@ public Coupon save(Coupon coupon) {
 
 ### 3. 인메모리에서 락 구현
 - 사용자별 락으로 동시 주문 충돌 방지
-- 세밀한 락 범위로 성능 최적화
-- 타임아웃 설정으로 데드락 방지
 
 ```java
 String lockKey = "order-creation-" + userId;
