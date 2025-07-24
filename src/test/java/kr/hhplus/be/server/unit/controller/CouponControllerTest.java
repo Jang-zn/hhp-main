@@ -8,6 +8,8 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -79,11 +81,14 @@ class CouponControllerTest {
             .code("COUPON123")
             .discountRate(new BigDecimal("0.1"))
             .endDate(endDate)
+            .status(CouponStatus.ACTIVE)
             .build();
             
         CouponHistory mockHistory = CouponHistory.builder()
+            .id(1L)
             .coupon(mockCoupon)
             .issuedAt(LocalDateTime.now())
+            .status(CouponHistoryStatus.ISSUED)
             .build();
             
         when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
@@ -98,6 +103,9 @@ class CouponControllerTest {
         assertThat(response.code()).isEqualTo("COUPON123");
         assertThat(response.discountRate()).isEqualTo(new BigDecimal("0.1"));
         assertThat(response.validUntil()).isEqualTo(endDate);
+        assertThat(response.couponStatus()).isEqualTo(CouponStatus.ACTIVE);
+        assertThat(response.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
+        assertThat(response.usable()).isTrue();
     }
 
         @ParameterizedTest
@@ -110,11 +118,14 @@ class CouponControllerTest {
                 .code("COUPON" + couponId)
                 .discountRate(new BigDecimal("0.15"))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build();
                 
             CouponHistory mockHistory = CouponHistory.builder()
+                .id(userId)
                 .coupon(mockCoupon)
                 .issuedAt(LocalDateTime.now())
+                .status(CouponHistoryStatus.ISSUED)
                 .build();
                 
             when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
@@ -187,20 +198,28 @@ class CouponControllerTest {
         
         List<CouponHistory> mockHistories = Arrays.asList(
             CouponHistory.builder()
+                .id(1L)
                 .coupon(Coupon.builder()
                     .id(1L)
                     .code("COUPON123")
                     .discountRate(new BigDecimal("0.1"))
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build())
+                .status(CouponHistoryStatus.ISSUED)
+                .issuedAt(LocalDateTime.now())
                 .build(),
             CouponHistory.builder()
+                .id(2L)
                 .coupon(Coupon.builder()
                     .id(2L)
                     .code("COUPON456")
                     .discountRate(new BigDecimal("0.2"))
                     .endDate(LocalDateTime.now().plusDays(15))
+                    .status(CouponStatus.ACTIVE)
                     .build())
+                .status(CouponHistoryStatus.ISSUED)
+                .issuedAt(LocalDateTime.now())
                 .build()
         );
         
@@ -224,12 +243,16 @@ class CouponControllerTest {
         // given
         List<CouponHistory> mockHistories = Arrays.asList(
             CouponHistory.builder()
+                .id(1L)
                 .coupon(Coupon.builder()
                     .id(1L)
                     .code("COUPON123")
                     .discountRate(new BigDecimal("0.1"))
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build())
+                .status(CouponHistoryStatus.ISSUED)
+                .issuedAt(LocalDateTime.now())
                 .build()
         );
         

@@ -1,8 +1,10 @@
-package kr.hhplus.be.server.unit.usecase;
+package kr.hhplus.be.server.unit.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
+import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
@@ -80,6 +82,7 @@ class IssueCouponUseCaseTest {
                 .issuedCount(50)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -120,6 +123,7 @@ class IssueCouponUseCaseTest {
                 .issuedCount(100)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(15))
+                .status(CouponStatus.ACTIVE)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -198,7 +202,8 @@ class IssueCouponUseCaseTest {
                 .maxIssuance(100)
                 .issuedCount(50)
                 .startDate(LocalDateTime.now().minusDays(10))
-                .endDate(LocalDateTime.now().minusDays(1)) // 이미 만료
+                .endDate(LocalDateTime.now().minusDays(1))
+                .status(CouponStatus.EXPIRED)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -207,8 +212,8 @@ class IssueCouponUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.Expired.class)
-                .hasMessage(CouponException.Messages.COUPON_EXPIRED);
+                .isInstanceOf(CouponException.CouponNotIssuable.class)
+                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -228,9 +233,10 @@ class IssueCouponUseCaseTest {
                 .code("OUTOFSTOCK")
                 .discountRate(new BigDecimal("0.20"))
                 .maxIssuance(100)
-                .issuedCount(100) // 재고 소진
+                .issuedCount(100)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.SOLD_OUT)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -239,8 +245,8 @@ class IssueCouponUseCaseTest {
 
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.OutOfStock.class)
-                .hasMessage(CouponException.Messages.COUPON_OUT_OF_STOCK);
+                .isInstanceOf(CouponException.CouponNotIssuable.class)
+                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -263,6 +269,7 @@ class IssueCouponUseCaseTest {
                 .issuedCount(50)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -318,8 +325,9 @@ class IssueCouponUseCaseTest {
                 .discountRate(new BigDecimal("0.25"))
                 .maxIssuance(100)
                 .issuedCount(0)
-                .startDate(LocalDateTime.now().plusDays(1)) // 아직 시작 안함
+                .startDate(LocalDateTime.now().plusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.INACTIVE)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -328,8 +336,8 @@ class IssueCouponUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
-                .isInstanceOf(CouponException.CouponNotYetStarted.class)
-                .hasMessage(CouponException.Messages.COUPON_NOT_YET_STARTED);
+                .isInstanceOf(CouponException.CouponNotIssuable.class)
+                .hasMessage(CouponException.Messages.COUPON_NOT_ISSUABLE);
                 
         verify(lockingPort).releaseLock("coupon-issue-" + couponId);
     }
@@ -401,10 +409,11 @@ class IssueCouponUseCaseTest {
             Coupon coupon = Coupon.builder()
                     .code("LIMITED1")
                     .discountRate(new BigDecimal("0.10"))
-                    .maxIssuance(1) // 재고 1개
+                    .maxIssuance(1)
                     .issuedCount(0)
                     .startDate(LocalDateTime.now().minusDays(1))
                     .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
                     .build();
             
             AtomicInteger lockCounter = new AtomicInteger(0);

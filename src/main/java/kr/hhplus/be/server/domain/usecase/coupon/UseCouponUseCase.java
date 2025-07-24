@@ -31,11 +31,11 @@ public class UseCouponUseCase {
     
     @Transactional
     public void execute(Long userId, List<Long> couponHistoryIds, Order order) {
-        log.info("쿠폰 사용 요청: userId={}, couponHistoryIds={}, orderId={}", 
-                userId, couponHistoryIds, order.getId());
-        
         // 입력 값 검증
         validateInputs(userId, couponHistoryIds, order);
+        
+        log.info("쿠폰 사용 요청: userId={}, couponHistoryIds={}, orderId={}", 
+                userId, couponHistoryIds, order.getId());
         
         // 사용자 조회
         User user = userRepositoryPort.findById(userId)
