@@ -1,8 +1,19 @@
 package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.api.swagger.ApiSuccess;
+import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.exception.CommonException;
+import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import org.springframework.validation.annotation.Validated;
+
+
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,33 +25,46 @@ import java.util.List;
 @Tag(name = "상품 관리", description = "상품 목록 조회 및 인기 상품 조회 API")
 @RestController
 @RequestMapping("/api/product")
+@RequiredArgsConstructor
 public class ProductController {
+
+    private final GetProductUseCase getProductUseCase;
+    private final GetPopularProductListUseCase getPopularProductListUseCase;
 
     @ApiSuccess(summary = "상품 목록 조회")
     @GetMapping("/list")
-    public List<ProductResponse> getProducts(
-            @RequestParam(defaultValue = "10") int limit,
-            @RequestParam(defaultValue = "0") int offset) {
-        // TODO: 상품 목록 조회 로직 구현
-        // List<Product> products = getProductsUseCase.execute(limit, offset);
-        return List.of(
-                new ProductResponse(1L, "노트북", new java.math.BigDecimal("1200000"), 50),
-                new ProductResponse(2L, "스마트폰", new java.math.BigDecimal("800000"), 100),
-                new ProductResponse(3L, "태블릿", new java.math.BigDecimal("600000"), 30)
-        );
+    public List<ProductResponse> getProductList(@Valid ProductRequest request) {
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
+        List<Product> products = getProductUseCase.execute(request.getLimit(), request.getOffset());
+        return products.stream()
+                .map(product -> new ProductResponse(
+                        product.getId(),
+                        product.getName(),
+                        product.getPrice(),
+                        product.getStock()
+                ))
+                .collect(Collectors.toList());
     }
 
     @ApiSuccess(summary = "인기 상품 조회")
     @GetMapping("/popular")
-    public List<ProductResponse> getPopularProducts() {
-        // TODO: 인기 상품 조회 로직 구현 (최근 3일간 상위 5개)
-        // List<Product> popularProducts = getPopularProductsUseCase.execute();
-        return List.of(
-                new ProductResponse(2L, "스마트폰", new java.math.BigDecimal("800000"), 100),
-                new ProductResponse(1L, "노트북", new java.math.BigDecimal("1200000"), 50),
-                new ProductResponse(4L, "무선이어폰", new java.math.BigDecimal("200000"), 200),
-                new ProductResponse(5L, "스마트워치", new java.math.BigDecimal("300000"), 80),
-                new ProductResponse(3L, "태블릿", new java.math.BigDecimal("600000"), 30)
-        );
+    public List<ProductResponse> getPopularProducts(@Valid ProductRequest request) {
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
+        // 최근 N일간 인기 상품 조회
+        List<Product> popularProducts = getPopularProductListUseCase.execute(request.getDays());
+        return popularProducts.stream()
+                .map(product -> new ProductResponse(
+                        product.getId(),
+                        product.getName(),
+                        product.getPrice(),
+                        product.getStock()
+                ))
+                .collect(Collectors.toList());
     }
 } 

@@ -12,34 +12,46 @@ public class PaymentException extends RuntimeException {
         return errorCode;
     }
     
+    // 메시지 상수들
+    public static class Messages {
+        // Validation 메시지들
+        public static final String FAILED_TO_PROCESS_PAYMENT = "결제 처리에 실패했습니다";
+        public static final String PAYMENT_ID_CANNOT_BE_NULL = "결제 ID는 null일 수 없습니다";
+        // Repository 레벨 validation 메시지들
+        public static final String PAYMENT_CANNOT_BE_NULL = "결제는 null일 수 없습니다";
+        public static final String PAYMENT_AMOUNT_CANNOT_BE_NEGATIVE = "결제 금액은 음수일 수 없습니다";
+        public static final String PAYMENT_STATUS_CANNOT_BE_NULL = "결제 상태는 null일 수 없습니다";
+    }
+    
     // 결제 관련 예외들
-    public static class InsufficientBalance extends PaymentException {
-        public InsufficientBalance() {
-            super("ERR_PAYMENT_INSUFFICIENT_BALANCE", "Insufficient balance");
+    
+    public static class FailedToProcessPayment extends PaymentException {
+        public FailedToProcessPayment() {
+            super("ERR_PAYMENT_FAILED_TO_PROCESS", Messages.FAILED_TO_PROCESS_PAYMENT);
         }
     }
-    
-    public static class InvalidCoupon extends PaymentException {
-        public InvalidCoupon() {
-            super("ERR_PAYMENT_INVALID_COUPON", "Invalid coupon ID");
+
+    public static class PaymentIdCannotBeNull extends PaymentException {
+        public PaymentIdCannotBeNull() {
+            super("ERR_PAYMENT_ID_CANNOT_BE_NULL", Messages.PAYMENT_ID_CANNOT_BE_NULL);
         }
     }
-    
-    public static class ConcurrencyConflict extends PaymentException {
-        public ConcurrencyConflict() {
-            super("ERR_PAYMENT_CONCURRENCY_CONFLICT", "Concurrent payment conflict");
+
+    public static class PaymentCannotBeNull extends PaymentException {
+        public PaymentCannotBeNull() {
+            super("ERR_PAYMENT_CANNOT_BE_NULL", Messages.PAYMENT_CANNOT_BE_NULL);
         }
     }
-    
-    public static class OrderNotFound extends PaymentException {
-        public OrderNotFound() {
-            super("ERR_PAYMENT_ORDER_NOT_FOUND", "Order not found");
+
+    public static class PaymentAmountCannotBeNegative extends PaymentException {
+        public PaymentAmountCannotBeNegative() {
+            super("ERR_PAYMENT_AMOUNT_CANNOT_BE_NEGATIVE", Messages.PAYMENT_AMOUNT_CANNOT_BE_NEGATIVE);
         }
     }
-    
-    public static class InvalidOrderStatus extends PaymentException {
-        public InvalidOrderStatus() {
-            super("ERR_PAYMENT_INVALID_ORDER_STATUS", "Order status not eligible for payment");
+
+    public static class PaymentStatusCannotBeNull extends PaymentException {
+        public PaymentStatusCannotBeNull() {
+            super("ERR_PAYMENT_STATUS_CANNOT_BE_NULL", Messages.PAYMENT_STATUS_CANNOT_BE_NULL);
         }
     }
 } 

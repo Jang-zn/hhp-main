@@ -1,10 +1,6 @@
 package kr.hhplus.be.server.api;
 
-import kr.hhplus.be.server.domain.exception.BalanceException;
-import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.PaymentException;
-import kr.hhplus.be.server.domain.exception.ProductException;
+import kr.hhplus.be.server.domain.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -28,6 +24,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * {
  *   "success": false,
  *   "message": "상품을 찾을 수 없습니다",
+ *   "errorCode": "ERR_PRODUCT_NOT_FOUND",
  *   "data": null,
  *   "timestamp": "2024-01-01T12:00:00"
  * }
@@ -44,10 +41,11 @@ public class GlobalExceptionHandler {
      * @param ex 발생한 비즈니스 예외
      * @return 표준화된 오류 응답 (HTTP 상태 코드 + CommonResponse)
      */
-    @ExceptionHandler({BalanceException.class, CouponException.class, OrderException.class, PaymentException.class, ProductException.class})
+    @ExceptionHandler({BalanceException.class, CouponException.class, OrderException.class, PaymentException.class, ProductException.class, UserException.class, CommonException.class})
     public ResponseEntity<CommonResponse<Object>> handleBusinessException(RuntimeException ex) {
         HttpStatus status = getStatusFromException(ex);
-        return ResponseEntity.status(status).body(CommonResponse.failure(ex.getMessage()));
+        String errorCode = getErrorCode(ex);
+        return ResponseEntity.status(status).body(CommonResponse.failure(ex.getMessage(), errorCode));
     }
 
     /**
@@ -61,6 +59,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CommonResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(errorMessage));
+    }
+
+    /**
+     * 잘못된 인자 예외 처리
+     * @param ex 잘못된 인자 예외
+     * @return 400 Bad Request + 예외 메시지
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<CommonResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
+    }
+
+    /**
+     * 잘못된 상태 예외 처리
+     * @param ex 잘못된 상태 예외
+     * @return 400 Bad Request + 예외 메시지
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<CommonResponse<Object>> handleIllegalStateException(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ex.getMessage()));
     }
 
     /**
@@ -84,7 +102,7 @@ public class GlobalExceptionHandler {
      */
     private HttpStatus getStatusFromException(RuntimeException ex) {
         // 잔액 부족 관련 -> 402 Payment Required
-        if (ex instanceof BalanceException.Insufficient || ex instanceof PaymentException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
+        if (ex instanceof BalanceException.InsufficientBalance) return HttpStatus.PAYMENT_REQUIRED;
         
         // 쿠폰 만료/소진 -> 410 Gone (더 이상 사용할 수 없음)
         if (ex instanceof CouponException.Expired || ex instanceof CouponException.OutOfStock) return HttpStatus.GONE;
@@ -93,12 +111,28 @@ public class GlobalExceptionHandler {
         if (ex instanceof OrderException.Unauthorized) return HttpStatus.FORBIDDEN;
         
         // 리소스 없음 -> 404 Not Found
-        if (ex instanceof ProductException.NotFound || ex instanceof OrderException.NotFound || ex instanceof CouponException.NotFound || ex instanceof PaymentException.OrderNotFound) return HttpStatus.NOT_FOUND;
+        if (ex instanceof ProductException.NotFound || ex instanceof OrderException.NotFound || ex instanceof CouponException.NotFound || ex instanceof UserException.NotFound || ex instanceof BalanceException.NotFound) return HttpStatus.NOT_FOUND;
         
         // 동시성 충돌, 재고 부족 -> 409 Conflict (리소스 상태 충돌)
-        if (ex instanceof BalanceException.ConcurrencyConflict || ex instanceof OrderException.ConcurrencyConflict || ex instanceof PaymentException.ConcurrencyConflict || ex instanceof ProductException.OutOfStock) return HttpStatus.CONFLICT;
+        if (ex instanceof CommonException.ConcurrencyConflict || ex instanceof ProductException.OutOfStock) return HttpStatus.CONFLICT;
         
         // 기타 모든 경우 -> 400 Bad Request
         return HttpStatus.BAD_REQUEST;
+    }
+
+    /**
+     * 도메인 예외에서 에러 코드 추출
+     * 
+     * @param ex 발생한 예외
+     * @return 에러 코드 (없으면 null)
+     */
+    private String getErrorCode(RuntimeException ex) {
+        try {
+            // 리플렉션을 통해 getErrorCode 메서드 호출
+            return (String) ex.getClass().getMethod("getErrorCode").invoke(ex);
+        } catch (Exception e) {
+            // 에러 코드가 없는 예외의 경우 null 반환
+            return null;
+        }
     }
 } 

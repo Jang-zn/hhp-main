@@ -1,0 +1,10 @@
+package kr.hhplus.be.server.domain.port.storage;
+
+import kr.hhplus.be.server.domain.entity.Balance;
+
+import java.util.Optional;
+
+public interface BalanceRepositoryPort {
+    Optional<Balance> findByUser(kr.hhplus.be.server.domain.entity.User user);
+    Balance save(Balance balance);
+} 
