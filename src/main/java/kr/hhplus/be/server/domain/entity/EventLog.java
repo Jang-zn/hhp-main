@@ -10,15 +10,15 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-// @Entity
+@Entity
 public class EventLog extends BaseEntity {
 
-    // @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     private EventType eventType;
 
-    // @Lob
+    @Lob
     private String payload;
 
-    // @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     private EventStatus status;
 } 

@@ -9,18 +9,18 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-// @Entity
+@Entity
 public class PopularProductStats {
 
-    // @Id
+    @Id
     private String productId;
 
     private int salesCount;
 
     private LocalDateTime calculatedAt;
 
-    // @OneToOne
-    // @MapsId
-    // @JoinColumn(name = "product_id")
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "product_id")
     private Product product;
 } 
