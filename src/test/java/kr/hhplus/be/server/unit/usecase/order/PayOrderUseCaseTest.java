@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -92,7 +93,7 @@ class PayOrderUseCaseTest {
         
         User user = User.builder().id(userId).name("테스트 사용자").build();
         Product product = Product.builder().id(1L).name("상품1").price(new BigDecimal("100000")).stock(10).reservedStock(1).build();
-        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).build();
+        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).price(product.getPrice()).build();
         
         Order order = Order.builder().id(orderId).user(user).totalAmount(new BigDecimal("100000")).items(List.of(orderItem)).build();
         
@@ -134,7 +135,7 @@ class PayOrderUseCaseTest {
         // given
         User user = User.builder().id(userId).name("테스트 사용자").build();
         Product product = Product.builder().id(1L).name("상품1").price(new BigDecimal("100000")).stock(10).reservedStock(1).build();
-        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).build();
+        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).price(product.getPrice()).build();
         Order order = Order.builder().id(orderId).user(user).totalAmount(new BigDecimal("100000")).items(List.of(orderItem)).build();
         Balance balance = Balance.builder().user(user).amount(new BigDecimal("200000")).build();
 
@@ -157,7 +158,7 @@ class PayOrderUseCaseTest {
         when(productRepositoryPort.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         if (couponId != null) {
-            Coupon coupon = Coupon.builder().id(couponId).discountRate(new BigDecimal("0.1")).build();
+            Coupon coupon = Coupon.builder().id(couponId).discountRate(new BigDecimal("0.1")).status(CouponStatus.ACTIVE).build();
             when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         }
 
@@ -254,7 +255,7 @@ class PayOrderUseCaseTest {
         
         User user = User.builder().id(userId).name("테스트 사용자").build();
         Product product = Product.builder().id(1L).name("상품1").price(new BigDecimal("100000")).stock(10).reservedStock(1).build();
-        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).build();
+        OrderItem orderItem = OrderItem.builder().product(product).quantity(1).price(product.getPrice()).build();
         Order order = Order.builder().id(orderId).user(user).totalAmount(new BigDecimal("100000")).items(List.of(orderItem)).build();
         Balance balance = Balance.builder().user(user).amount(new BigDecimal("50000")).build(); // 잔액 부족
         
