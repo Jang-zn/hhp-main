@@ -1,6 +1,6 @@
 package kr.hhplus.be.server.integration;
 
-import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryProductRepository;
+import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("integration-test")
+@Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 @Transactional
 @DisplayName("상품 API 통합 테스트")
@@ -37,21 +41,16 @@ public class ProductTest {
     @Autowired
     private ProductRepositoryPort productRepositoryPort;
     
-    @Autowired
-    private InMemoryProductRepository inMemoryProductRepository;
 
     @BeforeEach
     void setUp() {
-        // InMemory 저장소 초기화 (기존 데이터 정리)
-        inMemoryProductRepository.clear();
-        
         // 테스트 상품 데이터 설정 (정확히 6개)
-        productRepositoryPort.save(Product.builder().name("노트북").price(new BigDecimal("1500000")).stock(10).build());
-        productRepositoryPort.save(Product.builder().name("스마트폰").price(new BigDecimal("1200000")).stock(20).build());
-        productRepositoryPort.save(Product.builder().name("태블릿").price(new BigDecimal("800000")).stock(15).build());
-        productRepositoryPort.save(Product.builder().name("무선이어폰").price(new BigDecimal("250000")).stock(50).build());
-        productRepositoryPort.save(Product.builder().name("키보드").price(new BigDecimal("120000")).stock(30).build());
-        productRepositoryPort.save(Product.builder().name("마우스").price(new BigDecimal("50000")).stock(100).build());
+        productRepositoryPort.save(Product.builder().name("노트북").price(new BigDecimal("1500000")).stock(10).reservedStock(0).build());
+        productRepositoryPort.save(Product.builder().name("스마트폰").price(new BigDecimal("1200000")).stock(20).reservedStock(0).build());
+        productRepositoryPort.save(Product.builder().name("태블릿").price(new BigDecimal("800000")).stock(15).reservedStock(0).build());
+        productRepositoryPort.save(Product.builder().name("무선이어폰").price(new BigDecimal("250000")).stock(50).reservedStock(0).build());
+        productRepositoryPort.save(Product.builder().name("키보드").price(new BigDecimal("120000")).stock(30).reservedStock(0).build());
+        productRepositoryPort.save(Product.builder().name("마우스").price(new BigDecimal("50000")).stock(100).reservedStock(0).build());
     }
 
     @Nested
@@ -86,8 +85,8 @@ public class ProductTest {
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data", hasSize(2)))
-                        .andExpect(jsonPath("$.data[0].name", is("스마트폰")))
-                        .andExpect(jsonPath("$.data[1].name", is("태블릿")));
+                        .andExpect(jsonPath("$.data[0].name", is("키보드")))
+                        .andExpect(jsonPath("$.data[1].name", is("무선이어폰")));
             }
         }
 

@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.Order;
@@ -8,6 +9,7 @@ import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.entity.OrderStatus;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
@@ -21,7 +23,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("integration-test")
+@Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 @Transactional
 @DisplayName("주문 API 통합 테스트")
@@ -78,6 +84,7 @@ public class OrderTest {
                 .issuedCount(0)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
                 .build());
 
         // 단일 주문 조회 테스트를 위한 주문 생성
@@ -86,8 +93,8 @@ public class OrderTest {
                 .totalAmount(new BigDecimal("150000"))
                 .status(OrderStatus.PENDING)
                 .items(List.of(
-                        OrderItem.builder().product(product1).quantity(1).build(),
-                        OrderItem.builder().product(product2).quantity(1).build()
+                        OrderItem.builder().product(product1).quantity(1).price(product1.getPrice()).build(),
+                        OrderItem.builder().product(product2).quantity(1).price(product2.getPrice()).build()
                 ))
                 .build());
     }
@@ -315,7 +322,7 @@ public class OrderTest {
                         .user(anotherUser)
                         .totalAmount(new BigDecimal("10000"))
                         .status(OrderStatus.PENDING)
-                        .items(List.of(OrderItem.builder().product(product1).quantity(1).build()))
+                        .items(List.of(OrderItem.builder().product(product1).quantity(1).price(product1.getPrice()).build()))
                         .build());
 
                 // when & then (testUser가 anotherUserOrder를 조회 시도)
@@ -345,7 +352,7 @@ public class OrderTest {
                         .user(testUser)
                         .totalAmount(new BigDecimal("50000"))
                         .status(OrderStatus.PAID)
-                        .items(List.of(OrderItem.builder().product(product2).quantity(1).build()))
+                        .items(List.of(OrderItem.builder().product(product2).quantity(1).price(product2.getPrice()).build()))
                         .build());
 
                 // when & then

@@ -1,9 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryCouponHistoryRepository;
-import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryCouponRepository;
-import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryUserRepository;
+import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
@@ -15,7 +13,6 @@ import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,7 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("integration-test")
+@Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 @Transactional
 @DisplayName("쿠폰 API 통합 테스트")
@@ -59,14 +60,6 @@ public class CouponTest {
     @Autowired
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
 
-    @Autowired
-    private InMemoryUserRepository inMemoryUserRepository;
-
-    @Autowired
-    private InMemoryCouponRepository inMemoryCouponRepository;
-
-    @Autowired
-    private InMemoryCouponHistoryRepository inMemoryCouponHistoryRepository;
 
     private User testUser;
     private Coupon availableCoupon;
@@ -76,10 +69,6 @@ public class CouponTest {
 
     @BeforeEach
     void setUp() {
-        // 메모리 저장소 초기화
-        inMemoryUserRepository.clear();
-        inMemoryCouponRepository.clear();
-        inMemoryCouponHistoryRepository.clear();
 
         // 테스트 사용자 설정
         testUser = User.builder()
@@ -136,13 +125,6 @@ public class CouponTest {
         notStartedCoupon = couponRepositoryPort.save(notStartedCoupon);
     }
 
-    @AfterEach
-    void tearDown() {
-        // 메모리 저장소 정리
-        inMemoryUserRepository.clear();
-        inMemoryCouponRepository.clear();
-        inMemoryCouponHistoryRepository.clear();
-    }
 
     @Nested
     @DisplayName("POST /api/coupon/issue - 쿠폰 발급")
