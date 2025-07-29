@@ -3,6 +3,7 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.PaymentRepositoryPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 import kr.hhplus.be.server.domain.exception.PaymentException;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryPaymentRepository implements PaymentRepositoryPort {
     
     private final Map<Long, Payment> payments = new ConcurrentHashMap<>();

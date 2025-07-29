@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
-@Profile({"local", "test"}) // 특정 프로파일에서만 활성화
+@Profile("test_inmemory") // 특정 프로파일에서만 활성화
 @ConditionalOnProperty(name = "app.storage.type", havingValue = "memory", matchIfMissing = true)
 @Slf4j
 public class InMemoryBalanceRepository implements BalanceRepositoryPort {

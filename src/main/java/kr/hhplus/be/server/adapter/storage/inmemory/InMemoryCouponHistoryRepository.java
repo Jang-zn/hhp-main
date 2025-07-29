@@ -7,6 +7,7 @@ import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.api.ErrorCode;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryPort {
 
     private final Map<Long, CouponHistory> couponHistories = new ConcurrentHashMap<>();

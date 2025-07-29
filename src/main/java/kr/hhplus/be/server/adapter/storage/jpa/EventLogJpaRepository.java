@@ -5,12 +5,14 @@ import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
 import java.util.List;
 
 @Repository
+@Profile({"local", "test", "dev", "prod"})
 @RequiredArgsConstructor
 public class EventLogJpaRepository implements EventLogRepositoryPort {
 

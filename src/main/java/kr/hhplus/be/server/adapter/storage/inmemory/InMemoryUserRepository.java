@@ -2,6 +2,7 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import kr.hhplus.be.server.domain.exception.UserException;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryUserRepository implements UserRepositoryPort {
     
     private final Map<Long, User> users = new ConcurrentHashMap<>();

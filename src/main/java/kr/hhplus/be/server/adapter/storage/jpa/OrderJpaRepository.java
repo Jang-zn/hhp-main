@@ -4,6 +4,7 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+@Profile({"local", "test", "dev", "prod"})
 @RequiredArgsConstructor
 public class OrderJpaRepository implements OrderRepositoryPort {
 

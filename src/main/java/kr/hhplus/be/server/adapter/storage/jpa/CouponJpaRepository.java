@@ -4,6 +4,7 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+@Profile({"local", "test", "dev", "prod"})
 @RequiredArgsConstructor
 public class CouponJpaRepository implements CouponRepositoryPort {
 
