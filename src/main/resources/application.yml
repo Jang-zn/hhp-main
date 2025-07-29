@@ -37,6 +37,7 @@ springdoc:
   show-actuator: false
 
 ---
+# JPA + MySQL 환경 (일반적인 모든 환경)
 spring.config.activate.on-profile: local, test, dev, prod
 
 spring:
@@ -48,6 +49,20 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+---
+# TestContainers 환경 (통합 테스트용)
+spring.config.activate.on-profile: integration-test
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
     show-sql: true
     properties:
       hibernate:

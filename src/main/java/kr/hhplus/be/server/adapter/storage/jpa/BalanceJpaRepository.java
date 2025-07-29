@@ -12,7 +12,7 @@ import jakarta.persistence.NoResultException;
 import java.util.Optional;
 
 @Repository
-@Profile({"local", "test", "dev", "prod"})
+@Profile({"local", "test", "dev", "prod", "integration-test"})
 @RequiredArgsConstructor
 public class BalanceJpaRepository implements BalanceRepositoryPort {
 

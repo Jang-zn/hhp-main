@@ -12,7 +12,7 @@ import jakarta.persistence.EntityManager;
 import java.util.List;
 
 @Repository
-@Profile({"local", "test", "dev", "prod"})
+@Profile({"local", "test", "dev", "prod", "integration-test"})
 @RequiredArgsConstructor
 public class EventLogJpaRepository implements EventLogRepositoryPort {
 

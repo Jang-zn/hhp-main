@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-@Profile({"local", "test", "dev", "prod"})
+@Profile({"local", "test", "dev", "prod", "integration-test"})
 @RequiredArgsConstructor
 public class ProductJpaRepository implements ProductRepositoryPort {
 

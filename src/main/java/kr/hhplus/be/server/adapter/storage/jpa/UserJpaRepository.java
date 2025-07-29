@@ -10,7 +10,7 @@ import jakarta.persistence.EntityManager;
 import java.util.Optional;
 
 @Repository
-@Profile({"local", "test", "dev", "prod"})
+@Profile({"local", "test", "dev", "prod", "integration-test"})
 @RequiredArgsConstructor
 public class UserJpaRepository implements UserRepositoryPort {
 
