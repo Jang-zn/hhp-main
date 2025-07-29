@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
+@Table(name = "order_item")
 public class OrderItem extends BaseEntity {
 
     @ManyToOne

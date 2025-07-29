@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
+@Table(name = "popular_product_stats")
 public class PopularProductStats {
 
     @Id

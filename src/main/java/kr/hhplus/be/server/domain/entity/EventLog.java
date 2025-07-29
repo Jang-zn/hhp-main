@@ -11,6 +11,7 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
+@Table(name = "event_log")
 public class EventLog extends BaseEntity {
 
     @Enumerated(EnumType.STRING)

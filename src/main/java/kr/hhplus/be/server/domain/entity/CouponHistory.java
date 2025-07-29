@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
+@Table(name = "coupon_history")
 public class CouponHistory extends BaseEntity {
 
     @ManyToOne

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
+@Table(name = "product")
 public class Product extends BaseEntity {
 
     private String name;

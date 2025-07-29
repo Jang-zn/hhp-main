@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
+@Table(name = "coupon")
 public class Coupon extends BaseEntity {
 
     private String code;
