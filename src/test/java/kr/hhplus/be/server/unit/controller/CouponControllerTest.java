@@ -5,8 +5,8 @@ import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
-import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
+import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
@@ -39,14 +39,14 @@ class CouponControllerTest {
     private CouponController couponController;
     
     @Mock
-    private IssueCouponUseCase issueCouponUseCase;
+    private IssueCouponFacade issueCouponFacade;
     
     @Mock
-    private GetCouponListUseCase getCouponListUseCase;
+    private GetCouponListFacade getCouponListFacade;
 
     @BeforeEach
     void setUp() {
-        couponController = new CouponController(issueCouponUseCase, getCouponListUseCase);
+        couponController = new CouponController(issueCouponFacade, getCouponListFacade);
     }
 
     public static Stream<Arguments> provideCouponData() {
@@ -92,7 +92,7 @@ class CouponControllerTest {
             .status(CouponHistoryStatus.ISSUED)
             .build();
             
-        when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
+        when(issueCouponFacade.issueCoupon(userId, couponId)).thenReturn(mockHistory);
 
         // when
         CouponRequest request = new CouponRequest(userId, couponId);
@@ -129,7 +129,7 @@ class CouponControllerTest {
                 .status(CouponHistoryStatus.ISSUED)
                 .build();
                 
-            when(issueCouponUseCase.execute(userId, couponId)).thenReturn(mockHistory);
+            when(issueCouponFacade.issueCoupon(userId, couponId)).thenReturn(mockHistory);
             
             // when
             CouponRequest request = new CouponRequest(userId, couponId);
@@ -150,7 +150,7 @@ class CouponControllerTest {
             Long couponId = 1L;
             CouponRequest request = new CouponRequest(invalidUserId, couponId);
             
-            when(issueCouponUseCase.execute(invalidUserId, couponId))
+            when(issueCouponFacade.issueCoupon(invalidUserId, couponId))
                 .thenThrow(new UserException.NotFound());
 
             // when & then
@@ -167,7 +167,7 @@ class CouponControllerTest {
             Long invalidCouponId = 999L;
             CouponRequest request = new CouponRequest(userId, invalidCouponId);
             
-            when(issueCouponUseCase.execute(userId, invalidCouponId))
+            when(issueCouponFacade.issueCoupon(userId, invalidCouponId))
                 .thenThrow(new CouponException.NotFound());
 
             // when & then
@@ -224,7 +224,7 @@ class CouponControllerTest {
                 .build()
         );
         
-        when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(mockHistories);
+        when(getCouponListFacade.getCouponList(userId, limit, offset)).thenReturn(mockHistories);
 
         // when
         CouponRequest request = new CouponRequest(userId, null); // userId를 명시적으로 전달
@@ -259,7 +259,7 @@ class CouponControllerTest {
                 .build()
         );
         
-        when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(mockHistories);
+        when(getCouponListFacade.getCouponList(userId, limit, offset)).thenReturn(mockHistories);
         
         // when
         CouponRequest request = new CouponRequest(userId, null);
@@ -282,7 +282,7 @@ class CouponControllerTest {
             request.setLimit(10);
             request.setOffset(0);
             
-            when(getCouponListUseCase.execute(invalidUserId, 10, 0))
+            when(getCouponListFacade.getCouponList(invalidUserId, 10, 0))
                 .thenThrow(new UserException.NotFound());
 
             // when & then

@@ -5,8 +5,8 @@ import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.exception.*;
-import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
-import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import kr.hhplus.be.server.domain.facade.product.GetProductListFacade;
+import kr.hhplus.be.server.domain.facade.product.GetPopularProductListFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,14 +34,14 @@ class ProductControllerTest {
     private ProductController productController;
     
     @Mock
-    private GetProductUseCase getProductUseCase;
+    private GetProductListFacade getProductListFacade;
 
     @Mock
-    private GetPopularProductListUseCase getPopularProductListUseCase;
+    private GetPopularProductListFacade getPopularProductListFacade;
 
     @BeforeEach
     void setUp() {
-        productController = new ProductController(getProductUseCase, getPopularProductListUseCase);
+        productController = new ProductController(getProductListFacade, getPopularProductListFacade);
     }
 
     @Nested
@@ -67,7 +67,7 @@ class ProductControllerTest {
             Product.builder().id(2L).name("스마트폰").price(BigDecimal.valueOf(800000)).stock(5).reservedStock(0).build(),
             Product.builder().id(3L).name("태블릿").price(BigDecimal.valueOf(500000)).stock(15).reservedStock(0).build()
         );
-        when(getProductUseCase.execute(10, 0)).thenReturn(mockProducts);
+        when(getProductListFacade.getProductList(10, 0)).thenReturn(mockProducts);
         
         // when
         List<ProductResponse> response = productController.getProductList(request);
@@ -90,7 +90,7 @@ class ProductControllerTest {
             Product.builder().id(2L).name("스마트폰").price(BigDecimal.valueOf(800000)).stock(5).reservedStock(0).build(),
             Product.builder().id(3L).name("태블릿").price(BigDecimal.valueOf(500000)).stock(15).reservedStock(0).build()
         );
-        when(getProductUseCase.execute(limit, offset)).thenReturn(mockProducts);
+        when(getProductListFacade.getProductList(limit, offset)).thenReturn(mockProducts);
         
         // when
         List<ProductResponse> response = productController.getProductList(request);
@@ -137,7 +137,7 @@ class ProductControllerTest {
             Product.builder().id(5L).name("키보드").price(BigDecimal.valueOf(100000)).stock(25).reservedStock(0).build(),
             Product.builder().id(6L).name("마우스").price(BigDecimal.valueOf(80000)).stock(30).reservedStock(0).build()
         );
-        when(getPopularProductListUseCase.execute(3)).thenReturn(mockPopularProducts);
+        when(getPopularProductListFacade.getPopularProductList(3)).thenReturn(mockPopularProducts);
         
         // when
         List<ProductResponse> response = productController.getPopularProducts(request);
