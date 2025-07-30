@@ -79,4 +79,20 @@ public class CouponRequest implements DocumentedDto {
             throw new IllegalArgumentException(ErrorCode.INVALID_INPUT.getMessage());
         }
     }
+    
+    /**
+     * 페이지네이션 관련 필드만 검증
+     * @throws IllegalArgumentException 검증 실패 시
+     */
+    public void validatePagination() {
+        if (limit <= 0) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_INPUT.getMessage());
+        }
+        if (limit > 100) {
+            throw new IllegalArgumentException(ErrorCode.VALUE_OUT_OF_RANGE.getMessage());
+        }
+        if (offset < 0) {
+            throw new IllegalArgumentException(ErrorCode.INVALID_INPUT.getMessage());
+        }
+    }
 }
