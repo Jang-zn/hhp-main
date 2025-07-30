@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.Order;
@@ -23,7 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("integration-test")
+@Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 @Transactional
 @DisplayName("결제 API 통합 테스트")
@@ -79,7 +84,7 @@ public class PaymentTest {
         testProduct = productRepositoryPort.save(Product.builder().name("테스트 상품").price(new BigDecimal("50000")).stock(10).reservedStock(1).build());
 
         // 테스트 주문 설정 (PENDING 상태)
-        OrderItem orderItem = OrderItem.builder().product(testProduct).quantity(1).build();
+        OrderItem orderItem = OrderItem.builder().product(testProduct).quantity(1).price(testProduct.getPrice()).build();
         pendingOrder = orderRepositoryPort.save(Order.builder()
                 .user(testUser)
                 .totalAmount(new BigDecimal("50000"))
@@ -91,7 +96,7 @@ public class PaymentTest {
         paidOrder = orderRepositoryPort.save(Order.builder()
                 .user(testUser)
                 .totalAmount(new BigDecimal("30000"))
-                .items(List.of(OrderItem.builder().product(testProduct).quantity(1).build()))
+                .items(List.of(OrderItem.builder().product(testProduct).quantity(1).price(testProduct.getPrice()).build()))
                 .status(OrderStatus.PAID)
                 .build());
         paymentRepositoryPort.save(kr.hhplus.be.server.domain.entity.Payment.builder()
@@ -169,11 +174,9 @@ public class PaymentTest {
             @DisplayName("잔액이 부족할 경우 결제 요청 시 402 Payment Required를 반환한다")
             void payOrder_InsufficientBalance_ShouldFail() throws Exception {
                 // given
-                // 잔액이 부족한 새로운 Balance 생성
-                Balance insufficientBalance = balanceRepositoryPort.save(Balance.builder()
-                        .user(testUser)
-                        .amount(new BigDecimal("10000")) // 주문 금액 50000보다 적게
-                        .build());
+                // 기존 잔액을 부족하게 수정
+                userBalance.subtractAmount(new BigDecimal("990000")); // 1000000 - 990000 = 10000 (주문 금액 50000보다 적게)
+                balanceRepositoryPort.save(userBalance);
 
                 long orderId = pendingOrder.getId();
                 OrderRequest request = new OrderRequest(testUser.getId(), null);
@@ -201,7 +204,7 @@ public class PaymentTest {
                         .build());
 
                 // 재고 부족 상품으로 주문 생성
-                OrderItem outOfStockOrderItem = OrderItem.builder().product(outOfStockProduct).quantity(1).build();
+                OrderItem outOfStockOrderItem = OrderItem.builder().product(outOfStockProduct).quantity(1).price(outOfStockProduct.getPrice()).build();
                 Order outOfStockOrder = orderRepositoryPort.save(Order.builder()
                         .user(testUser)
                         .totalAmount(new BigDecimal("50000"))

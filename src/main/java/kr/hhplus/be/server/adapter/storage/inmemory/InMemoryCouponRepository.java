@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.api.ErrorCode;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryCouponRepository implements CouponRepositoryPort {
 
     private final Map<Long, Coupon> coupons = new ConcurrentHashMap<>();

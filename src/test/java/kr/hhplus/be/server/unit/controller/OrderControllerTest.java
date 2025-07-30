@@ -11,12 +11,10 @@ import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
-import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.PayOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
-import kr.hhplus.be.server.domain.usecase.order.CheckOrderAccessUseCase;
-import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
+import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,27 +49,21 @@ class OrderControllerTest {
     private OrderController orderController;
     
     @Mock
-    private CreateOrderUseCase createOrderUseCase;
+    private CreateOrderFacade createOrderFacade;
     
     @Mock
-    private PayOrderUseCase payOrderUseCase;
+    private PayOrderFacade payOrderFacade;
     
     @Mock
-    private GetOrderUseCase getOrderUseCase;
+    private GetOrderFacade getOrderFacade;
     
     @Mock
-    private GetOrderListUseCase getOrderListUseCase;
-    
-    @Mock
-    private CheckOrderAccessUseCase checkOrderAccessUseCase;
-    
-    @Mock
-    private ValidateCouponUseCase validateCouponUseCase;
+    private GetOrderListFacade getOrderListFacade;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        orderController = new OrderController(createOrderUseCase, payOrderUseCase, getOrderUseCase, getOrderListUseCase, checkOrderAccessUseCase, validateCouponUseCase);
+        orderController = new OrderController(createOrderFacade, payOrderFacade, getOrderFacade, getOrderListFacade);
     }
 
 
@@ -102,7 +94,7 @@ class OrderControllerTest {
             request.setProducts(products);
 
             Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+            when(createOrderFacade.createOrder(anyLong(), anyMap())).thenReturn(order);
 
             // when
             OrderResponse response = orderController.createOrder(request);
@@ -122,7 +114,7 @@ class OrderControllerTest {
             request.setProducts(products);
             
             Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("50000"));
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+            when(createOrderFacade.createOrder(anyLong(), anyMap())).thenReturn(order);
 
             // when
             OrderResponse response = orderController.createOrder(request);
@@ -142,7 +134,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(userId, productIds, couponIds);
             
             Order order = createMockOrder(userId, "테스트 사용자", new BigDecimal("100000"));
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+            when(createOrderFacade.createOrder(anyLong(), anyMap())).thenReturn(order);
 
             // when
             OrderResponse response = orderController.createOrder(request);
@@ -165,7 +157,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(userId, null, couponIds);
             request.setProducts(products);
 
-            when(createOrderUseCase.execute(anyLong(), anyMap()))
+            when(createOrderFacade.createOrder(anyLong(), anyMap()))
                     .thenThrow(new UserException.InvalidUser());
 
             // when & then
@@ -184,7 +176,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(userId, null, couponIds);
             request.setProducts(products);
 
-            when(createOrderUseCase.execute(anyLong(), anyMap()))
+            when(createOrderFacade.createOrder(anyLong(), anyMap()))
                     .thenThrow(new OrderException.EmptyItems());
 
             // when & then
@@ -205,7 +197,7 @@ class OrderControllerTest {
             OrderRequest request = new OrderRequest(userId, null, couponIds);
             request.setProducts(products);
 
-            when(createOrderUseCase.execute(anyLong(), anyMap()))
+            when(createOrderFacade.createOrder(anyLong(), anyMap()))
                     .thenThrow(new ProductException.OutOfStock());
 
             // when & then
@@ -244,7 +236,7 @@ class OrderControllerTest {
                     .build();
             payment.setId(1L);
             
-            when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
+            when(payOrderFacade.payOrder(orderId, 1L, null)).thenReturn(payment);
 
             // when
             OrderRequest request = new OrderRequest(1L, null);
@@ -271,7 +263,7 @@ class OrderControllerTest {
                     .build();
             payment.setId(1L);
             
-            when(payOrderUseCase.execute(orderId, 1L, null)).thenReturn(payment);
+            when(payOrderFacade.payOrder(orderId, 1L, null)).thenReturn(payment);
             
             // when
             OrderRequest request = new OrderRequest(1L, null);
@@ -288,7 +280,7 @@ class OrderControllerTest {
             // given
             Long orderId = 999L;
             
-            when(payOrderUseCase.execute(orderId, null, null))
+            when(payOrderFacade.payOrder(orderId, null, null))
                     .thenThrow(new OrderException.NotFound());
 
             // when & then
@@ -304,7 +296,7 @@ class OrderControllerTest {
             // given
             Long orderId = 1L;
             
-            when(payOrderUseCase.execute(orderId, null, null))
+            when(payOrderFacade.payOrder(orderId, null, null))
                     .thenThrow(new BalanceException.InsufficientBalance());
 
             // when & then
@@ -342,7 +334,7 @@ class OrderControllerTest {
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
-            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            verify(createOrderFacade).createOrder(anyLong(), quantitiesCaptor.capture());
             
             Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
             assertThat(capturedQuantities).hasSize(3);
@@ -370,7 +362,7 @@ class OrderControllerTest {
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
-            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            verify(createOrderFacade).createOrder(anyLong(), quantitiesCaptor.capture());
             
             Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
             assertThat(capturedQuantities).hasSize(3);
@@ -402,7 +394,7 @@ class OrderControllerTest {
             
             // then
             ArgumentCaptor<Map<Long, Integer>> quantitiesCaptor = ArgumentCaptor.forClass(Map.class);
-            verify(createOrderUseCase).execute(anyLong(), quantitiesCaptor.capture());
+            verify(createOrderFacade).createOrder(anyLong(), quantitiesCaptor.capture());
             
             Map<Long, Integer> capturedQuantities = quantitiesCaptor.getValue();
             assertThat(capturedQuantities).hasSize(1);
@@ -468,7 +460,7 @@ class OrderControllerTest {
                     .items(orderItems)
                     .build();
             
-            when(createOrderUseCase.execute(anyLong(), anyMap())).thenReturn(order);
+            when(createOrderFacade.createOrder(anyLong(), anyMap())).thenReturn(order);
             
             // when
             OrderResponse response = orderController.createOrder(request);
@@ -518,7 +510,7 @@ class OrderControllerTest {
         @DisplayName("실패케이스: 비정상 주문 ID로 결제")
         void payOrder_WithInvalidOrderIds(Long invalidOrderId) {
             // given
-            when(payOrderUseCase.execute(invalidOrderId, null, null))
+            when(payOrderFacade.payOrder(invalidOrderId, null, null))
                     .thenThrow(new OrderException.NotFound());
 
             // when & then

@@ -11,12 +11,13 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-// @Entity
+@Entity
+@Table(name = "product")
 public class Product extends BaseEntity {
 
     private String name;
 
-    // @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal price;
 
     private int stock;

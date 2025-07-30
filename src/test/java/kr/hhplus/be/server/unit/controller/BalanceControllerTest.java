@@ -5,8 +5,8 @@ import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
-import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
+import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
+import kr.hhplus.be.server.domain.facade.balance.GetBalanceFacade;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,16 +36,14 @@ class BalanceControllerTest {
     private BalanceController balanceController;
     
     @Mock
-    private ChargeBalanceUseCase chargeBalanceUseCase;
+    private ChargeBalanceFacade chargeBalanceFacade;
     
     @Mock
-    private GetBalanceUseCase getBalanceUseCase;
-
-
+    private GetBalanceFacade getBalanceFacade;
 
     @BeforeEach
     void setUp() {
-        balanceController = new BalanceController(chargeBalanceUseCase, getBalanceUseCase);
+        balanceController = new BalanceController(chargeBalanceFacade, getBalanceFacade);
     }
 
     @Nested
@@ -84,7 +82,7 @@ class BalanceControllerTest {
                     .updatedAt(LocalDateTime.now())
                     .build();
             
-            when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(balance);
+            when(chargeBalanceFacade.chargeBalance(userId, chargeAmount)).thenReturn(balance);
 
             // when
             BalanceResponse response = balanceController.chargeBalance(request);
@@ -112,7 +110,7 @@ class BalanceControllerTest {
                     .updatedAt(LocalDateTime.now())
                     .build();
             
-            when(chargeBalanceUseCase.execute(userId, new BigDecimal(chargeAmount))).thenReturn(balance);
+            when(chargeBalanceFacade.chargeBalance(userId, new BigDecimal(chargeAmount))).thenReturn(balance);
 
             // when
             BalanceResponse response = balanceController.chargeBalance(request);
@@ -132,7 +130,7 @@ class BalanceControllerTest {
             BalanceRequest request = new BalanceRequest(userId, chargeAmount);
 
             
-            when(chargeBalanceUseCase.execute(userId, chargeAmount))
+            when(chargeBalanceFacade.chargeBalance(userId, chargeAmount))
                     .thenThrow(new UserException.InvalidUser());
 
             // when & then
@@ -221,7 +219,7 @@ class BalanceControllerTest {
                     .updatedAt(LocalDateTime.now())
                     .build();
             
-            when(getBalanceUseCase.execute(userId)).thenReturn(Optional.of(balance));
+            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.of(balance));
 
             // when
             BalanceResponse response = balanceController.getBalance(userId);
@@ -246,7 +244,7 @@ class BalanceControllerTest {
                     .updatedAt(LocalDateTime.now())
                     .build();
             
-            when(getBalanceUseCase.execute(userId)).thenReturn(Optional.of(balance));
+            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.of(balance));
             
             // when
             BalanceResponse response = balanceController.getBalance(userId);
@@ -263,7 +261,7 @@ class BalanceControllerTest {
             // given
             Long userId = 999L;
             
-            when(getBalanceUseCase.execute(userId)).thenReturn(Optional.empty());
+            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(userId))
