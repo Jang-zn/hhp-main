@@ -82,7 +82,7 @@ class GetOrderListFacadeTest {
             int limit = 10;
             int offset = 0;
             
-            when(getOrderListUseCase.execute(userId, limit, offset)).thenReturn(testOrders);
+            when(getOrderListUseCase.execute(userId)).thenReturn(testOrders);
             
             // when
             List<Order> result = getOrderListFacade.getOrderList(userId, limit, offset);
@@ -94,7 +94,7 @@ class GetOrderListFacadeTest {
             assertThat(result.get(1).getId()).isEqualTo(2L);
             assertThat(result.get(0).getUser().getId()).isEqualTo(userId);
             
-            verify(getOrderListUseCase).execute(userId, limit, offset);
+            verify(getOrderListUseCase).execute(userId);
         }
         
         @Test
@@ -105,7 +105,7 @@ class GetOrderListFacadeTest {
             int limit = 10;
             int offset = 0;
             
-            when(getOrderListUseCase.execute(userId, limit, offset)).thenReturn(List.of());
+            when(getOrderListUseCase.execute(userId)).thenReturn(List.of());
             
             // when
             List<Order> result = getOrderListFacade.getOrderList(userId, limit, offset);
@@ -114,7 +114,7 @@ class GetOrderListFacadeTest {
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
             
-            verify(getOrderListUseCase).execute(userId, limit, offset);
+            verify(getOrderListUseCase).execute(userId);
         }
         
         @Test
@@ -125,14 +125,14 @@ class GetOrderListFacadeTest {
             int limit = 10;
             int offset = 0;
             
-            when(getOrderListUseCase.execute(userId, limit, offset))
-                .thenThrow(new UserException.InvalidUser());
+            when(getOrderListUseCase.execute(userId))
+                .thenThrow(new UserException.NotFound());
             
             // when & then
             assertThatThrownBy(() -> getOrderListFacade.getOrderList(userId, limit, offset))
-                .isInstanceOf(UserException.InvalidUser.class);
+                .isInstanceOf(UserException.NotFound.class);
                 
-            verify(getOrderListUseCase).execute(userId, limit, offset);
+            verify(getOrderListUseCase).execute(userId);
         }
         
         @Test
@@ -143,7 +143,7 @@ class GetOrderListFacadeTest {
             int limit = 5;
             int offset = 10;
             
-            when(getOrderListUseCase.execute(userId, limit, offset)).thenReturn(List.of(testOrders.get(0)));
+            when(getOrderListUseCase.execute(userId)).thenReturn(List.of(testOrders.get(0)));
             
             // when
             List<Order> result = getOrderListFacade.getOrderList(userId, limit, offset);
@@ -152,7 +152,7 @@ class GetOrderListFacadeTest {
             assertThat(result).isNotNull();
             assertThat(result).hasSize(1);
             
-            verify(getOrderListUseCase).execute(userId, limit, offset);
+            verify(getOrderListUseCase).execute(userId);
         }
     }
 }
