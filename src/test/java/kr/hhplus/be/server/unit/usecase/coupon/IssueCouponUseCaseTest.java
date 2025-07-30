@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.unit.usecase.coupon;
 
+import kr.hhplus.be.server.TestConstants;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
@@ -73,11 +74,11 @@ class IssueCouponUseCaseTest {
         Long couponId = 1L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon coupon = Coupon.builder()
-                .code("DISCOUNT10")
+                .code(TestConstants.DISCOUNT_COUPON_CODE)
                 .discountRate(new BigDecimal("0.10"))
                 .maxIssuance(100)
                 .issuedCount(50)
@@ -114,7 +115,7 @@ class IssueCouponUseCaseTest {
     void issueCoupon_WithDifferentScenarios(Long userId, Long couponId, String couponCode) {
         // given
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon coupon = Coupon.builder()
@@ -171,7 +172,7 @@ class IssueCouponUseCaseTest {
         Long couponId = 999L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         when(lockingPort.acquireLock(anyString())).thenReturn(true);
@@ -194,11 +195,11 @@ class IssueCouponUseCaseTest {
         Long couponId = 1L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon expiredCoupon = Coupon.builder()
-                .code("EXPIRED")
+                .code(TestConstants.EXPIRED_COUPON_CODE)
                 .discountRate(new BigDecimal("0.10"))
                 .maxIssuance(100)
                 .issuedCount(50)
@@ -227,11 +228,11 @@ class IssueCouponUseCaseTest {
         Long couponId = 1L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon outOfStockCoupon = Coupon.builder()
-                .code("OUTOFSTOCK")
+                .code(TestConstants.OUT_OF_STOCK_COUPON_CODE)
                 .discountRate(new BigDecimal("0.20"))
                 .maxIssuance(100)
                 .issuedCount(100)
@@ -260,7 +261,7 @@ class IssueCouponUseCaseTest {
         Long couponId = 1L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon coupon = Coupon.builder()
@@ -318,7 +319,7 @@ class IssueCouponUseCaseTest {
         Long couponId = 1L;
         
         User user = User.builder()
-                .name("테스트 사용자")
+                .name(TestConstants.TEST_USER_NAME)
                 .build();
         
         Coupon futureStartCoupon = Coupon.builder()
@@ -366,7 +367,7 @@ class IssueCouponUseCaseTest {
     void issueCoupon_WithInvalidIds(Long userId, Long couponId) {
         // when & then
         if (userId != null && userId > 0) {
-            User user = User.builder().name("테스트").build();
+            User user = User.builder().name(TestConstants.TEST_USER_NAME).build();
             when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         }

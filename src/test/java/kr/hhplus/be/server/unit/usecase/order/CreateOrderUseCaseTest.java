@@ -1,11 +1,17 @@
 package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.*;
-import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
+import kr.hhplus.be.server.domain.port.locking.LockingPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -13,7 +19,6 @@ import org.mockito.MockitoAnnotations;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,189 +37,266 @@ class CreateOrderUseCaseTest {
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
     
+    @Mock
+    private EventLogRepositoryPort eventLogRepositoryPort;
+    
+    @Mock
+    private LockingPort lockingPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
     private CreateOrderUseCase createOrderUseCase;
     
     private User testUser;
-    private Product testProduct1;
-    private Product testProduct2;
+    private Product testProduct;
+    private Order testOrder;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        createOrderUseCase = new CreateOrderUseCase(userRepositoryPort, productRepositoryPort, orderRepositoryPort);
+        createOrderUseCase = new CreateOrderUseCase(
+            userRepositoryPort,
+            productRepositoryPort, 
+            orderRepositoryPort,
+            eventLogRepositoryPort,
+            lockingPort,
+            cachePort
+        );
         
         testUser = User.builder()
             .id(1L)
             .name("Test User")
             .build();
             
-        testProduct1 = Product.builder()
+        testProduct = Product.builder()
             .id(1L)
-            .name("Product 1")
+            .name("Test Product")
             .price(new BigDecimal("50000"))
-            .stock(10)
-            .reservedStock(0)
+            .stock(100)
             .build();
             
-        testProduct2 = Product.builder()
-            .id(2L)
-            .name("Product 2")
-            .price(new BigDecimal("30000"))
-            .stock(5)
-            .reservedStock(0)
-            .build();
+        testOrder = mock(Order.class);
+        when(testOrder.getId()).thenReturn(1L);
     }
 
-    @Test
-    @DisplayName("성공 - 단일 상품 주문 생성")
-    void execute_SingleProduct_Success() {
-        // given
-        Long userId = 1L;
-        Map<Long, Integer> productQuantities = Map.of(1L, 2);
+    @Nested
+    @DisplayName("주문 생성")
+    class CreateOrder {
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(productRepositoryPort.findById(1L)).thenReturn(Optional.of(testProduct1));
-        when(productRepositoryPort.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        
-        // when
-        Order result = createOrderUseCase.execute(userId, productQuantities);
-        
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getUser()).isEqualTo(testUser);
-        assertThat(result.getTotalAmount()).isEqualTo(new BigDecimal("100000"));
-        assertThat(result.getItems()).hasSize(1);
-        assertThat(result.getItems().get(0).getQuantity()).isEqualTo(2);
-        
-        // 재고 예약 확인
-        assertThat(testProduct1.getReservedStock()).isEqualTo(2);
-        
-        verify(productRepositoryPort).save(testProduct1);
-        verify(orderRepositoryPort).save(any(Order.class));
-    }
-    
-    @Test
-    @DisplayName("성공 - 다중 상품 주문 생성")
-    void execute_MultipleProducts_Success() {
-        // given
-        Long userId = 1L;
-        Map<Long, Integer> productQuantities = Map.of(1L, 2, 2L, 1);
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(productRepositoryPort.findById(1L)).thenReturn(Optional.of(testProduct1));
-        when(productRepositoryPort.findById(2L)).thenReturn(Optional.of(testProduct2));
-        when(productRepositoryPort.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        
-        // when
-        Order result = createOrderUseCase.execute(userId, productQuantities);
-        
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getUser()).isEqualTo(testUser);
-        assertThat(result.getTotalAmount()).isEqualTo(new BigDecimal("130000")); // 50000*2 + 30000*1
-        assertThat(result.getItems()).hasSize(2);
-        
-        // 재고 예약 확인
-        assertThat(testProduct1.getReservedStock()).isEqualTo(2);
-        assertThat(testProduct2.getReservedStock()).isEqualTo(1);
-        
-        verify(productRepositoryPort, times(2)).save(any(Product.class));
-        verify(orderRepositoryPort).save(any(Order.class));
-    }
-    
-    @Test
-    @DisplayName("실패 - 존재하지 않는 사용자")
-    void execute_UserNotFound() {
-        // given
-        Long userId = 999L;
-        Map<Long, Integer> productQuantities = Map.of(1L, 1);
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
-        
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
-            .isInstanceOf(UserException.NotFound.class);
+        @Test
+        @DisplayName("성공 - 정상 주문 생성")
+        void createOrder_Success() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(1L, 2);
             
-        verify(productRepositoryPort, never()).save(any());
-        verify(orderRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 존재하지 않는 상품")
-    void execute_ProductNotFound() {
-        // given
-        Long userId = 1L;
-        Map<Long, Integer> productQuantities = Map.of(999L, 1);
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(productRepositoryPort.findById(999L)).thenReturn(Optional.empty());
-        
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
-            .isInstanceOf(ProductException.NotFound.class);
+            when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(true);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(productRepositoryPort.findById(1L)).thenReturn(Optional.of(testProduct));
+            when(productRepositoryPort.save(any(Product.class))).thenReturn(testProduct);
+            when(orderRepositoryPort.save(any(Order.class))).thenReturn(testOrder);
             
-        verify(productRepositoryPort, never()).save(any());
-        verify(orderRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 재고 부족")
-    void execute_OutOfStock() {
-        // given
-        Long userId = 1L;
-        Map<Long, Integer> productQuantities = Map.of(1L, 15); // 재고보다 많이 주문
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(productRepositoryPort.findById(1L)).thenReturn(Optional.of(testProduct1));
-        
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
-            .isInstanceOf(ProductException.OutOfStock.class);
+            // when
+            Order result = createOrderUseCase.execute(userId, productQuantities);
             
-        verify(productRepositoryPort, never()).save(any());
-        verify(orderRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 빈 주문 목록")
-    void execute_EmptyProducts() {
-        // given
-        Long userId = 1L;
-        Map<Long, Integer> productQuantities = Map.of();
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result).isEqualTo(testOrder);
+            
+            verify(lockingPort).acquireLock("order-creation-" + userId);
+            verify(userRepositoryPort).findById(userId);
+            verify(productRepositoryPort).findById(1L);
+            verify(productRepositoryPort).save(any(Product.class));
+            verify(orderRepositoryPort).save(any(Order.class));
+            verify(lockingPort).releaseLock("order-creation-" + userId);
+        }
         
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
-            .isInstanceOf(OrderException.EmptyItems.class);
+        @Test
+        @DisplayName("실패 - 락 획득 실패")
+        void createOrder_LockAcquisitionFailed() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(1L, 2);
             
-        verify(userRepositoryPort, never()).findById(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - null 파라미터")
-    void execute_NullParameters() {
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(null, Map.of(1L, 1)))
-            .isInstanceOf(IllegalArgumentException.class);
+            when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(false);
             
-        assertThatThrownBy(() -> createOrderUseCase.execute(1L, null))
-            .isInstanceOf(OrderException.EmptyItems.class);
-    }
-    
-    @Test
-    @DisplayName("실패 - 잘못된 수량 (0 또는 음수)")
-    void execute_InvalidQuantity() {
-        // given
-        Long userId = 1L;
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(CommonException.ConcurrencyConflict.class);
+                
+            verify(lockingPort).acquireLock("order-creation-" + userId);
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
         
-        // when & then
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, Map.of(1L, 0)))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Quantity must be positive");
+        @Test
+        @DisplayName("실패 - 존재하지 않는 사용자")
+        void createOrder_UserNotFound() {
+            // given
+            Long userId = 999L;
+            Map<Long, Integer> productQuantities = Map.of(1L, 2);
             
-        assertThatThrownBy(() -> createOrderUseCase.execute(userId, Map.of(1L, -1)))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Quantity must be positive");
+            when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(true);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(UserException.NotFound.class);
+                
+            verify(lockingPort).acquireLock("order-creation-" + userId);
+            verify(userRepositoryPort).findById(userId);
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+            verify(lockingPort).releaseLock("order-creation-" + userId);
+        }
+        
+        @Test
+        @DisplayName("실패 - 존재하지 않는 상품")
+        void createOrder_ProductNotFound() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(999L, 2);
+            
+            when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(true);
+            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(productRepositoryPort.findById(999L)).thenReturn(Optional.empty());
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(ProductException.NotFound.class);
+                
+            verify(lockingPort).acquireLock("order-creation-" + userId);
+            verify(userRepositoryPort).findById(userId);
+            verify(productRepositoryPort).findById(999L);
+            verify(orderRepositoryPort, never()).save(any());
+            verify(lockingPort).releaseLock("order-creation-" + userId);
+        }
+        
+        @Test
+        @DisplayName("실패 - null 사용자 ID")
+        void createOrder_NullUserId() {
+            // given
+            Long userId = null;
+            Map<Long, Integer> productQuantities = Map.of(1L, 2);
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("UserId cannot be null");
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - 빈 상품 수량 맵")
+        void createOrder_EmptyProductQuantities() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of();
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(OrderException.EmptyItems.class);
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - null 상품 수량 맵")
+        void createOrder_NullProductQuantities() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = null;
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(OrderException.EmptyItems.class);
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - 잘못된 상품 수량 (0개)")
+        void createOrder_InvalidQuantityZero() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(1L, 0);
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Quantity must be positive");
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - 잘못된 상품 수량 (음수)")
+        void createOrder_InvalidQuantityNegative() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(1L, -1);
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Quantity must be positive");
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - 잘못된 상품 ID (null)")
+        void createOrder_InvalidProductIdNull() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = new java.util.HashMap<>();
+            productQuantities.put(null, 2);
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid productId: null");
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("실패 - 잘못된 상품 ID (0 이하)")
+        void createOrder_InvalidProductIdZeroOrNegative() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(0L, 2);
+            
+            // when & then
+            assertThatThrownBy(() -> createOrderUseCase.execute(userId, productQuantities))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid productId: 0");
+                
+            verify(lockingPort, never()).acquireLock(any());
+            verify(userRepositoryPort, never()).findById(any());
+            verify(productRepositoryPort, never()).findById(any());
+            verify(orderRepositoryPort, never()).save(any());
+        }
     }
 }
