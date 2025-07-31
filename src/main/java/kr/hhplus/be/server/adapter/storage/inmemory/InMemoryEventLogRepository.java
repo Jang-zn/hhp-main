@@ -4,6 +4,7 @@ import kr.hhplus.be.server.domain.entity.EventLog;
 import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.exception.*;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 import kr.hhplus.be.server.domain.exception.CommonException;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryEventLogRepository implements EventLogRepositoryPort {
     
     private final Map<Long, EventLog> eventLogs = new ConcurrentHashMap<>();

@@ -2,6 +2,7 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import kr.hhplus.be.server.domain.entity.User;
 import java.util.List;
@@ -13,6 +14,7 @@ import kr.hhplus.be.server.domain.exception.OrderException;
 
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryOrderRepository implements OrderRepositoryPort {
 
     private final Map<Long, Order> orders = new ConcurrentHashMap<>();

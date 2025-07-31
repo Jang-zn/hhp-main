@@ -11,8 +11,10 @@ import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.usecase.order.*;
-import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
+import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
+import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,12 +35,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final CreateOrderUseCase createOrderUseCase;
-    private final PayOrderUseCase payOrderUseCase;
-    private final GetOrderUseCase getOrderUseCase;
-    private final GetOrderListUseCase getOrderListUseCase;
-    private final CheckOrderAccessUseCase checkOrderAccessUseCase;
-    private final ValidateCouponUseCase validateCouponUseCase;
+    private final CreateOrderFacade createOrderFacade;
+    private final PayOrderFacade payOrderFacade;
+    private final GetOrderFacade getOrderFacade;
+    private final GetOrderListFacade getOrderListFacade;
 
     @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
@@ -72,10 +72,7 @@ public class OrderController {
             throw new OrderException.EmptyItems();
         }
         
-        // 쿠폰 유효성 검증 (있는 경우에만)
-        validateCouponUseCase.execute(request.getCouponIds());
-        
-        Order order = createOrderUseCase.execute(request.getUserId(), productQuantities);
+        Order order = createOrderFacade.createOrder(request.getUserId(), productQuantities);
         
         // OrderItem들을 OrderItemResponse로 변환
         List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
@@ -110,7 +107,7 @@ public class OrderController {
         }
         request.validate();
         
-        Payment payment = payOrderUseCase.execute(orderId, request.getUserId(), request.getCouponId());
+        Payment payment = payOrderFacade.payOrder(orderId, request.getUserId(), request.getCouponId());
         
         return new PaymentResponse(
                 payment.getId(),
@@ -133,8 +130,7 @@ public class OrderController {
             throw new CommonException.InvalidRequest();
         }
         
-        // CheckOrderAccessUseCase를 사용해서 권한과 존재 여부를 적절히 구분
-        Order order = checkOrderAccessUseCase.execute(userId, orderId);
+        Order order = getOrderFacade.getOrder(orderId, userId);
         
         // OrderItem들을 OrderItemResponse로 변환
         List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
@@ -163,7 +159,7 @@ public class OrderController {
             throw new CommonException.InvalidRequest();
         }
         
-        List<Order> orders = getOrderListUseCase.execute(userId);
+        List<Order> orders = getOrderListFacade.getOrderList(userId, 0, 0);
         
         return orders.stream()
                 .map(order -> {

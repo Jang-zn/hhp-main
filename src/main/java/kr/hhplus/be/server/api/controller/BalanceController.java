@@ -6,8 +6,8 @@ import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.exception.*;
-import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
-import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
+import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
+import kr.hhplus.be.server.domain.facade.balance.GetBalanceFacade;
 
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class BalanceController {
 
-    private final ChargeBalanceUseCase chargeBalanceUseCase;
-    private final GetBalanceUseCase getBalanceUseCase;
+    private final ChargeBalanceFacade chargeBalanceFacade;
+    private final GetBalanceFacade getBalanceFacade;
 
     @BalanceApiDocs(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다")
     @PostMapping("/charge")
@@ -36,7 +36,7 @@ public class BalanceController {
         }
         request.validate();
         
-        Balance balance = chargeBalanceUseCase.execute(request.getUserId(), request.getAmount());
+        Balance balance = chargeBalanceFacade.chargeBalance(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUser().getId(),
                 balance.getAmount(),
@@ -51,7 +51,7 @@ public class BalanceController {
             throw new UserException.InvalidUser();
         }
         
-        Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
+        Optional<Balance> balanceOpt = getBalanceFacade.getBalance(userId);
         
         if (balanceOpt.isEmpty()) {
             throw new UserException.InvalidUser();

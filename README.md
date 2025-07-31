@@ -2,26 +2,31 @@
 
 ## 프로젝트 개요
 
+이커머스 플랫폼의 핵심 기능을 구현한 Spring Boot 애플리케이션입니다. JPA와 Mysql 데이터베이스를 활용하여 실제 운영 환경에 가까운 구조로 설계되었습니다.
+
 ### 핵심 도메인
 
-- **User**: 사용자 정보 관리
-- **Product**: 상품 정보 및 재고 관리
-- **Order**: 주문 생성, 결제, 상태 관리
-- **Balance**: 사용자 잔액 관리
+- **User**: 사용자 정보 관리 (기본 정보)
+- **Product**: 상품 정보 및 2단계 재고 관리 (stock + reserved_stock)
+- **Order**: 주문 생성, 상태 관리, 주문 아이템 관리
+- **Balance**: 사용자 잔액 관리 (낙관적 락 적용)
+- **Payment**: 결제 처리 및 상태 관리
 - **Coupon**: 쿠폰 발급, 사용, 만료 처리
+- **CouponHistory**: 쿠폰 사용 이력 추적
 
 ### 주요 특징
 
-- **헥사고날 아키텍처**: 비즈니스 로직과 외부 시스템을 분리하여 테스트 용이성과 확장성 확보
-- **동시성 제어**: 인메모리 락을 활용하여 동시 요청 처리의 안정성 보장
+- **JPA & Mysql 데이터베이스**: 실제 RDBMS 환경에서 동작하는 영속성 계층
+- **동시성 제어**: JPA 낙관적 락(@Version)과 비즈니스 락을 조합한 안전한 동시성 처리
 - **상태 기반 설계**: Enum을 활용하여 명확한 상태 전이 관리
-- **2단계 재고 관리**: 예약-확정 방식으로 재고 안정성 유지
-- **중앙집중식 에러 처리**: 일관된 에러 코드와 HTTP 상태 매핑
-- **배치 처리**: 스케줄링을 통한 쿠폰 만료 등 주기적 작업 수행
+- **2단계 재고 관리**: Product Entity 내 stock과 reserved_stock으로 안전한 재고 처리
+- **통합 테스트**: @SpringBootTest와 TestContainers를 활용한 실제 DB 환경 테스트
+- **API 문서화**: Swagger를 통한 자동 API 문서 생성
+- **배치 처리**: @Scheduled를 통한 쿠폰 만료 등 주기적 작업 수행
 
 ## 아키텍처 개요
 
-헥사고날 아키텍처를 채택하여 비즈니스 로직을 중심에 두고 외부 시스템과의 연결을 포트와 어댑터로 처리한다. 도메인 로직은 외부 기술에 의존하지 않아 데이터베이스나 캐시 변경 시 코드 수정이 최소화된다.
+JPA를 기반으로 한 계층형 아키텍처를 채택하여 도메인 중심의 설계를 구현했습니다. Entity에는 비즈니스 로직이 포함되어 있으며, Repository 패턴을 통해 데이터 액세스를 추상화했습니다.
 
 ### 아키텍처 다이어그램
 
@@ -36,46 +41,46 @@ graph TD
         B -->|Request/Response| D[Controllers]
         B -->|Batch Jobs| E[Schedulers]
         B -->|Error Handling| F[GlobalExceptionHandler]
+        B -->|DTO Conversion| G[Request/Response DTOs]
     end
 
     subgraph Domain Layer
-        G[Use Cases] -->|Business Logic| H[Entities]
-        G -->|Interfaces| I[Ports]
+        H[Use Cases] -->|Business Logic| I[JPA Entities]
+        I -->|Domain Logic| J[Domain Services]
     end
 
-    subgraph Adapter Layer
-        J[Storage<br>In-Memory] --> I
-        K[Cache<br>In-Memory] --> I
-        L[Locking<br>In-Memory] --> I
+    subgraph Persistence Layer
+        K[JPA Repositories] -->|ORM| L[Mysql Database]
+        M[Spring Data JPA] --> K
     end
 
-    D -->|Calls| G
-    F -->|Maps Errors| G
-    E -->|Triggers| G
-    I -->|Implements| J
-    I -->|Implements| K
-    I -->|Implements| L
+    D -->|Calls| H
+    F -->|Maps Errors| H
+    E -->|Triggers| H
+    H -->|Uses| K
+    I -->|Persisted by| K
 ```
 
 ### 의존성 흐름
 
 ```
-External → API Layer → Domain Layer (Use Cases → Entities)
+External → API Layer → Domain Layer (Use Cases → JPA Entities)
 ↓
-Ports ← Adapter Layer
+JPA Repositories ← Mysql Database
 ```
 
 ### 핵심 원칙
 
-- 의존성은 외부에서 내부로 단방향 유지
-- 도메인 레이어는 기술적 세부사항과 독립
-- 포트를 통해 의존성 역전 구현
+- 도메인 로직은 JPA Entity에 캡슐화
+- Repository 패턴으로 데이터 접근 추상화
+- 트랜잭션 경계를 UseCase 레벨에서 관리
 
 ### 적용 이유
 
-- 외부 시스템 변경(예: 데이터베이스 교체) 시 도메인 로직 수정 불필요
-- 포트 인터페이스를 Mock하여 단위 테스트 간소화
-- 새로운 외부 시스템 통합 시 어댑터 추가로 확장 가능
+- JPA의 강력한 ORM 기능으로 객체-관계 매핑 자동화
+- 실제 데이터베이스 환경에서의 성능 및 동시성 검증 가능
+- Spring Data JPA로 반복적인 CRUD 코드 제거
+- 테스트 환경에서 실제 DB 트랜잭션 동작 검증
 
 ## 레이어별 책임과 역할
 
@@ -84,102 +89,120 @@ Ports ← Adapter Layer
 **책임**:
 
 - REST API 엔드포인트 제공
-- 커스텀 검증 로직을 통한 요청 데이터 검증
-- 도메인 객체를 DTO로 변환
+- 요청/응답 DTO 변환 및 검증
 - 전역 예외 처리로 일관된 에러 응답 생성
-- Swagger를 통한 API 문서 자동 생성
-- 스케줄링으로 배치 작업 실행
+- Swagger 기반 API 문서 자동 생성 및 검증
+- @Scheduled를 통한 배치 작업 실행
+- 성공 응답 표준화(@ControllerAdvice 활용)
 
 **구성**:
 
 ```
 api/
-├── controller/        # REST API 엔드포인트
-├── dto/              # 요청/응답 DTO
-├── docs/             # Swagger 설정
-├── scheduler/        # 배치 작업
-├── CommonResponse.java # 표준 응답 포맷
-├── ErrorCode.java     # 에러 코드 정의
-└── GlobalExceptionHandler.java # 예외 처리
+├── controller/          # REST API 컨트롤러
+│   ├── BalanceController.java
+│   ├── CouponController.java
+│   ├── OrderController.java
+│   └── ProductController.java
+├── dto/                 # 요청/응답 DTO
+│   ├── request/
+│   └── response/
+├── docs/                # Swagger 문서화 설정
+│   ├── annotation/      # API 문서 어노테이션
+│   ├── config/          # Swagger 설정
+│   └── schema/          # 스키마 정의
+├── scheduler/           # 배치 작업
+├── CommonResponse.java  # 표준 응답 포맷
+├── ErrorCode.java       # 에러 코드 정의
+├── GlobalExceptionHandler.java # 전역 예외 처리
+└── SuccessResponseAdvice.java  # 성공 응답 표준화
 ```
 
 **적용 이유**:
 
 - HTTP 처리와 비즈니스 로직 분리로 유지보수성 향상
-- 새로운 프로토콜(GraphQL, gRPC 등) 추가 시 어댑터만 교체
-- 중앙집중식 예외 처리로 클라이언트 응답의 일관성 유지
+- Swagger 자동 문서화로 API 스펙 관리 효율성 증대
+- 표준화된 응답 포맷으로 클라이언트 개발 편의성 제공
+- 전역 예외 처리로 일관된 에러 응답 보장
 
 ### 2. Domain Layer (`kr.hhplus.be.server.domain`)
 
 **책임**:
 
-- 비즈니스 규칙 및 정책 구현
-- Enum 기반 상태 전이 관리
-- 도메인 객체의 불변성 및 무결성 보장
-- 외부 시스템 인터페이스(포트) 정의
-- 비즈니스 규칙 위반 시 도메인 예외 처리
+- JPA Entity 기반 도메인 모델 정의
+- 비즈니스 규칙 및 정책을 Entity 메서드로 구현
+- Enum 기반 상태 전이 관리 및 검증
+- UseCase를 통한 비즈니스 로직 조합
+- 도메인 예외 정의 및 처리
+- Repository 인터페이스 정의 (JPA Repository 확장)
 
 **구성**:
 
 ```
 domain/
-├── entity/           # 도메인 엔티티
-├── enums/           # 상태 Enum
-├── exception/       # 도메인 예외
-├── port/            # 외부 시스템 인터페이스
-│   ├── storage/     # 저장소 포트
-│   ├── cache/       # 캐시 포트
-│   ├── locking/     # 락 포트
-│   └── messaging/   # 메시징 포트
-└── usecase/         # 비즈니스 로직 (유스 케이스)
+├── entity/              # JPA 엔티티
+│   ├── Balance.java     # 잔액 (낙관적 락 적용)
+│   ├── Coupon.java      # 쿠폰
+│   ├── CouponHistory.java # 쿠폰 사용 이력
+│   ├── Order.java       # 주문
+│   ├── OrderItem.java   # 주문 아이템
+│   ├── Payment.java     # 결제
+│   ├── Product.java     # 상품 (재고 포함)
+│   └── User.java        # 사용자
+├── enums/               # 도메인 상태 Enum
+├── exception/           # 도메인 예외
+├── port/                # Repository 인터페이스
+│   └── storage/         # JPA Repository 인터페이스
+└── usecase/             # 비즈니스 로직 조합
     ├── balance/
     ├── coupon/
     ├── order/
     └── product/
 ```
 
-**적용 이유**:
 
-- 도메인 주도 설계(DDD) 원칙에 따라 비즈니스 로직 집중
-- 외부 기술 의존성 제거로 변경 영향 최소화
-- 포트 Mock을 통한 독립적 단위 테스트 가능
-
-### 3. Adapter Layer (`kr.hhplus.be.server.adapter`)
+### 3. Persistence Layer (`kr.hhplus.be.server.adapter.storage`)
 
 **책임**:
 
-- 데이터베이스, 캐시, 메시징 시스템 등 외부 시스템 연동
-- 포트 인터페이스 구현
-- 외부 시스템 데이터와 도메인 객체 간 변환
-- 트랜잭션 및 연결 관리 등 기술적 처리
+- JPA Repository 구현체 제공
+- Mysql 데이터베이스와의 실제 연동
+- 복잡한 쿼리 및 데이터 접근 로직 구현
+- 트랜잭션 관리 및 영속성 컨텍스트 처리
 
 **구성**:
 
 ```
-adapter/
-├── storage/inmemory/ # In-Memory 저장소 구현
-├── cache/           # 캐시 구현
-├── locking/         # 락 구현
-└── messaging/       # 메시징 구현
+adapter/storage/
+├── jpa/                    # JPA Repository 구현
+│   ├── BalanceJpaRepository.java
+│   ├── CouponJpaRepository.java
+│   ├── OrderJpaRepository.java
+│   └── ... (기타 JPA Repository)
+└── inmemory/              # 테스트용 In-Memory 구현
+    ├── InMemoryBalanceRepository.java
+    └── ... (기타 In-Memory Repository)
 ```
 
 **적용 이유**:
 
-- 기술 변경 시 어댑터만 교체하여 도메인 로직 보호
-- In-Memory 구현으로 개발 및 테스트 속도 향상
-- 포트 인터페이스를 통해 MySQL, Redis 등으로 전환 용이
+- JPA의 강력한 ORM 기능으로 SQL 작성 부담 감소
+- Spring Data JPA의 쿼리 메서드로 개발 생산성 향상
+- 실제 데이터베이스 환경에서 성능 및 제약조건 검증
 
 ### 4. Configuration Layer (`kr.hhplus.be.server.config`)
 
 **책임**:
 
-- Spring Bean 정의 및 의존성 주입 구성
-- 데이터베이스, JPA, 스케줄링 등 인프라 설정 - DB, JPA는 설정만 존재, 현재 미사용
-- 환경별 설정(local, dev, prod) 관리
+- Spring Boot Auto Configuration 활용
+- JPA 및 Mysql 데이터베이스 설정
+- 스케줄링 활성화 설정
+- 테스트 환경별 프로필 관리
 
 **적용 이유**:
-- 환경별 설정 분리로 배포 유연성 확보
-- Spring IoC를 활용한 의존성 주입 간소화
+- Spring Boot의 Convention over Configuration 활용
+- 최소한의 설정으로 최대 효과 달성
+- 프로필 기반 환경별 설정 관리
 
 ## 도메인 설계
 
@@ -333,60 +356,53 @@ public boolean canTransitionTo(CouponStatus newStatus) {
 - 레이어드 아키텍처는 의존성 방향 명확하나 기술 변경 시 서비스 코드 수정 필요
 - 헥사고날 아키텍처는 기술 독립성과 확장성 우수
 
-### 2. In-Memory 구현
-- `ConcurrentHashMap`의 원자적 연산으로 동시성 문제 해결
-- 외부 DB 없이 개발 및 테스트 속도 향상
-- 포트 인터페이스로 MySQL, Redis 등으로 전환 용이
+### 2. JPA & Mysql 데이터베이스
+- 실제 SQL과 관계형 데이터베이스 제약조건 활용
+- JPA의 1차 캐시, Dirty Checking 등 최적화 기능 사용
+- 복잡한 쿼리와 조인 연산의 실제 성능 측정 가능
+- 테스트 환경에서도 실제 트랜잭션 동작 검증
 
 ```java
-@Override
-public Coupon save(Coupon coupon) {
-    if (coupon == null) {
-        throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
+// JPA Repository 활용 예시
+@Repository
+public interface CouponJpaRepository extends JpaRepository<Coupon, Long> {
+    
+    @Query("SELECT c FROM Coupon c WHERE c.status = :status AND c.endDate > :now")
+    List<Coupon> findActiveCoupons(@Param("status") CouponStatus status, 
+                                  @Param("now") LocalDateTime now);
+    
+    @Modifying
+    @Query("UPDATE Coupon c SET c.status = :newStatus WHERE c.endDate < :now AND c.status = :oldStatus")
+    int updateExpiredCoupons(@Param("newStatus") CouponStatus newStatus,
+                            @Param("oldStatus") CouponStatus oldStatus,
+                            @Param("now") LocalDateTime now);
+}
+```
+
+### 3. JPA 낙관적 락 구현
+- `@Version` 어노테이션으로 동시성 제어
+
+```java
+@Entity
+public class Balance {
+    @Version
+    private Long version;  // JPA가 자동으로 관리
+    
+    public void addAmount(BigDecimal amount) {
+        validateAmount(amount);
+        this.amount = this.amount.add(amount);
+        // 저장 시 version이 자동으로 증가하고 충돌 시 OptimisticLockingFailureException 발생
     }
-    
-    // ConcurrentHashMap의 compute를 사용하여 원자적 업데이트
-    Long couponId = coupon.getId() != null ? coupon.getId() : nextId.getAndIncrement();
-    
-    Coupon savedCoupon = coupons.compute(couponId, (key, existingCoupon) -> {
-        if (existingCoupon != null) {
-            coupon.onUpdate();
-            coupon.setId(existingCoupon.getId());
-            coupon.setCreatedAt(existingCoupon.getCreatedAt());
-            return coupon;
-        } else {
-            coupon.onCreate();
-            if (coupon.getId() == null) {
-                coupon.setId(couponId);
-            }
-            return coupon;
-        }
-    });
-    
-    return savedCoupon;
 }
 ```
 
-### 3. 인메모리에서 락 구현
-- 사용자별 락으로 동시 주문 충돌 방지
+**JPA와 Mysql 데이터베이스 활용**:
 
-```java
-String lockKey = "order-creation-" + userId;
-if (!lockingPort.acquireLock(lockKey)) {
-    throw new ConcurrencyException(CONCURRENCY_CONFLICT);
-}
-try {
-    // 주문 로직
-} finally {
-    lockingPort.releaseLock(lockKey);
-}
-```
-
-**인메모리 환경과 JPA 어노테이션 관련 참고**:
-
-- 현재 프로젝트는 인메모리 저장소(`ConcurrentHashMap`)를 사용하므로 JPA 어노테이션(예: `@Version`, `@Entity`)은 동작하지 않음.
-- 하지만 코드에 JPA 어노테이션이 포함되어 있다면, 이는 향후 데이터베이스 전환(JPA 기반 MySQL 등)을 대비한 설계일 가능성이 높음.
-- JPA의 `@Version`은 데이터베이스에서 낙관적 락을 구현할 때 사용되지만, 인메모리 환경에서는 `ConcurrentHashMap`과 사용자별 락으로 동시성 제어를 대체.
+- 실제 관계형 데이터베이스(Mysql)를 사용하여 프로덕션 환경과 유사한 테스트 가능
+- JPA의 `@Version` 어노테이션으로 낙관적 락 구현 (Balance 엔티티에 적용)
+- `@Entity`, `@Table`, `@Column` 등 JPA 어노테이션이 실제로 동작
+- 복잡한 연관관계 매핑과 Lazy Loading 검증 가능
+- 트랜잭션 롤백, 영속성 컨텍스트 등 JPA 핵심 기능 활용
 
 ### 4. 2단계 재고 관리
 
@@ -435,13 +451,16 @@ public void expireCoupons() {
 
 ## 주요 기능
 
-- **사용자 잔액 관리**: 잔액 충전(1,000원~100만 원), 캐싱 기반 조회, 동시성 제어
-- **상품 관리**: 상품 조회, 2단계 재고 관리, 인기 상품 통계
-- **주문 및 결제**: 재고 예약 후 결제, 쿠폰 적용, 주문 조회
-- **쿠폰 시스템**: 발급(중복 방지), 사용, 스케줄러 기반 만료 처리
-- **동시성 제어**: 사용자별 인메모리 락으로 안전 처리
+- **사용자 잔액 관리**: 잔액 충전, JPA 낙관적 락을 통한 동시성 제어
+- **상품 관리**: 상품 조회, Product Entity 내 2단계 재고 관리 (stock + reserved_stock)
+- **주문 및 결제**: 재고 예약 후 결제, 쿠폰 적용, 복합 주문 조회
+- **쿠폰 시스템**: 쿠폰 발급(중복 방지), 사용 이력 추적, 배치 만료 처리
+- **결제 처리**: 주문별 결제 상태 관리 및 이력 추적
+- **동시성 제어**: JPA 낙관적 락과 트랜잭션을 통한 데이터 일관성 보장
 
 ## API 문서
+
+애플리케이션 실행 후 `http://localhost:8080/swagger-ui/index.html`에서 상세한 API 문서를 확인할 수 있습니다.
 
 **주요 API 엔드포인트**:
 
@@ -473,28 +492,26 @@ public void expireCoupons() {
 
 ```
 src/test/java/
-├── integration/      # 통합 테스트
-│   ├── BalanceTest.java
-│   ├── CouponTest.java
-│   └── OrderTest.java
-├── unit/            # 단위 테스트
-│   ├── adapter/storage/inmemory/ # 도메인별 저장소 테스트
-│   │   ├── balance/
-│   │   ├── coupon/
-│   │   ├── order/
-│   │   ├── product/
-│   │   └── user/
-│   ├── controller/   # 컨트롤러 테스트
-│   └── usecase/     # 유스케이스 테스트
+├── integration/                    # 통합 테스트 (@SpringBootTest)
+│   ├── BalanceTest.java           # 잔액 관리 통합 테스트
+│   ├── CouponTest.java            # 쿠폰 시스템 통합 테스트
+│   ├── OrderTest.java             # 주문/결제 통합 테스트
+│   ├── PaymentTest.java           # 결제 처리 통합 테스트
+│   └── ProductTest.java           # 상품 관리 통합 테스트
+├── unit/                          # 단위 테스트
+│   ├── controller/                # 컨트롤러 단위 테스트
+│   ├── facade/                    # 파사드 레이어 테스트
+│   └── usecase/                   # 유스케이스 단위 테스트
 │       ├── balance/
-│       ├── coupon/
 │       ├── order/
-│       └── product/
+│       └── ... (기타 도메인)
+└── TestcontainersConfiguration.java # 테스트 컨테이너 설정
 ```
 
 ### 테스트 전략
 
-- **단위 테스트**: 각 레이어별 독립 테스트
-- **통합 테스트**: API 엔드포인트 전체 흐름 검증
-- **동시성 테스트**: 멀티스레드 환경에서의 안정성 확인
-- **E2E 테스트**: 실제 사용자 시나리오 기반 검증
+- **통합 테스트**: `@SpringBootTest`로 실제 Spring 컨텍스트와 Mysql DB 사용
+- **단위 테스트**: UseCase 및 Controller 레이어별 독립 테스트  
+- **동시성 테스트**: `ExecutorService`를 활용한 멀티스레드 환경 검증
+- **JPA 테스트**: 실제 데이터베이스 제약조건 및 트랜잭션 동작 검증
+- **API 문서 검증**: Swagger 설정과 실제 API 동작 일치성 확인

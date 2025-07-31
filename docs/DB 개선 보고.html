@@ -1,0 +1,883 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>조회 성능 최적화 보고서</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose'
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 { font-size: 2.2em; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h2 { font-size: 1.8em; margin-top: 30px; color: #2c3e50; }
+        h3 { font-size: 1.5em; margin-top: 20px; color: #34495e; }
+        h4 { font-size: 1.2em; margin-top: 15px; color: #7f8c8d; }
+        p { margin: 10px 0; }
+        ul, ol { margin: 10px 0; padding-left: 20px; }
+        li { margin: 5px 0; }
+        pre { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            border-radius: 5px; 
+            overflow-x: auto; 
+            font-size: 0.9em;
+        }
+        code { 
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; 
+            background: #f5f5f5; 
+            padding: 2px 5px; 
+            border-radius: 3px;
+        }
+        .mermaid {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .severity-critical { color: #c0392b; font-weight: bold; }
+        .severity-high { color: #e67e22; font-weight: bold; }
+        .severity-medium { color: #f1c40f; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>조회 성능 최적화 보고서</h1>
+    </header>
+
+    <section id="current-structure">
+        <h2>1. 현재 구조 (As-Is)</h2>
+
+        <h3>1.1 현재 Entity 관계도</h3>
+        <div class="mermaid">
+            erDiagram
+                user {
+                    bigint id PK
+                    varchar name
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                balance {
+                    bigint id PK
+                    bigint user_id FK "UNIQUE"
+                    decimal amount "DECIMAL(19,2)"
+                    long version "낙관적 락"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                product {
+                    bigint id PK
+                    varchar name
+                    decimal price "DECIMAL(19,2)"
+                    int stock
+                    int reserved_stock
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                order {
+                    bigint id PK
+                    bigint user_id FK
+                    decimal total_amount "DECIMAL(19,2)"
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                order_item {
+                    bigint id PK
+                    bigint order_id FK
+                    bigint product_id FK
+                    int quantity
+                    decimal price "DECIMAL(19,2)"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                payment {
+                    bigint id PK
+                    bigint order_id FK
+                    bigint user_id FK
+                    bigint coupon_id FK
+                    varchar status "ENUM"
+                    decimal amount "DECIMAL(19,2)"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                coupon {
+                    bigint id PK
+                    bigint product_id FK
+                    varchar code
+                    decimal discount_rate "DECIMAL(5,2)"
+                    int max_issuance
+                    int issued_count
+                    datetime start_date
+                    datetime end_date
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                coupon_history {
+                    bigint id PK
+                    bigint user_id FK
+                    bigint coupon_id FK
+                    bigint order_id FK
+                    datetime issued_at
+                    datetime used_at
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                popular_product_stat {
+                    varchar product_id PK
+                    int sales_count
+                    datetime calculated_at
+                }
+                
+                user ||--|| balance : "1:1"
+                user ||--o{ order : "1:N"
+                user ||--o{ payment : "1:N"
+                user ||--o{ coupon_history : "1:N"
+                
+                product ||--o{ order_item : "1:N"
+                product ||--o{ coupon : "1:N"
+                product ||--|| popular_product_stat : "1:1"
+                
+                order ||--o{ order_item : "1:N"
+                order ||--o{ payment : "1:N"
+                order ||--o{ coupon_history : "used_order"
+                
+                coupon ||--o{ coupon_history : "1:N"
+                coupon ||--o{ payment : "1:N"
+        </div>
+
+        <h3>1.2 현재 구조의 특징</h3>
+        <ul>
+            <li>✅ <code>balance</code>에 낙관적 락(<code>version</code>) 적용</li>
+            <li>✅ <code>product</code>에 <code>stock</code>과 <code>reserved_stock</code>으로 재고 관리</li>
+        </ul>
+        <h4>한계점:</h4>
+        <ul>
+            <li>❌ 복잡한 조회 시 다중 테이블 JOIN 필요</li>
+            <li>❌ 인덱스 부족으로 조회 성능 저하</li>
+        </ul>
+    </section>
+
+    <section id="bottleneck-analysis">
+        <h2>2. 조회 성능 저하 기능 및 원인 분석</h2>
+        <h3>2.1 읽기 성능 병목</h3>
+        <p class="severity-high">🟡 High: 복합 조회 성능 저하</p>
+        <pre>
+            <code class="language-sql">
+SELECT o.id, o.total_amount, o.status, u.name,
+       GROUP_CONCAT(p.name) as product_names,
+       pay.status as payment_status, pay.amount as paid_amount
+FROM order o
+JOIN user u ON o.user_id = u.id
+JOIN order_item oi ON o.id = oi.order_id
+JOIN product p ON oi.product_id = p.id
+JOIN payment pay ON o.id = pay.order_id
+WHERE u.name = ? 
+ORDER BY o.created_at DESC;
+            </code>
+        </pre>
+        <h4>병목 지점:</h4>
+        <ul>
+            <li><strong>다중 테이블 JOIN</strong>: 여러 테이블 조인으로 응답 시간 증가</li>
+            <li><strong>N+1 쿼리 문제</strong>: JPA Lazy Loading으로 추가 쿼리 발생</li>
+            <li><strong>인덱스 부족</strong>: 복합 조회 조건에 최적화된 인덱스 부재</li>
+            <li><strong>통계 쿼리 병목</strong>: <code>popular_product_stat</code> 실시간 계산 시 전체 <code>order_item</code> 스캔</li>
+        </ul>
+
+        <h3>2.2 데이터베이스 병목</h3>
+        <p class="severity-medium">🟡 Medium: 인덱스 최적화 부족</p>
+        <pre>
+            <code class="language-sql">
+SELECT * FROM order WHERE user_id = ? AND status = ? ORDER BY created_at DESC;
+-- user_id만 인덱스 존재 → status 조건에서 풀 스캔
+
+SELECT COUNT(*) FROM order_item oi 
+JOIN order o ON oi.order_id = o.id 
+WHERE oi.product_id = ? AND o.created_at BETWEEN ? AND ?;
+-- created_at 인덱스 없음 → 전체 스캔
+
+SELECT product_id, COUNT(*) FROM order_item 
+GROUP BY product_id 
+ORDER BY COUNT(*) DESC;
+-- 매번 전체 테이블 스캔
+            </code>
+        </pre>
+        <h4>병목 지점:</h4>
+        <ul>
+            <li><strong>인덱스 누락</strong>: 복합 조회 조건에 최적화된 인덱스 부족</li>
+            <li><strong>대용량 데이터 전략 필요</strong>: 주문 데이터 증가에 따른 전략 없음</li>
+        </ul>
+
+        <h3>2.3 애플리케이션 병목</h3>
+        <p class="severity-medium">🟡 Medium: 캐싱 전략 부재</p>
+        <pre>
+            <code class="language-java">
+public List<Product> getPopularProducts() {
+    return orderItemRepository.findTopSellingProducts(LocalDate.now().minusDays(7));
+}
+
+public CouponInfo getCouponInfo(Long couponId) {
+    return couponRepository.findById(couponId);
+}
+            </code>
+        </pre>
+        <h4>병목 지점:</h4>
+        <ul>
+            <li><strong>캐시 전략 부재</strong>: 자주 조회되는 상품/쿠폰 정보 캐싱 없음</li>
+            <li><strong>배치 처리 부족</strong>: 통계 데이터 실시간 계산으로 부하 증가</li>
+        </ul>
+    </section>
+
+    <section id="jpa-tuning">
+        <h2>3. JPA 쿼리 튜닝 및 인덱스 설계</h2>
+
+        <h3>3.1 JPA 성능 최적화 전략</h3>
+        <h4>3.1.1 N+1 문제 해결</h4>
+        <p class="severity-critical">🔴 문제: Lazy Loading으로 인한 N+1 쿼리</p>
+        <pre>
+            <code class="language-java">
+@Entity
+public class Order {
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
+    private List<OrderItem> items;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    private User user;
+}
+
+public List<OrderDto> getOrders() {
+    List<Order> orders = orderRepository.findAll();
+    return orders.stream()
+        .map(order -> {
+            order.getItems().size();
+            order.getUser().getName();
+            return OrderDto.from(order);
+        })
+        .collect(Collectors.toList());
+}
+            </code>
+        </pre>
+        <p><strong>✅ 해결 방법: Fetch Join과 Entity Graph 활용</strong></p>
+        <pre>
+            <code class="language-java">
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    
+    @Query("SELECT DISTINCT o FROM Order o " +
+           "JOIN FETCH o.user u " +
+           "JOIN FETCH o.items i " +
+           "JOIN FETCH i.product p " +
+           "WHERE o.createdAt >= :startDate")
+    List<Order> findOrdersWithDetails(@Param("startDate") LocalDateTime startDate);
+    
+    @EntityGraph(attributePaths = {"user", "items", "items.product"})
+    @Query("SELECT o FROM Order o WHERE o.user.id = :userId")
+    List<Order> findOrdersByUserWithDetails(@Param("userId") Long userId);
+}
+
+@Service
+public class OrderQueryService {
+    
+    @Transactional(readOnly = true)
+    public List<OrderDto> getOrdersOptimized(Long userId) {
+        List<Order> orders = orderRepository.findOrdersByUserWithDetails(userId);
+        return orders.stream()
+            .map(OrderDto::from)
+            .collect(Collectors.toList());
+    }
+    
+    @Transactional(readOnly = true)
+    public Page<OrderDto> getOrdersPaged(Long userId, Pageable pageable) {
+        Page<Long> orderIds = orderRepository.findOrderIdsByUserId(userId, pageable);
+        List<Order> orders = orderRepository.findOrdersWithDetailsByIds(
+            orderIds.getContent());
+        return orderIds.map(id -> 
+            orders.stream()
+                .filter(order -> order.getId().equals(id))
+                .findFirst()
+                .map(OrderDto::from)
+                .orElse(null)
+        );
+    }
+}
+            </code>
+        </pre>
+
+        <h4>3.1.2 Projection 활용</h4>
+        <p><strong>✅ OrderSummaryProjection 인터페이스를 만들어서 필요한 필드만 지정, JPA가 이 필드들만 조회하도록 최적화된 쿼리를 실행</strong></p>
+        <pre>
+            <code class="language-java">
+public interface OrderSummaryProjection {
+    Long getId();
+    String getUserName();
+    BigDecimal getTotalAmount();
+    String getOrderStatus();
+    LocalDateTime getCreatedAt();
+}
+
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    
+    @Query("SELECT o.id as id, u.name as userName, o.totalAmount as totalAmount, " +
+           "os.status as orderStatus, o.createdAt as createdAt " +
+           "FROM Order o JOIN o.user u JOIN o.order_state os " +
+           "WHERE u.id = :userId")
+    List<OrderSummaryProjection> findOrderSummaryByUserId(@Param("userId") Long userId);
+}
+            </code>
+        </pre>
+
+        <h3>3.2 인덱스 설계 전략</h3>
+        <h4>3.2.1 Entity 기반 인덱스 설계</h4>
+        <p><strong>✅ JPA에서 @Table과 @Index 어노테이션을 사용해 엔티티 정의 시 인덱스를 추가,<br>주문 생성 시간, 사용자 ID, 주문 상태, 총 금액 조회 쿼리에 대한 인덱스 설계</strong></p>
+        <pre>
+            <code class="language-java">
+@Entity
+@Table(name = "order", indexes = {
+    @Index(name = "idx_order_created_at", columnList = "created_at"),
+    @Index(name = "idx_order_user_id", columnList = "user_id"),
+    @Index(name = "idx_user_status_date", columnList = "user_id, status, created_at DESC")
+})
+public class Order {
+    @Id
+    private Long id;
+    
+    @Column(name = "user_id")
+    private Long userId;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    private OrderStatus status;
+    
+    @Column(name = "total_amount", precision = 19, scale = 2)
+    private BigDecimal totalAmount;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+}
+
+@Entity
+@Table(name = "order_item", indexes = {
+    @Index(name = "idx_order_item_order_id", columnList = "order_id"),
+    @Index(name = "idx_order_item_product_id", columnList = "product_id"),
+    @Index(name = "idx_product_created_quantity", 
+           columnList = "product_id, created_at DESC, quantity")
+})
+public class OrderItem {
+    @Id
+    private Long id;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
+    
+    private Integer quantity;
+    private BigDecimal price;
+    private LocalDateTime createdAt;
+}
+            </code>
+        </pre>
+
+        <h4>3.2.2 쿼리 패턴 인덱스 최적화</h4>
+        <h5><strong>쿼리에 대한 인덱스 설계</strong></h5>
+        <p><strong>✅ 페이징 쿼리: 사용자별 주문 목록은 페이지 단위로 조회되니까 user_id와 created_at DESC를 인덱스로 묶어 빠르게 정렬 및 필터링.<br/>
+            ✅ 검색 쿼리: 상품 검색은 키워드 기반이 많아 FULLTEXT 인덱스를 사용.<br/>
+            ✅ 복합 인덱스: WHERE 조건, JOIN, ORDER BY를 모두 커버하도록 컬럼 순서를 신중히 설계(자주 필터링되는 컬럼을 앞에 배치).</strong></p>
+        <pre>
+            <code class="language-sql">
+CREATE INDEX idx_order_paging_cover 
+ON order (user_id, created_at DESC, id, total_amount, status);
+
+CREATE FULLTEXT INDEX idx_product_search ON product (name, description);
+CREATE INDEX idx_product_search_filter 
+ON product (status, price, category_id, created_at DESC);
+            </code>
+        </pre>
+        <pre>
+            <code class="language-java">
+@Repository
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    
+    @Query(value = "SELECT * FROM product p " +
+                   "WHERE MATCH(p.name, p.description) AGAINST(:keyword IN BOOLEAN MODE) " +
+                   "AND p.status = 'ACTIVE' " +
+                   "ORDER BY p.created_at DESC",
+           nativeQuery = true)
+    List<Product> searchProductsFullText(@Param("keyword") String keyword);
+}
+            </code>
+        </pre>
+    </section>
+
+    <section id="normalization">
+        <h2>4. 기본 정규화 개선</h2>
+        <h3>4.1 목적과 배경</h3>
+        <p><strong>문제점:</strong></p>
+        <ul>
+            <li><code>product</code> 테이블에 재고 정보 포함</li>
+            <li><code>order</code> 테이블에 상태 정보 포함</li>
+        </ul>
+
+        <h3>4.2 개선 구조</h3>
+        <div class="mermaid">
+            erDiagram
+                user {
+                    bigint id PK
+                    varchar name
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                balance {
+                    bigint id PK
+                    bigint user_id FK "UNIQUE"
+                    decimal amount "DECIMAL(19,2)"
+                    long version
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                product {
+                    bigint id PK
+                    bigint category_id FK
+                    varchar name
+                    decimal price "DECIMAL(19,2)"
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                    long version
+                }
+                
+                product_stock {
+                    bigint product_id PK
+                    int stock
+                    int reserved_stock
+                    long version
+                    timestamp last_updated
+                }
+                
+                order {
+                    bigint id PK
+                    bigint user_id FK
+                    decimal total_amount "DECIMAL(19,2)"
+                    timestamp created_at
+                    timestamp updated_at
+                    long version
+                }
+                
+                order_state {
+                    bigint order_id PK
+                    varchar status "ENUM"
+                    long version
+                    timestamp last_updated
+                }
+                
+                order_item {
+                    bigint id PK
+                    bigint order_id FK
+                    bigint product_id FK
+                    int quantity
+                    decimal price "DECIMAL(19,2)"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                payment {
+                    bigint id PK
+                    bigint order_id FK
+                    bigint user_id FK
+                    bigint coupon_id FK
+                    varchar payment_method
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                payment_state {
+                    bigint payment_id PK
+                    decimal amount "DECIMAL(19,2)"
+                    varchar status "ENUM"
+                    long version
+                    timestamp last_updated
+                }
+                
+                coupon {
+                    bigint id PK
+                    bigint product_id FK
+                    varchar code
+                    decimal discount_rate "DECIMAL(5,2)"
+                    int max_issuance
+                    int issued_count
+                    datetime start_date
+                    datetime end_date
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                coupon_history {
+                    bigint id PK
+                    bigint user_id FK
+                    bigint coupon_id FK
+                    bigint order_id FK
+                    datetime issued_at
+                    datetime used_at
+                    varchar status "ENUM"
+                    timestamp created_at
+                    timestamp updated_at
+                }
+                
+                popular_product_stat {
+                    bigint product_id PK
+                    int sales_count
+                    datetime calculated_at
+                }
+                
+                user ||--|| balance : "1:1"
+                user ||--o{ order : "1:N"
+                user ||--o{ payment : "1:N"
+                user ||--o{ coupon_history : "1:N"
+                
+                product ||--|| product_stock : "1:1"
+                product ||--o{ order_item : "1:N"
+                product ||--o{ coupon : "1:N"
+                product ||--|| popular_product_stat : "1:1"
+                
+                order ||--|| order_state : "1:1"
+                order ||--o{ order_item : "1:N"
+                order ||--o{ payment : "1:N"
+                order ||--o{ coupon_history : "used_order"
+                
+                payment ||--|| payment_state : "1:1"
+                coupon ||--o{ coupon_history : "1:N"
+                coupon ||--o{ payment : "1:N"
+        </div>
+
+        <h3>4.3 구현 방법</h3>
+        <h4>4.3.1 새 테이블 생성</h4>
+        <pre>
+            <code class="language-sql">
+
+CREATE TABLE product_stock (
+    product_id BIGINT PRIMARY KEY,
+    stock INT NOT NULL DEFAULT 0,
+    reserved_stock INT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+    INDEX idx_stock_reserved (stock, reserved_stock)
+);
+
+CREATE TABLE order_state (
+    order_id BIGINT PRIMARY KEY,
+    status ENUM('PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED') NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES order(id) ON DELETE CASCADE,
+    INDEX idx_status_updated (status, last_updated DESC)
+);
+
+CREATE TABLE payment_state (
+    payment_id BIGINT PRIMARY KEY,
+    amount DECIMAL(19,2) NOT NULL,
+    status ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED') NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (payment_id) REFERENCES payment(id) ON DELETE CASCADE,
+    INDEX idx_status_updated (status, last_updated DESC)
+);
+            </code>
+        </pre>
+
+        <h3>4.4 장단점</h3>
+        <h4>장점:</h4>
+        <ul>
+            <li>✅ <strong>데이터 일관성</strong>: 재고와 상태 정보 분리로 정합성 향상</li>
+            <li>✅ <strong>유지보수성</strong>: 도메인별 책임 분리</li>
+        </ul>
+        <h4>단점:</h4>
+        <ul>
+            <li>❌ <strong>마이그레이션 복잡도</strong>: 기존 데이터 이전 필요</li>
+            <li>❌ <strong>조회 성능</strong>: JOIN 증가 가능</li>
+        </ul>
+    </section>
+
+    <section id="cqrs">
+        <h2>5. CQRS 패턴으로 데이터베이스 재설계</h2>
+        <h3>5.1 목적과 배경</h3>
+        <p>복잡한 조회 쿼리와 다중 테이블 JOIN으로 인한 성능 저하를 해결하기 위해 CQRS(Command Query Responsibility Segregation)를 도입하여 읽기/쓰기 모델을 분리</p>
+
+        <h3>5.2 개선 구조</h3>
+        <div class="mermaid">
+            erDiagram
+                subgraph "Command Side (쓰기 모델)"
+                    user {
+                        bigint id PK
+                        varchar name
+                        timestamp created_at
+                        timestamp updated_at
+                        long version
+                    }
+                    
+                    product {
+                        bigint id PK
+                        bigint category_id FK
+                        varchar name
+                        decimal price "DECIMAL(19,2)"
+                        varchar status "ENUM"
+                        timestamp created_at
+                        timestamp updated_at
+                        long version
+                    }
+                    
+                    product_stock {
+                        bigint product_id PK
+                        int stock
+                        int reserved_stock
+                        long version
+                        timestamp last_updated
+                    }
+                    
+                    order {
+                        bigint id PK
+                        bigint user_id FK
+                        decimal total_amount "DECIMAL(19,2)"
+                        timestamp created_at
+                        timestamp updated_at
+                        long version
+                    }
+                    
+                    order_state {
+                        bigint order_id PK
+                        varchar status "ENUM"
+                        long version
+                        timestamp last_updated
+                    }
+                    
+                    order_item {
+                        bigint id PK
+                        bigint order_id FK
+                        bigint product_id FK
+                        int quantity
+                        decimal price "DECIMAL(19,2)"
+                        timestamp created_at
+                        timestamp updated_at
+                    }
+                    
+                    payment {
+                        bigint id PK
+                        bigint order_id FK
+                        bigint user_id FK
+                        bigint coupon_id FK
+                        varchar payment_method
+                        timestamp created_at
+                        timestamp updated_at
+                    }
+                    
+                    payment_state {
+                        bigint payment_id PK
+                        decimal amount "DECIMAL(19,2)"
+                        varchar status "ENUM"
+                        long version
+                        timestamp last_updated
+                    }
+                end
+                
+                subgraph "Query Side (읽기 모델)"
+                    order_read_view {
+                        bigint order_id PK
+                        varchar user_name
+                        decimal total_amount
+                        varchar order_status
+                        int total_items
+                        varchar product_names
+                        varchar first_product_name
+                        varchar payment_status
+                        decimal paid_amount
+                        timestamp order_date
+                        timestamp updated_at
+                    }
+                    
+                    product_read_view {
+                        bigint product_id PK
+                        varchar name
+                        decimal price
+                        int available_stock
+                        varchar status
+                        boolean has_active_coupon
+                        decimal max_discount_rate
+                        int sales_count
+                        timestamp last_updated
+                    }
+                end
+                
+                user ||--o{ order : "1:N"
+                user ||--o{ payment : "1:N"
+                product ||--|| product_stock : "1:1"
+                product ||--o{ order_item : "1:N"
+                order ||--|| order_state : "1:1"
+                order ||--o{ order_item : "1:N"
+                order ||--o{ payment : "1:N"
+                payment ||--|| payment_state : "1:1"
+        </div>
+
+        <h3>5.3 구현 방법</h3>
+        <h4>5.3.1 읽기 전용 뷰 테이블</h4>
+        <pre>
+            <code class="language-sql">
+CREATE TABLE order_read_view (
+    order_id BIGINT PRIMARY KEY,
+    user_name VARCHAR(100) NOT NULL,
+    total_amount DECIMAL(19,2) NOT NULL,
+    order_status VARCHAR(20) NOT NULL,
+    total_items INT NOT NULL,
+    product_names TEXT,
+    first_product_name VARCHAR(255),
+    payment_status VARCHAR(20),
+    paid_amount DECIMAL(19,2),
+    order_date TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    INDEX idx_status_date (order_status, order_date DESC)
+);
+
+CREATE TABLE product_read_view (
+    product_id BIGINT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(19,2) NOT NULL,
+    available_stock INT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    has_active_coupon BOOLEAN DEFAULT FALSE,
+    max_discount_rate DECIMAL(5,2) DEFAULT 0.00,
+    sales_count INT DEFAULT 0,
+    last_updated TIMESTAMP NOT NULL,
+    INDEX idx_status_stock (status, available_stock DESC)
+);
+            </code>
+        </pre>
+
+        <h4>5.3.2 데이터 동기화</h4>
+        <pre>
+            <code class="language-java">
+@Component
+public class ReadViewSyncService {
+    
+    @EventListener
+    @Async
+    public void syncOrderReadView(OrderCreatedEvent event) {
+        Order order = event.getOrder();
+        OrderState orderState = orderStateRepository.findById(order.getId()).orElseThrow();
+        
+        OrderReadView readView = OrderReadView.builder()
+            .orderId(order.getId())
+            .userName(order.getUser().getName())
+            .totalAmount(order.getTotalAmount())
+            .orderStatus(orderState.getStatus().name())
+            .totalItems(order.getItems().size())
+            .productNames(extractProductNames(order.getItems()))
+            .firstProductName(order.getItems().get(0).getProduct().getName())
+            .orderDate(order.getCreatedAt())
+            .updatedAt(LocalDateTime.now())
+            .build();
+            
+        orderReadViewRepository.save(readView);
+    }
+}
+            </code>
+        </pre>
+
+        <h3>5.4 장단점</h3>
+        <h4>장점:</h4>
+        <ul>
+            <li>✅ <strong>조회 성능</strong>: 복잡한 조회 쿼리 제거</li>
+            <li>✅ <strong>유연성</strong>: 읽기/쓰기 모델 분리로 최적화 용이</li>
+            <li>✅ <strong>확장성</strong>: 읽기 전용 뷰로 부하 분산</li>
+        </ul>
+        <h4>단점:</h4>
+        <ul>
+            <li>❌ <strong>데이터 일관성</strong>: 동기화 지연 가능</li>
+            <li>❌ <strong>저장소 비용</strong>: 중복 데이터로 용량 증가</li>
+        </ul>
+    </section>
+
+    <section id="implementation-guidelines">
+        <h2>6. 구현 가이드라인</h2>
+        <div class="mermaid">
+            graph TD
+                Start[현재 구조] --> Phase1[JPA 쿼리 튜닝 및 인덱스 설계]
+                Phase1 --> Phase2[기본 정규화 개선]
+                Phase2 --> Phase3[CQRS 도입]
+                Phase3 --> Complete[개선 완료]
+        </div>
+    </section>
+
+    <section id="conclusion">
+        <h2>7. 결론</h2>
+        <p>JPA 쿼리 튜닝으로 N+1 문제를 해결하고, 인덱스 설계로 조회 성능을 최적화합니다. 정규화 개선으로 데이터 일관성과 유지보수성을 높이며, CQRS 도입으로 읽기/쓰기 성능을 분리하여 시스템 확장성을 확보합니다.</p>
+    </section>
+</body>
+</html>

@@ -21,7 +21,6 @@ public class CheckOrderAccessUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
     
-    @Transactional(readOnly = true)
     public Order execute(Long userId, Long orderId) {
         log.debug("주문 접근 권한 체크: userId={}, orderId={}", userId, orderId);
         

@@ -2,6 +2,7 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import kr.hhplus.be.server.domain.exception.ProductException;
 
 @Repository
+@Profile("test_inmemory")
 public class InMemoryProductRepository implements ProductRepositoryPort {
 
     private final Map<Long, Product> products = new ConcurrentHashMap<>();

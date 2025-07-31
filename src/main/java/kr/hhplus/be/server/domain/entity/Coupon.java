@@ -13,12 +13,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @SuperBuilder
-// @Entity
+@Entity
+@Table(name = "coupon")
 public class Coupon extends BaseEntity {
 
     private String code;
 
-    // @Column(nullable = false, precision = 5, scale = 2)
+    @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal discountRate;
 
     private int maxIssuance;
@@ -29,12 +30,12 @@ public class Coupon extends BaseEntity {
 
     private LocalDateTime endDate;
 
-    // @Enumerated(EnumType.STRING)
-    // @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private CouponStatus status;
 
-    // @ManyToOne
-    // @JoinColumn(name = "product_id")
+    @ManyToOne
+    @JoinColumn(name = "product_id")
     private Product product;
 
     /**
