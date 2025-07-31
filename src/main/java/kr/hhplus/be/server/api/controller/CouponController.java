@@ -67,7 +67,7 @@ public class CouponController {
         if (request == null) {
             throw new CommonException.InvalidRequest();
         }
-        request.validate();
+        request.validatePagination();
         
         List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()

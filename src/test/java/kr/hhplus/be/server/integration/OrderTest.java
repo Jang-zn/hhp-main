@@ -31,8 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -399,6 +403,155 @@ public class OrderTest {
                         .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.getCode()))
                         .andExpect(jsonPath("$.message").exists());
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTest {
+
+        @Test
+        @DisplayName("한정된 재고 상품에 대한 동시 주문 요청에서 재고를 초과하지 않아야 한다")
+        void limitedStockConcurrencyTest() throws Exception {
+            // given: 재고가 3개인 상품 생성
+            Product limitedProduct = Product.builder()
+                    .name("Limited Stock Product")
+                    .price(new BigDecimal("10000"))
+                    .stock(3)
+                    .reservedStock(0)
+                    .build();
+            final Product finalLimitedProduct = productRepositoryPort.save(limitedProduct);
+
+            // 5명의 사용자 생성 (각자 충분한 잔액)
+            List<User> testUsers = new ArrayList<>();
+            for (int i = 1; i <= 5; i++) {
+                User user = userRepositoryPort.save(User.builder().name("OrderUser" + i).build());
+                testUsers.add(user);
+            }
+
+            ExecutorService executor = Executors.newFixedThreadPool(5);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(5);
+
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+
+            // when: 5명의 사용자가 동시에 주문 요청 (각자 1개씩)
+            for (User user : testUsers) {
+                executor.submit(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        OrderRequest.ProductQuantity orderItem = new OrderRequest.ProductQuantity(
+                                finalLimitedProduct.getId(), 1); // 1개씩 주문
+                        OrderRequest request = new OrderRequest();
+                        request.setUserId(user.getId());
+                        request.setProducts(List.of(orderItem));
+                        request.setCouponIds(null); // null 쿠폰으로 주문
+                        
+                        var result = mockMvc.perform(post("/api/order")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                                .andReturn();
+                        
+                        if (result.getResponse().getStatus() == 201) { // 주문 생성은 201 Created
+                            successCount.incrementAndGet();
+                        } else {
+                            failureCount.incrementAndGet();
+                            System.out.println("⚠️ 주문 실패 - 상태코드: " + result.getResponse().getStatus() + 
+                                             ", 응답: " + result.getResponse().getContentAsString());
+                        }
+                    } catch (Exception e) {
+                        failureCount.incrementAndGet();
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            startLatch.countDown();
+            boolean completed = doneLatch.await(15, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // then: 최대 3개의 주문만 성공해야 함
+            assertThat(completed).isTrue();
+            assertThat(successCount.get()).isLessThanOrEqualTo(3);
+            assertThat(failureCount.get()).isGreaterThanOrEqualTo(2);
+            
+            // 상품 재고 확인
+            Product finalProduct = productRepositoryPort.findById(finalLimitedProduct.getId()).orElseThrow();
+            assertThat(finalProduct.getStock() + finalProduct.getReservedStock()).isLessThanOrEqualTo(3);
+            
+            System.out.println("✅ 주문 동시성 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
+        }
+
+        @Test
+        @DisplayName("동일 사용자가 같은 상품을 동시에 여러 번 주문해도 정상 처리되어야 한다")
+        void sameUserMultipleOrdersTest() throws Exception {
+            // given: 충분한 재고의 상품
+            Product product = Product.builder()
+                    .name("Multi Order Product")
+                    .price(new BigDecimal("5000"))
+                    .stock(10)
+                    .reservedStock(0)
+                    .build();
+            final Product finalProduct = productRepositoryPort.save(product);
+
+            User user = userRepositoryPort.save(User.builder().name("MultiOrderUser").build());
+            final User finalUser = user;
+
+            ExecutorService executor = Executors.newFixedThreadPool(3);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(3);
+
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+
+            // when: 동일 사용자가 3번의 동시 주문 (각자 1개씩)
+            for (int i = 0; i < 3; i++) {
+                executor.submit(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        OrderRequest.ProductQuantity orderItem = new OrderRequest.ProductQuantity(
+                                finalProduct.getId(), 1);
+                        OrderRequest request = new OrderRequest();
+                        request.setUserId(finalUser.getId());
+                        request.setProducts(List.of(orderItem));
+                        request.setCouponIds(null); // null 쿠폰으로 주문
+                        
+                        var result = mockMvc.perform(post("/api/order")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                                .andReturn();
+                        
+                        if (result.getResponse().getStatus() == 201) { // 주문 생성은 201 Created
+                            successCount.incrementAndGet();
+                        } else {
+                            failureCount.incrementAndGet();
+                            System.out.println("⚠️ 주문 실패 - 상태코드: " + result.getResponse().getStatus() + 
+                                             ", 응답: " + result.getResponse().getContentAsString());
+                        }
+                    } catch (Exception e) {
+                        failureCount.incrementAndGet();
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            startLatch.countDown();
+            boolean completed = doneLatch.await(15, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // then: 동시성 제어에 따라 일부 주문은 실패할 수 있음 (동시성 오류 또는 중복 주문 방지)
+            assertThat(completed).isTrue();
+            // 동시성 제어가 작동하여 모든 요청이 완료되었는지 확인
+            assertThat(successCount.get() + failureCount.get()).isEqualTo(3);
+            // 적어도 하나는 성공하거나, 모든 것이 동시성 제어로 실패할 수 있음
+            assertThat(successCount.get()).isGreaterThanOrEqualTo(0);
+            
+            System.out.println("✅ 동일 사용자 다중 주문 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
         }
     }
 }

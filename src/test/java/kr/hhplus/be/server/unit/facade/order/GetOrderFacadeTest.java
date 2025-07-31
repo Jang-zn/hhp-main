@@ -14,6 +14,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,9 +75,9 @@ class GetOrderFacadeTest {
             // given
             Long orderId = 1L;
             Long userId = 1L;
-            
-            doNothing().when(checkOrderAccessUseCase).execute(orderId, userId);
-            when(getOrderUseCase.execute(orderId)).thenReturn(testOrder);
+           
+            when(checkOrderAccessUseCase.execute(userId, orderId)).thenReturn(testOrder);
+            when(getOrderUseCase.execute(userId, orderId)).thenReturn(Optional.of(testOrder));
             
             // when
             Order result = getOrderFacade.getOrder(orderId, userId);
@@ -87,8 +88,8 @@ class GetOrderFacadeTest {
             assertThat(result.getUser().getId()).isEqualTo(userId);
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
             
-            verify(checkOrderAccessUseCase).execute(orderId, userId);
-            verify(getOrderUseCase).execute(orderId);
+            verify(checkOrderAccessUseCase).execute(userId, orderId);
+            verify(getOrderUseCase).execute(userId, orderId);
         }
         
         @Test
@@ -99,14 +100,13 @@ class GetOrderFacadeTest {
             Long userId = 1L;
             
             doThrow(new OrderException.NotFound())
-                .when(checkOrderAccessUseCase).execute(orderId, userId);
+                .when(checkOrderAccessUseCase).execute(userId, orderId);
             
             // when & then
             assertThatThrownBy(() -> getOrderFacade.getOrder(orderId, userId))
                 .isInstanceOf(OrderException.NotFound.class);
-                
-            verify(checkOrderAccessUseCase).execute(orderId, userId);
-            verify(getOrderUseCase, never()).execute(any());
+            verify(checkOrderAccessUseCase).execute(userId, orderId);
+            verify(getOrderUseCase, never()).execute(any(), any());
         }
         
         @Test
@@ -116,15 +116,15 @@ class GetOrderFacadeTest {
             Long orderId = 1L;
             Long userId = 999L;
             
-            doThrow(new OrderException.AccessDenied())
-                .when(checkOrderAccessUseCase).execute(orderId, userId);
+            doThrow(new OrderException.Unauthorized())
+                .when(checkOrderAccessUseCase).execute(userId, orderId);
             
             // when & then
             assertThatThrownBy(() -> getOrderFacade.getOrder(orderId, userId))
-                .isInstanceOf(OrderException.AccessDenied.class);
+                .isInstanceOf(OrderException.Unauthorized.class);
                 
-            verify(checkOrderAccessUseCase).execute(orderId, userId);
-            verify(getOrderUseCase, never()).execute(any());
+            verify(checkOrderAccessUseCase).execute(userId, orderId);
+            verify(getOrderUseCase, never()).execute(any(), any());
         }
     }
 }
