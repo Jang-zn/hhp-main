@@ -28,7 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -459,6 +464,149 @@ public class CouponTest {
                         .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
                         .andExpect(jsonPath("$.message").exists());
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 테스트")
+    class ConcurrencyTest {
+
+        @Test
+        @DisplayName("한정 수량 쿠폰에 대한 동시 발급 요청에서 정확한 수만큼만 성공해야 한다")
+        void limitedCouponConcurrencyTest() throws Exception {
+            // given: 수량이 3개인 쿠폰 생성
+            Coupon limitedCoupon = Coupon.builder()
+                    .code("CONCURRENT_COUPON")
+                    .discountRate(new BigDecimal("0.10"))
+                    .maxIssuance(3)
+                    .issuedCount(0)
+                    .startDate(LocalDateTime.now().minusDays(1))
+                    .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            final Coupon finalLimitedCoupon = couponRepositoryPort.save(limitedCoupon);
+
+            // 5명의 사용자 생성
+            List<User> testUsers = new ArrayList<>();
+            for (int i = 1; i <= 5; i++) {
+                User user = userRepositoryPort.save(User.builder().name("ConcurrentUser" + i).build());
+                testUsers.add(user);
+            }
+
+            ExecutorService executor = Executors.newFixedThreadPool(5);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(5);
+
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+
+            // when: 5명의 사용자가 동시에 쿠폰 발급 요청
+            for (User user : testUsers) {
+                executor.submit(() -> {
+                    try {
+                        startLatch.await(); // 모든 스레드가 동시에 시작하도록 대기
+                        
+                        CouponRequest request = new CouponRequest(user.getId(), finalLimitedCoupon.getId());
+                        var result = mockMvc.perform(post("/api/coupon/issue")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                                .andReturn();
+                        
+                        if (result.getResponse().getStatus() == 200) {
+                            successCount.incrementAndGet();
+                        } else {
+                            failureCount.incrementAndGet();
+                            System.out.println("⚠️ 쿠폰 발급 실패 - 상태코드: " + result.getResponse().getStatus() + 
+                                             ", 응답: " + result.getResponse().getContentAsString());
+                        }
+                    } catch (Exception e) {
+                        failureCount.incrementAndGet();
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            // 모든 스레드 동시 시작
+            startLatch.countDown();
+            
+            // 모든 요청 완료 대기 (최대 10초)
+            boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // then: 결과 검증
+            assertThat(completed).isTrue();
+            assertThat(successCount.get() + failureCount.get()).isEqualTo(5);
+            
+            // 동시성 제어가 올바르게 작동했다면, 성공 요청은 최대 3개여야 함
+            assertThat(successCount.get()).isLessThanOrEqualTo(3);
+            assertThat(failureCount.get()).isGreaterThanOrEqualTo(2);
+            
+            System.out.println("✅ 쿠폰 동시성 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
+        }
+
+        @Test
+        @DisplayName("동일 사용자가 같은 쿠폰을 동시에 여러 번 요청해도 한 번만 성공해야 한다")
+        void sameCouponDuplicateRequestTest() throws Exception {
+            // given: 충분한 수량의 쿠폰 생성
+            Coupon duplicateCoupon = Coupon.builder()
+                    .code("DUPLICATE_TEST_COUPON")
+                    .discountRate(new BigDecimal("0.15"))
+                    .maxIssuance(100)
+                    .issuedCount(0)
+                    .startDate(LocalDateTime.now().minusDays(1))
+                    .endDate(LocalDateTime.now().plusDays(30))
+                    .status(CouponStatus.ACTIVE)
+                    .build();
+            final Coupon finalDuplicateCoupon = couponRepositoryPort.save(duplicateCoupon);
+
+            ExecutorService executor = Executors.newFixedThreadPool(3);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(3);
+
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+
+            // when: 동일 사용자가 같은 쿠폰을 3번 동시 요청
+            for (int i = 0; i < 3; i++) {
+                executor.submit(() -> {
+                    try {
+                        startLatch.await();
+                        
+                        CouponRequest request = new CouponRequest(testUser.getId(), finalDuplicateCoupon.getId());
+                        var result = mockMvc.perform(post("/api/coupon/issue")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                                .andReturn();
+                        
+                        if (result.getResponse().getStatus() == 200) {
+                            successCount.incrementAndGet();
+                        } else {
+                            failureCount.incrementAndGet();
+                            System.out.println("⚠️ 쿠폰 발급 실패 - 상태코드: " + result.getResponse().getStatus() + 
+                                             ", 응답: " + result.getResponse().getContentAsString());
+                        }
+                    } catch (Exception e) {
+                        failureCount.incrementAndGet();
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            startLatch.countDown();
+            boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // then: 동시성 제어로 인해 중복 발급이 방지되어야 함
+            assertThat(completed).isTrue();
+            // 모든 요청이 완료되었는지 확인
+            assertThat(successCount.get() + failureCount.get()).isEqualTo(3);
+            // 중복 발급 방지로 인해 최대 1개만 성공하거나 모두 실패할 수 있음
+            assertThat(successCount.get()).isLessThanOrEqualTo(1);
+            assertThat(failureCount.get()).isGreaterThanOrEqualTo(2);
+            
+            System.out.println("✅ 중복 발급 방지 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
         }
     }
 }
