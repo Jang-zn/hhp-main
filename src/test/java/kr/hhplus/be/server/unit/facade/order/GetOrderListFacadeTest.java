@@ -113,7 +113,6 @@ class GetOrderListFacadeTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
-            
             verify(getOrderListUseCase).execute(userId);
         }
         
@@ -124,7 +123,7 @@ class GetOrderListFacadeTest {
             Long userId = 999L;
             int limit = 10;
             int offset = 0;
-            
+           
             when(getOrderListUseCase.execute(userId))
                 .thenThrow(new UserException.NotFound());
             
@@ -142,7 +141,6 @@ class GetOrderListFacadeTest {
             Long userId = 1L;
             int limit = 5;
             int offset = 10;
-            
             when(getOrderListUseCase.execute(userId)).thenReturn(List.of(testOrders.get(0)));
             
             // when
@@ -151,7 +149,6 @@ class GetOrderListFacadeTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result).hasSize(1);
-            
             verify(getOrderListUseCase).execute(userId);
         }
     }

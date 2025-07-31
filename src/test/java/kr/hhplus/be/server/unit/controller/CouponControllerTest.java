@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 class CouponControllerTest {
 
     @Mock
-    private IssueCouponUseCase issueCouponUseCase;
+    private IssueCouponFacade issueCouponFacade;
     
     @Mock
     private GetCouponListUseCase getCouponListUseCase;
@@ -117,7 +117,6 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest();
             request.setCouponId(1L);
             // userId는 null
-            
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -133,7 +132,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest();
             request.setUserId(1L);
             // couponId는 null
-            
+          
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                 .isInstanceOf(CouponException.UserIdAndCouponIdRequired.class);

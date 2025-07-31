@@ -30,13 +30,13 @@ import static org.mockito.Mockito.*;
 class OrderControllerTest {
 
     @Mock
-    private CreateOrderUseCase createOrderUseCase;
+    private CreateOrderFacade createOrderFacade;
     
     @Mock
-    private PayOrderUseCase payOrderUseCase;
+    private PayOrderFacade payOrderFacade;
     
     @Mock
-    private GetOrderUseCase getOrderUseCase;
+    private GetOrderFacade getOrderFacade;
     
     @Mock
     private GetOrderListUseCase getOrderListUseCase;
@@ -105,7 +105,6 @@ class OrderControllerTest {
         assertThat(result.userId()).isEqualTo(1L);
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.totalAmount()).isEqualTo(new BigDecimal("100000"));
-        
         verify(validateCouponUseCase).execute(anyList());
         verify(createOrderUseCase).execute(eq(1L), any(Map.class));
     }
@@ -119,7 +118,6 @@ class OrderControllerTest {
         // when & then
         assertThatThrownBy(() -> orderController.createOrder(nullRequest))
             .isInstanceOf(CommonException.InvalidRequest.class);
-            
         verify(validateCouponUseCase, never()).execute(anyList());
         verify(createOrderUseCase, never()).execute(anyLong(), any(Map.class));
     }
@@ -130,7 +128,6 @@ class OrderControllerTest {
         // given
         Long orderId = 1L;
         OrderRequest request = new OrderRequest(1L, 1L);
-        
         when(payOrderUseCase.execute(orderId, 1L, 1L)).thenReturn(testPayment);
         
         // when
@@ -156,7 +153,6 @@ class OrderControllerTest {
         // when & then
         assertThatThrownBy(() -> orderController.payOrder(nullOrderId, request))
             .isInstanceOf(OrderException.OrderIdCannotBeNull.class);
-            
         verify(payOrderUseCase, never()).execute(anyLong(), anyLong(), anyLong());
     }
     
@@ -168,7 +164,6 @@ class OrderControllerTest {
         Long userId = 1L;
         
         when(checkOrderAccessUseCase.execute(userId, orderId)).thenReturn(testOrder);
-        
         // when
         OrderResponse result = orderController.getOrder(orderId, userId);
         

@@ -11,7 +11,6 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -37,11 +36,11 @@ class CreateOrderUseCaseTest {
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
     
-    @Mock
-    private EventLogRepositoryPort eventLogRepositoryPort;
+    private CreateOrderUseCase createOrderUseCase;
     
-    @Mock
-    private LockingPort lockingPort;
+    private User testUser;
+    private Product testProduct1;
+    private Product testProduct2;
     
     @Mock
     private CachePort cachePort;

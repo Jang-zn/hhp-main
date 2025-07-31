@@ -26,7 +26,6 @@ class ProductControllerTest {
 
     @Mock
     private GetProductListFacade getProductListFacade;
-    
     @Mock
     private GetPopularProductListFacade getPopularProductListFacade;
     
@@ -68,7 +67,6 @@ class ProductControllerTest {
         assertThat(result.get(0).name()).isEqualTo("Test Product");
         assertThat(result.get(0).price()).isEqualTo(new BigDecimal("50000"));
         assertThat(result.get(0).stock()).isEqualTo(100);
-        
         verify(getProductListFacade).getProductList(10, 0);
     }
     

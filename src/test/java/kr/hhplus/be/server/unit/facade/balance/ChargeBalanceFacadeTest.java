@@ -38,7 +38,6 @@ class ChargeBalanceFacadeTest {
     
     @Mock
     private UserRepositoryPort userRepositoryPort;
-    
     private ChargeBalanceFacade chargeBalanceFacade;
     
     private User testUser;
@@ -72,7 +71,6 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
             when(chargeBalanceUseCase.execute(testUser, chargeAmount)).thenReturn(testBalance);
@@ -97,7 +95,6 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(false);
             
@@ -117,7 +114,6 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
             when(chargeBalanceUseCase.execute(testUser, chargeAmount))
@@ -139,7 +135,6 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal invalidAmount = new BigDecimal("-10000");
-            
             when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
             when(chargeBalanceUseCase.execute(testUser, invalidAmount))
@@ -151,7 +146,7 @@ class ChargeBalanceFacadeTest {
                 
             verify(lockingPort).releaseLock("balance-" + userId);
         }
-        
+      
         @Test
         @DisplayName("실패 - 사용자를 찾을 수 없음")
         void chargeBalance_UserNotFound() {

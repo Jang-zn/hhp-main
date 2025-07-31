@@ -75,7 +75,7 @@ class GetOrderFacadeTest {
             // given
             Long orderId = 1L;
             Long userId = 1L;
-            
+           
             when(checkOrderAccessUseCase.execute(userId, orderId)).thenReturn(testOrder);
             when(getOrderUseCase.execute(userId, orderId)).thenReturn(Optional.of(testOrder));
             
@@ -105,7 +105,6 @@ class GetOrderFacadeTest {
             // when & then
             assertThatThrownBy(() -> getOrderFacade.getOrder(orderId, userId))
                 .isInstanceOf(OrderException.NotFound.class);
-                
             verify(checkOrderAccessUseCase).execute(userId, orderId);
             verify(getOrderUseCase, never()).execute(any(), any());
         }

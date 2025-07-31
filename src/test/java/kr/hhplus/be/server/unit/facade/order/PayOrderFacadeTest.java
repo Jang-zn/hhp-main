@@ -53,7 +53,6 @@ class PayOrderFacadeTest {
     
     @Mock 
     private UserRepositoryPort userRepositoryPort;
-    
     private PayOrderFacade payOrderFacade;
     
     private User testUser;
@@ -134,28 +133,6 @@ class PayOrderFacadeTest {
             verify(lockingPort).releaseLock("payment-" + orderId);
             verify(lockingPort).releaseLock("balance-" + userId);
         }
-        
-        // TODO: Fix this test later
-        /*@Test
-        @DisplayName("성공 - 쿠폰 적용 결제")
-        void payOrder_WithCoupon_Success() {
-            // 테스트 내용 생략
-        }*/
-        
-        // TODO: Fix these tests later  
-        /*
-        @Test
-        @DisplayName("실패 - 락 획득 실패")
-        void payOrder_LockAcquisitionFailed() {
-            // 테스트 내용 생략
-        }
-        
-        @Test
-        @DisplayName("실패 - UseCase 실행 중 예외 발생 시 락 해제")
-        void payOrder_UseCaseException_ReleaseLock() {
-            // 테스트 내용 생략
-        }
-        */
     }
     
     @Nested
