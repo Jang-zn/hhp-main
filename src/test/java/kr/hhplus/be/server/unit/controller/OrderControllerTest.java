@@ -7,8 +7,10 @@ import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
-import kr.hhplus.be.server.domain.usecase.order.*;
-import kr.hhplus.be.server.domain.usecase.coupon.ValidateCouponUseCase;
+import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
+import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,21 +33,12 @@ class OrderControllerTest {
 
     @Mock
     private CreateOrderFacade createOrderFacade;
-    
     @Mock
     private PayOrderFacade payOrderFacade;
-    
     @Mock
     private GetOrderFacade getOrderFacade;
-    
     @Mock
-    private GetOrderListUseCase getOrderListUseCase;
-    
-    @Mock
-    private CheckOrderAccessUseCase checkOrderAccessUseCase;
-    
-    @Mock
-    private ValidateCouponUseCase validateCouponUseCase;
+    private GetOrderListFacade getOrderListFacade;
     
     private OrderController orderController;
     
@@ -57,12 +50,10 @@ class OrderControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         orderController = new OrderController(
-            createOrderUseCase,
-            payOrderUseCase,
-            getOrderUseCase,
-            getOrderListUseCase,
-            checkOrderAccessUseCase,
-            validateCouponUseCase
+            createOrderFacade,
+            payOrderFacade,
+            getOrderFacade,
+            getOrderListFacade
         );
         
         testUser = User.builder()
@@ -93,8 +84,7 @@ class OrderControllerTest {
         // given
         OrderRequest request = new OrderRequest(1L, List.of(1L), List.of());
         
-        doNothing().when(validateCouponUseCase).execute(anyList());
-        when(createOrderUseCase.execute(eq(1L), any(Map.class))).thenReturn(testOrder);
+        when(createOrderFacade.createOrder(eq(1L), any(Map.class))).thenReturn(testOrder);
         
         // when
         OrderResponse result = orderController.createOrder(request);
@@ -105,8 +95,7 @@ class OrderControllerTest {
         assertThat(result.userId()).isEqualTo(1L);
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.totalAmount()).isEqualTo(new BigDecimal("100000"));
-        verify(validateCouponUseCase).execute(anyList());
-        verify(createOrderUseCase).execute(eq(1L), any(Map.class));
+        verify(createOrderFacade).createOrder(eq(1L), any(Map.class));
     }
     
     @Test
@@ -118,8 +107,7 @@ class OrderControllerTest {
         // when & then
         assertThatThrownBy(() -> orderController.createOrder(nullRequest))
             .isInstanceOf(CommonException.InvalidRequest.class);
-        verify(validateCouponUseCase, never()).execute(anyList());
-        verify(createOrderUseCase, never()).execute(anyLong(), any(Map.class));
+        verify(createOrderFacade, never()).createOrder(anyLong(), any(Map.class));
     }
     
     @Test
@@ -128,7 +116,7 @@ class OrderControllerTest {
         // given
         Long orderId = 1L;
         OrderRequest request = new OrderRequest(1L, 1L);
-        when(payOrderUseCase.execute(orderId, 1L, 1L)).thenReturn(testPayment);
+        when(payOrderFacade.payOrder(orderId, 1L, 1L)).thenReturn(testPayment);
         
         // when
         PaymentResponse result = orderController.payOrder(orderId, request);
@@ -140,7 +128,7 @@ class OrderControllerTest {
         assertThat(result.status()).isEqualTo(PaymentStatus.PAID.name());
         assertThat(result.finalAmount()).isEqualTo(new BigDecimal("100000"));
         
-        verify(payOrderUseCase).execute(orderId, 1L, 1L);
+        verify(payOrderFacade).payOrder(orderId, 1L, 1L);
     }
     
     @Test
@@ -153,7 +141,7 @@ class OrderControllerTest {
         // when & then
         assertThatThrownBy(() -> orderController.payOrder(nullOrderId, request))
             .isInstanceOf(OrderException.OrderIdCannotBeNull.class);
-        verify(payOrderUseCase, never()).execute(anyLong(), anyLong(), anyLong());
+        verify(payOrderFacade, never()).payOrder(anyLong(), anyLong(), anyLong());
     }
     
     @Test
@@ -163,7 +151,7 @@ class OrderControllerTest {
         Long orderId = 1L;
         Long userId = 1L;
         
-        when(checkOrderAccessUseCase.execute(userId, orderId)).thenReturn(testOrder);
+        when(getOrderFacade.getOrder(userId, orderId)).thenReturn(testOrder);
         // when
         OrderResponse result = orderController.getOrder(orderId, userId);
         
@@ -174,7 +162,7 @@ class OrderControllerTest {
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.totalAmount()).isEqualTo(new BigDecimal("100000"));
         
-        verify(checkOrderAccessUseCase).execute(userId, orderId);
+        verify(getOrderFacade).getOrder(userId, orderId);
     }
     
     @Test
@@ -188,7 +176,7 @@ class OrderControllerTest {
         assertThatThrownBy(() -> orderController.getOrder(nullOrderId, userId))
             .isInstanceOf(OrderException.OrderIdCannotBeNull.class);
             
-        verify(checkOrderAccessUseCase, never()).execute(anyLong(), anyLong());
+        verify(getOrderFacade, never()).getOrder(anyLong(), anyLong());
     }
     
     @Test
@@ -196,7 +184,7 @@ class OrderControllerTest {
     void getUserOrders_Success() {
         // given
         Long userId = 1L;
-        when(getOrderListUseCase.execute(userId)).thenReturn(List.of(testOrder));
+        when(getOrderListFacade.getOrderList(userId, 0, 0)).thenReturn(List.of(testOrder));
         
         // when
         List<OrderResponse> result = orderController.getUserOrders(userId);
@@ -209,7 +197,7 @@ class OrderControllerTest {
         assertThat(result.get(0).status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.get(0).totalAmount()).isEqualTo(new BigDecimal("100000"));
         
-        verify(getOrderListUseCase).execute(userId);
+        verify(getOrderListFacade).getOrderList(userId, 0, 0);
     }
     
     @Test
@@ -222,6 +210,6 @@ class OrderControllerTest {
         assertThatThrownBy(() -> orderController.getUserOrders(nullUserId))
             .isInstanceOf(CommonException.InvalidRequest.class);
             
-        verify(getOrderListUseCase, never()).execute(anyLong());
+        verify(getOrderListFacade, never()).getOrderList(anyLong(), anyInt(), anyInt());
     }
 }

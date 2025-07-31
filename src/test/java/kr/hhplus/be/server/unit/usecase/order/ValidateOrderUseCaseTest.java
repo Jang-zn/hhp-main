@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +28,9 @@ class ValidateOrderUseCaseTest {
     @Mock
     private UserRepositoryPort userRepositoryPort;
     
+    @Mock
+    private PaymentRepositoryPort paymentRepositoryPort;
+    
     private ValidateOrderUseCase validateOrderUseCase;
     
     private User testUser;
@@ -35,7 +39,7 @@ class ValidateOrderUseCaseTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        validateOrderUseCase = new ValidateOrderUseCase(orderRepositoryPort, userRepositoryPort);
+        validateOrderUseCase = new ValidateOrderUseCase(orderRepositoryPort, paymentRepositoryPort);
         
         testUser = User.builder()
             .id(1L)
@@ -71,22 +75,6 @@ class ValidateOrderUseCaseTest {
     }
     
     @Test
-    @DisplayName("실패 - 사용자를 찾을 수 없음")
-    void execute_UserNotFound_ThrowsException() {
-        // given
-        Long orderId = 1L;
-        Long userId = 999L;
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
-        
-        // when & then
-        assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
-            .isInstanceOf(UserException.UserNotFound.class);
-            
-        verify(orderRepositoryPort, never()).findById(any());
-    }
-    
-    @Test
     @DisplayName("실패 - 주문을 찾을 수 없음")
     void execute_OrderNotFound_ThrowsException() {
         // given
@@ -98,7 +86,7 @@ class ValidateOrderUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
-            .isInstanceOf(OrderException.OrderNotFound.class);
+            .isInstanceOf(OrderException.NotFound.class);
     }
     
     @Test
@@ -121,7 +109,7 @@ class ValidateOrderUseCaseTest {
         
         // when & then
         assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
-            .isInstanceOf(OrderException.OrderAccessDenied.class);
+            .isInstanceOf(OrderException.Unauthorized.class);
     }
     
     @Test
@@ -140,9 +128,10 @@ class ValidateOrderUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
         when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(paidOrder));
+        when(paymentRepositoryPort.findByOrderId(orderId)).thenReturn(List.of(mock(Payment.class)));
         
         // when & then
         assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
-            .isInstanceOf(OrderException.OrderAlreadyPaid.class);
+            .isInstanceOf(OrderException.AlreadyPaid.class);
     }
 }

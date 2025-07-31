@@ -53,8 +53,7 @@ class IssueCouponUseCaseTest {
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
-    @Mock
-    private LockingPort lockingPort;
+    
 
     private IssueCouponUseCase issueCouponUseCase;
 
@@ -62,7 +61,7 @@ class IssueCouponUseCaseTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         issueCouponUseCase = new IssueCouponUseCase(
-                userRepositoryPort, couponRepositoryPort, couponHistoryRepositoryPort, lockingPort
+                userRepositoryPort, couponRepositoryPort, couponHistoryRepositoryPort
         );
     }
 
@@ -87,7 +86,6 @@ class IssueCouponUseCaseTest {
                 .status(CouponStatus.ACTIVE)
                 .build();
         
-        when(lockingPort.acquireLock(anyString())).thenReturn(true);
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
@@ -103,8 +101,6 @@ class IssueCouponUseCaseTest {
         assertThat(result.getCoupon()).isEqualTo(coupon);
         assertThat(result.getIssuedAt()).isNotNull();
         
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
-        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
         verify(couponRepositoryPort).save(coupon);
         verify(couponHistoryRepositoryPort).save(any(CouponHistory.class));
     }

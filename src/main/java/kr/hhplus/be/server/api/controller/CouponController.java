@@ -8,8 +8,8 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
-import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
+import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
 
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +27,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CouponController {
     
-    private final IssueCouponUseCase issueCouponUseCase;
-    private final GetCouponListUseCase getCouponListUseCase;
+    private final IssueCouponFacade issueCouponFacade;
+    private final GetCouponListFacade getCouponListFacade;
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
@@ -40,8 +40,8 @@ public class CouponController {
         if (request.getUserId() == null || request.getCouponId() == null) {
             throw new CouponException.UserIdAndCouponIdRequired();
         }
-        
-        CouponHistory couponHistory = issueCouponUseCase.execute(request.getUserId(), request.getCouponId());
+
+        CouponHistory couponHistory = issueCouponFacade.issueCoupon(request.getUserId(), request.getCouponId());
         return new CouponResponse(
                 couponHistory.getId(),
                 couponHistory.getCoupon().getId(),
@@ -68,8 +68,8 @@ public class CouponController {
             throw new CommonException.InvalidRequest();
         }
         request.validatePagination();
-        
-        List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, request.getLimit(), request.getOffset());
+
+        List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
                 .map(history -> new CouponResponse(
                         history.getId(),

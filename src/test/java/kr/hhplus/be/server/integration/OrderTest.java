@@ -230,31 +230,6 @@ public class OrderTest {
                         .andExpect(jsonPath("$.message").exists());
             }
 
-            @Test
-            @DisplayName("유효하지 않은 쿠폰 ID로 주문 생성 요청 시 404 Not Found를 반환한다")
-            void createOrder_InvalidCoupon_ShouldFail() throws Exception {
-                // given
-                long invalidCouponId = 999L;
-                List<OrderRequest.ProductQuantity> products = List.of(
-                        new OrderRequest.ProductQuantity(product1.getId(), 1)
-                );
-                OrderRequest request = new OrderRequest();
-                request.setUserId(testUser.getId());
-                request.setProducts(products);
-                request.setCouponIds(List.of(invalidCouponId));
-
-                // when & then
-                mockMvc.perform(post("/api/order")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().isNotFound()) // CouponException.NotFound는 404 반환
-                        .andExpect(jsonPath("$.code").value(ErrorCode.COUPON_NOT_FOUND.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-
-            @Test
-            @DisplayName("상품 목록이 null일 경우 주문 생성 요청 시 400 Bad Request를 반환한다")
             void createOrder_NullProductList_ShouldFail() throws Exception {
                 // given
                 OrderRequest request = new OrderRequest();

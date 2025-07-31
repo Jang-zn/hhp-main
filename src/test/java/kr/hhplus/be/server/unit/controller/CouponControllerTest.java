@@ -9,8 +9,8 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
-import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
-import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
+import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,9 +33,9 @@ class CouponControllerTest {
 
     @Mock
     private IssueCouponFacade issueCouponFacade;
-    
+
     @Mock
-    private GetCouponListUseCase getCouponListUseCase;
+    private GetCouponListFacade getCouponListFacade;
     
     private CouponController couponController;
     
@@ -46,7 +46,7 @@ class CouponControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        couponController = new CouponController(issueCouponUseCase, getCouponListUseCase);
+        couponController = new CouponController(issueCouponFacade, getCouponListFacade);
         
         testUser = User.builder()
             .id(1L)
@@ -79,7 +79,7 @@ class CouponControllerTest {
         void issueCoupon_Success() {
             // given
             CouponRequest request = new CouponRequest(1L, 1L);
-            when(issueCouponUseCase.execute(1L, 1L)).thenReturn(testCouponHistory);
+            when(issueCouponFacade.issueCoupon(1L, 1L)).thenReturn(testCouponHistory);
             
             // when
             CouponResponse result = couponController.issueCoupon(request);
@@ -94,7 +94,7 @@ class CouponControllerTest {
             assertThat(result.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
             assertThat(result.usable()).isTrue();
             
-            verify(issueCouponUseCase).execute(1L, 1L);
+            verify(issueCouponFacade).issueCoupon(1L, 1L);
         }
         
         @Test
@@ -107,7 +107,7 @@ class CouponControllerTest {
             assertThatThrownBy(() -> couponController.issueCoupon(nullRequest))
                 .isInstanceOf(CommonException.InvalidRequest.class);
                 
-            verify(issueCouponUseCase, never()).execute(anyLong(), anyLong());
+            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
         }
         
         @Test
@@ -122,7 +122,7 @@ class CouponControllerTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("유효하지 않은 사용자 ID입니다.");
                 
-            verify(issueCouponUseCase, never()).execute(anyLong(), anyLong());
+            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
         }
         
         @Test
@@ -137,7 +137,7 @@ class CouponControllerTest {
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                 .isInstanceOf(CouponException.UserIdAndCouponIdRequired.class);
                 
-            verify(issueCouponUseCase, never()).execute(anyLong(), anyLong());
+            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
         }
         
         @Test
@@ -145,14 +145,14 @@ class CouponControllerTest {
         void issueCoupon_UseCaseException() {
             // given
             CouponRequest request = new CouponRequest(1L, 1L);
-            when(issueCouponUseCase.execute(1L, 1L))
+            when(issueCouponFacade.issueCoupon(1L, 1L))
                 .thenThrow(new CouponException.NotFound());
             
             // when & then
             assertThatThrownBy(() -> couponController.issueCoupon(request))
                 .isInstanceOf(CouponException.NotFound.class);
                 
-            verify(issueCouponUseCase).execute(1L, 1L);
+            verify(issueCouponFacade).issueCoupon(1L, 1L);
         }
     }
 
@@ -178,7 +178,7 @@ class CouponControllerTest {
                 .usedAt(LocalDateTime.now())
                 .build();
                 
-            when(getCouponListUseCase.execute(userId, 10, 0))
+            when(getCouponListFacade.getCouponList(userId, 10, 0))
                 .thenReturn(List.of(testCouponHistory, history2));
             
             // when
@@ -196,7 +196,7 @@ class CouponControllerTest {
             assertThat(result.get(1).historyStatus()).isEqualTo(CouponHistoryStatus.USED);
             assertThat(result.get(1).usable()).isFalse();
             
-            verify(getCouponListUseCase).execute(userId, 10, 0);
+            verify(getCouponListFacade).getCouponList(userId, 10, 0);
         }
         
         @Test
@@ -207,7 +207,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest();
             request.setLimit(10);
             request.setOffset(0);
-            when(getCouponListUseCase.execute(userId, 10, 0)).thenReturn(List.of());
+            when(getCouponListFacade.getCouponList(userId, 10, 0)).thenReturn(List.of());
             
             // when
             List<CouponResponse> result = couponController.getCoupons(userId, request);
@@ -216,7 +216,7 @@ class CouponControllerTest {
             assertThat(result).isNotNull();
             assertThat(result).hasSize(0);
             
-            verify(getCouponListUseCase).execute(userId, 10, 0);
+            verify(getCouponListFacade).getCouponList(userId, 10, 0);
         }
         
         @Test
@@ -232,7 +232,7 @@ class CouponControllerTest {
             assertThatThrownBy(() -> couponController.getCoupons(nullUserId, request))
                 .isInstanceOf(UserException.UserIdCannotBeNull.class);
                 
-            verify(getCouponListUseCase, never()).execute(anyLong(), anyInt(), anyInt());
+            verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
         }
         
         @Test
@@ -246,7 +246,7 @@ class CouponControllerTest {
             assertThatThrownBy(() -> couponController.getCoupons(userId, nullRequest))
                 .isInstanceOf(CommonException.InvalidRequest.class);
                 
-            verify(getCouponListUseCase, never()).execute(anyLong(), anyInt(), anyInt());
+            verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
         }
         
         @Test
@@ -257,7 +257,7 @@ class CouponControllerTest {
             CouponRequest request = new CouponRequest();
             request.setLimit(10);
             request.setOffset(0);
-            when(getCouponListUseCase.execute(userId, 10, 0))
+            when(getCouponListFacade.getCouponList(userId, 10, 0))
                 .thenThrow(new RuntimeException("Database connection error"));
             
             // when & then
@@ -265,7 +265,7 @@ class CouponControllerTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Database connection error");
                 
-            verify(getCouponListUseCase).execute(userId, 10, 0);
+            verify(getCouponListFacade).getCouponList(userId, 10, 0);
         }
     }
 }

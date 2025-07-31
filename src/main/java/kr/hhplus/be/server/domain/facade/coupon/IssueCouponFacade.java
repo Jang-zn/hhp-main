@@ -4,10 +4,12 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.exception.CommonException;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.stereotype.Component;
+
 @Component
+@Transactional
 public class IssueCouponFacade {
 
     private final IssueCouponUseCase issueCouponUseCase;

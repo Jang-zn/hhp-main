@@ -30,23 +30,14 @@ public class CreateOrderUseCase {
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
-    private final LockingPort lockingPort;
     private final CachePort cachePort;
 
-    @Transactional
     public Order execute(Long userId, Map<Long, Integer> productQuantities) {
         log.debug("주문 생성 요청: userId={}, products={}", userId, productQuantities);
         
-        // 파라미터 검증
-        validateParameters(userId, productQuantities);
-        
-        String lockKey = "order-creation-" + userId;
-        if (!lockingPort.acquireLock(lockKey)) {
-            log.warn("락 획득 실패: userId={}", userId);
-            throw new CommonException.ConcurrencyConflict();
-        }
-        
         try {
+            // 파라미터 검증
+            validateParameters(userId, productQuantities);
             // 사용자 조회
             User user = userRepositoryPort.findById(userId)
                     .orElseThrow(() -> {
@@ -104,11 +95,9 @@ public class CreateOrderUseCase {
             log.error("주문 생성 중 오류 발생: userId={}", userId, e);
             // 예약된 재고 롤백은 트랜잭션으로 처리됨
             throw e;
-        } finally {
-            lockingPort.releaseLock(lockKey);
         }
     }
-    
+
     private void validateParameters(Long userId, Map<Long, Integer> productQuantities) {
         if (userId == null) {
             throw new IllegalArgumentException("UserId cannot be null");

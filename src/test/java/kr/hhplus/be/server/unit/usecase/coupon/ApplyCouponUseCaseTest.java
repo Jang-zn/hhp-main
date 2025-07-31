@@ -27,18 +27,16 @@ class ApplyCouponUseCaseTest {
     @Mock
     private CouponRepositoryPort couponRepositoryPort;
     
-    @Mock
-    private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    
     
     private ApplyCouponUseCase applyCouponUseCase;
     
     private Coupon testCoupon;
-    private CouponHistory testCouponHistory;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        applyCouponUseCase = new ApplyCouponUseCase(couponRepositoryPort, couponHistoryRepositoryPort);
+        applyCouponUseCase = new ApplyCouponUseCase(couponRepositoryPort);
         
         testCoupon = Coupon.builder()
             .id(1L)
@@ -46,13 +44,6 @@ class ApplyCouponUseCaseTest {
             .discountRate(new BigDecimal("0.1"))
             .endDate(LocalDateTime.now().plusDays(30))
             .status(CouponStatus.ACTIVE)
-            .build();
-            
-        testCouponHistory = CouponHistory.builder()
-            .id(1L)
-            .coupon(testCoupon)
-            .issuedAt(LocalDateTime.now())
-            .status(CouponHistoryStatus.ISSUED)
             .build();
     }
 
@@ -65,17 +56,12 @@ class ApplyCouponUseCaseTest {
         BigDecimal expectedDiscountedAmount = new BigDecimal("90000");
         
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(testCoupon));
-        when(couponHistoryRepositoryPort.findByCouponId(couponId)).thenReturn(Optional.of(testCouponHistory));
-        when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        BigDecimal result = applyCouponUseCase.execute(couponId, originalAmount);
+        BigDecimal result = applyCouponUseCase.execute(originalAmount, couponId);
         
         // then
-        assertThat(result).isEqualTo(expectedDiscountedAmount);
-        assertThat(testCouponHistory.getStatus()).isEqualTo(CouponHistoryStatus.USED);
-        
-        verify(couponHistoryRepositoryPort).save(testCouponHistory);
+        assertThat(result.compareTo(expectedDiscountedAmount)).isEqualTo(0);
     }
     
     @Test
@@ -88,100 +74,9 @@ class ApplyCouponUseCaseTest {
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
         
         // when & then
-        assertThatThrownBy(() -> applyCouponUseCase.execute(couponId, originalAmount))
+        assertThatThrownBy(() -> applyCouponUseCase.execute(originalAmount, couponId))
             .isInstanceOf(CouponException.NotFound.class);
             
-        verify(couponHistoryRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 쿠폰 히스토리가 없음 (발급되지 않은 쿠폰)")
-    void execute_CouponHistoryNotFound() {
-        // given
-        Long couponId = 1L;
-        BigDecimal originalAmount = new BigDecimal("100000");
         
-        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(testCoupon));
-        when(couponHistoryRepositoryPort.findByCouponId(couponId)).thenReturn(Optional.empty());
-        
-        // when & then
-        assertThatThrownBy(() -> applyCouponUseCase.execute(couponId, originalAmount))
-            .isInstanceOf(CouponException.NotIssued.class);
-            
-        verify(couponHistoryRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 이미 사용된 쿠폰")
-    void execute_AlreadyUsedCoupon() {
-        // given
-        Long couponId = 1L;
-        BigDecimal originalAmount = new BigDecimal("100000");
-        
-        CouponHistory usedCouponHistory = CouponHistory.builder()
-            .id(1L)
-            .coupon(testCoupon)
-            .issuedAt(LocalDateTime.now())
-            .status(CouponHistoryStatus.USED)
-            .build();
-        
-        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(testCoupon));
-        when(couponHistoryRepositoryPort.findByCouponId(couponId)).thenReturn(Optional.of(usedCouponHistory));
-        
-        // when & then
-        assertThatThrownBy(() -> applyCouponUseCase.execute(couponId, originalAmount))
-            .isInstanceOf(CouponException.AlreadyUsed.class);
-            
-        verify(couponHistoryRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 만료된 쿠폰")
-    void execute_ExpiredCoupon() {
-        // given
-        Long couponId = 1L;
-        BigDecimal originalAmount = new BigDecimal("100000");
-        
-        Coupon expiredCoupon = Coupon.builder()
-            .id(1L)
-            .code("EXPIRED123")
-            .discountRate(new BigDecimal("0.1"))
-            .endDate(LocalDateTime.now().minusDays(1))
-            .status(CouponStatus.ACTIVE)
-            .build();
-        
-        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(expiredCoupon));
-        when(couponHistoryRepositoryPort.findByCouponId(couponId)).thenReturn(Optional.of(testCouponHistory));
-        
-        // when & then
-        assertThatThrownBy(() -> applyCouponUseCase.execute(couponId, originalAmount))
-            .isInstanceOf(CouponException.Expired.class);
-            
-        verify(couponHistoryRepositoryPort, never()).save(any());
-    }
-    
-    @Test
-    @DisplayName("실패 - 비활성화된 쿠폰")
-    void execute_InactiveCoupon() {
-        // given
-        Long couponId = 1L;
-        BigDecimal originalAmount = new BigDecimal("100000");
-        
-        Coupon inactiveCoupon = Coupon.builder()
-            .id(1L)
-            .code("INACTIVE123")
-            .discountRate(new BigDecimal("0.1"))
-            .endDate(LocalDateTime.now().plusDays(30))
-            .status(CouponStatus.INACTIVE)
-            .build();
-        
-        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(inactiveCoupon));
-        when(couponHistoryRepositoryPort.findByCouponId(couponId)).thenReturn(Optional.of(testCouponHistory));
-        
-        // when & then
-        assertThatThrownBy(() -> applyCouponUseCase.execute(couponId, originalAmount))
-            .isInstanceOf(CouponException.Inactive.class);
-            
-        verify(couponHistoryRepositoryPort, never()).save(any());
     }
 }

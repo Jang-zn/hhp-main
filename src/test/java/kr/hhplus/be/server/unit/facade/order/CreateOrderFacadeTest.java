@@ -4,6 +4,7 @@ import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +26,8 @@ class CreateOrderFacadeTest {
 
     @Mock
     private CreateOrderUseCase createOrderUseCase;
+    @Mock
+    private LockingPort lockingPort;
     
     private CreateOrderFacade createOrderFacade;
     
@@ -34,7 +37,7 @@ class CreateOrderFacadeTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        createOrderFacade = new CreateOrderFacade(createOrderUseCase);
+        createOrderFacade = new CreateOrderFacade(createOrderUseCase, lockingPort);
         
         testUser = User.builder()
             .id(1L)
@@ -72,6 +75,7 @@ class CreateOrderFacadeTest {
             Long userId = 1L;
             Map<Long, Integer> productQuantities = Map.of(1L, 2, 2L, 1);
             
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities)).thenReturn(testOrder);
             
             // when
@@ -83,7 +87,27 @@ class CreateOrderFacadeTest {
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(result.getTotalAmount()).isEqualTo(new BigDecimal("100000"));
             
+            verify(lockingPort).acquireLock(anyString());
+            verify(lockingPort).releaseLock(anyString());
             verify(createOrderUseCase).execute(userId, productQuantities);
+        }
+        
+        @Test
+        @DisplayName("실패 - 락 획득 실패로 인한 동시성 충돌")
+        void createOrder_ConcurrencyConflict() {
+            // given
+            Long userId = 1L;
+            Map<Long, Integer> productQuantities = Map.of(1L, 2);
+
+            when(lockingPort.acquireLock(anyString())).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> createOrderFacade.createOrder(userId, productQuantities))
+                .isInstanceOf(CommonException.ConcurrencyConflict.class);
+
+            verify(lockingPort).acquireLock(anyString());
+            verify(lockingPort, never()).releaseLock(anyString());
+            verify(createOrderUseCase, never()).execute(anyLong(), anyMap());
         }
         
         @Test
@@ -93,6 +117,7 @@ class CreateOrderFacadeTest {
             Long userId = 999L;
             Map<Long, Integer> productQuantities = Map.of(1L, 2);
             
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))
                 .thenThrow(new UserException.InvalidUser());
             
@@ -100,6 +125,8 @@ class CreateOrderFacadeTest {
             assertThatThrownBy(() -> createOrderFacade.createOrder(userId, productQuantities))
                 .isInstanceOf(UserException.InvalidUser.class);
                 
+            verify(lockingPort).acquireLock(anyString());
+            verify(lockingPort).releaseLock(anyString());
             verify(createOrderUseCase).execute(userId, productQuantities);
         }
         
@@ -110,6 +137,7 @@ class CreateOrderFacadeTest {
             Long userId = 1L;
             Map<Long, Integer> productQuantities = Map.of();
             
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))
                 .thenThrow(new OrderException.EmptyItems());
             
@@ -117,6 +145,8 @@ class CreateOrderFacadeTest {
             assertThatThrownBy(() -> createOrderFacade.createOrder(userId, productQuantities))
                 .isInstanceOf(OrderException.EmptyItems.class);
                 
+            verify(lockingPort).acquireLock(anyString());
+            verify(lockingPort).releaseLock(anyString());
             verify(createOrderUseCase).execute(userId, productQuantities);
         }
         
@@ -127,6 +157,7 @@ class CreateOrderFacadeTest {
             Long userId = 1L;
             Map<Long, Integer> productQuantities = Map.of(1L, 100);
             
+            when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))
                 .thenThrow(new ProductException.OutOfStock());
             
@@ -134,6 +165,8 @@ class CreateOrderFacadeTest {
             assertThatThrownBy(() -> createOrderFacade.createOrder(userId, productQuantities))
                 .isInstanceOf(ProductException.OutOfStock.class);
                 
+            verify(lockingPort).acquireLock(anyString());
+            verify(lockingPort).releaseLock(anyString());
             verify(createOrderUseCase).execute(userId, productQuantities);
         }
     }

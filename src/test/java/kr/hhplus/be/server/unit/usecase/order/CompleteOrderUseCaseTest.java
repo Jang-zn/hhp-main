@@ -12,6 +12,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +25,9 @@ class CompleteOrderUseCaseTest {
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
     
+    @Mock
+    private ProductRepositoryPort productRepositoryPort;
+    
     private CompleteOrderUseCase completeOrderUseCase;
     
     private User testUser;
@@ -32,7 +36,7 @@ class CompleteOrderUseCaseTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        completeOrderUseCase = new CompleteOrderUseCase(orderRepositoryPort);
+        completeOrderUseCase = new CompleteOrderUseCase(productRepositoryPort);
         
         testUser = User.builder()
             .id(1L)
@@ -44,6 +48,7 @@ class CompleteOrderUseCaseTest {
             .user(testUser)
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("50000"))
+            .items(List.of(OrderItem.builder().product(mock(Product.class, withSettings().extraInterfaces(Product.class).defaultAnswer(CALLS_REAL_METHODS))).quantity(1).build()))
             .build();
     }
 
@@ -51,40 +56,32 @@ class CompleteOrderUseCaseTest {
     @DisplayName("성공 - 주문 완료 처리")
     void execute_Success() {
         // given
-        Long orderId = 1L;
-        
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(testOrder));
-        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        Order result = completeOrderUseCase.execute(orderId);
+        completeOrderUseCase.execute(testOrder);
         
         // then
-        assertThat(result).isNotNull();
-        assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
-        verify(orderRepositoryPort).save(testOrder);
+        assertThat(testOrder.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        verify(productRepositoryPort, atLeastOnce()).save(any(Product.class));
     }
     
     @Test
     @DisplayName("실패 - 존재하지 않는 주문")
     void execute_OrderNotFound() {
         // given
-        Long orderId = 999L;
-        
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.empty());
+        Order nullOrder = null;
         
         // when & then
-        assertThatThrownBy(() -> completeOrderUseCase.execute(orderId))
-            .isInstanceOf(OrderException.NotFound.class);
+        assertThatThrownBy(() -> completeOrderUseCase.execute(nullOrder))
+            .isInstanceOf(NullPointerException.class);
             
-        verify(orderRepositoryPort, never()).save(any());
+        verify(productRepositoryPort, never()).save(any());
     }
     
     @Test
     @DisplayName("실패 - 이미 완료된 주문")
     void execute_AlreadyCompleted() {
         // given
-        Long orderId = 1L;
         
         Order completedOrder = Order.builder()
             .id(1L)
@@ -93,12 +90,10 @@ class CompleteOrderUseCaseTest {
             .totalAmount(new BigDecimal("50000"))
             .build();
         
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(completedOrder));
-        
         // when & then
-        assertThatThrownBy(() -> completeOrderUseCase.execute(orderId))
-            .isInstanceOf(OrderException.AlreadyCompleted.class);
+        assertThatThrownBy(() -> completeOrderUseCase.execute(testOrder))
+            .isInstanceOf(OrderException.AlreadyPaid.class);
             
-        verify(orderRepositoryPort, never()).save(any());
+        verify(productRepositoryPort, never()).save(any());
     }
 }

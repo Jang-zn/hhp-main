@@ -22,7 +22,6 @@ public class GetOrderListUseCase {
     private final OrderRepositoryPort orderRepositoryPort;
     private final CachePort cachePort;
     
-    @Transactional(readOnly = true)
     public List<Order> execute(Long userId) {
         log.debug("주문 목록 조회 요청: userId={}", userId);
         

@@ -21,11 +21,10 @@ import static org.mockito.Mockito.*;
 @DisplayName("DeductBalanceUseCase 단위 테스트")
 class DeductBalanceUseCaseTest {
 
-    @Mock
-    private BalanceRepositoryPort balanceRepositoryPort;
+    
     
     @Mock
-    private UserRepositoryPort userRepositoryPort;
+    private BalanceRepositoryPort balanceRepositoryPort;
     
     private DeductBalanceUseCase deductBalanceUseCase;
     
@@ -35,7 +34,7 @@ class DeductBalanceUseCaseTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        deductBalanceUseCase = new DeductBalanceUseCase(balanceRepositoryPort, userRepositoryPort);
+        deductBalanceUseCase = new DeductBalanceUseCase(balanceRepositoryPort);
         
         testUser = User.builder()
             .id(1L)
@@ -53,53 +52,30 @@ class DeductBalanceUseCaseTest {
     @DisplayName("성공 - 잔액 차감")
     void execute_SufficientBalance_Success() {
         // given
-        Long userId = 1L;
         BigDecimal deductAmount = new BigDecimal("50000");
         BigDecimal expectedRemainingAmount = new BigDecimal("950000");
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        BigDecimal result = deductBalanceUseCase.execute(userId, deductAmount);
+        Balance result = deductBalanceUseCase.execute(testUser, deductAmount);
         
         // then
-        assertThat(result).isEqualTo(expectedRemainingAmount);
-        verify(balanceRepositoryPort).save(testBalance);
         assertThat(testBalance.getAmount()).isEqualTo(expectedRemainingAmount);
-    }
-    
-    @Test
-    @DisplayName("실패 - 사용자를 찾을 수 없음")
-    void execute_UserNotFound_ThrowsException() {
-        // given
-        Long userId = 999L;
-        BigDecimal deductAmount = new BigDecimal("50000");
-        
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
-        
-        // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(userId, deductAmount))
-            .isInstanceOf(UserException.UserNotFound.class);
-            
-        verify(balanceRepositoryPort, never()).findByUserId(any());
-        verify(balanceRepositoryPort, never()).save(any());
     }
     
     @Test
     @DisplayName("실패 - 잔액 정보를 찾을 수 없음")
     void execute_BalanceNotFound_ThrowsException() {
         // given
-        Long userId = 1L;
         BigDecimal deductAmount = new BigDecimal("50000");
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.empty());
+        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.empty());
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(userId, deductAmount))
-            .isInstanceOf(BalanceException.BalanceNotFound.class);
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
+            .isInstanceOf(BalanceException.NotFound.class);
             
         verify(balanceRepositoryPort, never()).save(any());
     }
@@ -108,14 +84,12 @@ class DeductBalanceUseCaseTest {
     @DisplayName("실패 - 잔액 부족")
     void execute_InsufficientBalance_ThrowsException() {
         // given
-        Long userId = 1L;
         BigDecimal deductAmount = new BigDecimal("2000000"); // 잔액보다 큰 금액
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(userId, deductAmount))
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
             .isInstanceOf(BalanceException.InsufficientBalance.class);
             
         verify(balanceRepositoryPort, never()).save(any());
@@ -127,14 +101,12 @@ class DeductBalanceUseCaseTest {
     @DisplayName("실패 - 음수 금액")
     void execute_NegativeAmount_ThrowsException() {
         // given
-        Long userId = 1L;
         BigDecimal deductAmount = new BigDecimal("-1000");
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(userId, deductAmount))
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
         verify(balanceRepositoryPort, never()).save(any());

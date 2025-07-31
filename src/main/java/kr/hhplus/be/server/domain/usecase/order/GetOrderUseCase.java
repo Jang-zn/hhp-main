@@ -22,7 +22,6 @@ public class GetOrderUseCase {
     private final OrderRepositoryPort orderRepositoryPort;
     private final CachePort cachePort;
     
-    @Transactional(readOnly = true)
     public Optional<Order> execute(Long userId, Long orderId) {
         log.debug("주문 조회 요청: userId={}, orderId={}", userId, orderId);
         
