@@ -132,7 +132,7 @@ public class OrderTest {
                         .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                         .andExpect(jsonPath("$.data.userId").value(testUser.getId()))
                         .andExpect(jsonPath("$.data.status").value("PENDING"))
-                        .andExpect(jsonPath("$.data.items[0].name").value(product1.getName()));
+                        .andExpect(jsonPath("$.data.items.length()").value(2));
             }
 
             @Test
