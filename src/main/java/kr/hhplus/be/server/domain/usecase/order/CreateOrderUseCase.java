@@ -3,7 +3,6 @@ package kr.hhplus.be.server.domain.usecase.order;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
@@ -38,12 +37,11 @@ public class CreateOrderUseCase {
         try {
             // 파라미터 검증
             validateParameters(userId, productQuantities);
-            // 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("존재하지 않는 사용자: userId={}", userId);
-                        return new UserException.NotFound();
-                    });
+            // 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                log.warn("존재하지 않는 사용자: userId={}", userId);
+                throw new UserException.NotFound();
+            }
 
             // 상품별 재고 예약 및 주문 아이템 생성
             List<OrderItem> orderItems = productQuantities.entrySet().stream()
@@ -65,7 +63,7 @@ public class CreateOrderUseCase {
                                 productId, quantity, product.getStock() - product.getReservedStock());
                         
                         return OrderItem.builder()
-                                .product(product)
+                                .productId(productId)
                                 .quantity(quantity)
                                 .price(product.getPrice())
                                 .build();
@@ -78,9 +76,8 @@ public class CreateOrderUseCase {
 
             // 주문 생성
             Order order = Order.builder()
-                    .user(user)
+                    .userId(userId)
                     .totalAmount(totalAmount)
-                    .items(orderItems)
                     .build();
 
             Order savedOrder = orderRepositoryPort.save(order);

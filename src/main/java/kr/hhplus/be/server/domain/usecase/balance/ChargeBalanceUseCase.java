@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
@@ -20,15 +19,15 @@ public class ChargeBalanceUseCase {
     private static final BigDecimal MIN_CHARGE_AMOUNT = new BigDecimal("1000");
     private static final BigDecimal MAX_CHARGE_AMOUNT = new BigDecimal("1000000");
     
-    public Balance execute(User user, BigDecimal amount) {
-        log.info("잔액 충전 요청: userId={}, amount={}", user.getId(), amount);
+    public Balance execute(Long userId, BigDecimal amount) {
+        log.info("잔액 충전 요청: userId={}, amount={}", userId, amount);
         
         // 입력 값 검증
         validateAmount(amount);
         
         // 기존 잔액 조회 또는 새 잔액 생성
-        Balance balance = balanceRepositoryPort.findByUser(user)
-                .orElse(Balance.builder().user(user).amount(BigDecimal.ZERO).build());
+        Balance balance = balanceRepositoryPort.findByUserId(userId)
+                .orElse(Balance.builder().userId(userId).amount(BigDecimal.ZERO).build());
         
         BigDecimal originalAmount = balance.getAmount();
         
@@ -39,7 +38,7 @@ public class ChargeBalanceUseCase {
         Balance savedBalance = balanceRepositoryPort.save(balance);
         
         log.info("잔액 충전 완료: userId={}, 이전잔액={}, 충전금액={}, 현재잔액={}", 
-                user.getId(), originalAmount, amount, savedBalance.getAmount());
+                userId, originalAmount, amount, savedBalance.getAmount());
         
         return savedBalance;
     }
