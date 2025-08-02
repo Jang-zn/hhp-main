@@ -14,13 +14,9 @@ import java.math.BigDecimal;
 @Table(name = "order_item")
 public class OrderItem extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    private Order order;
+    private Long orderId;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
-    private Product product;
+    private Long productId;
 
     private int quantity;
 
