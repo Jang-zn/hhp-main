@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
