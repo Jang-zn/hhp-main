@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.adapter.storage.jpa;
 
 import kr.hhplus.be.server.domain.entity.Order;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -29,20 +28,20 @@ public class OrderJpaRepository implements OrderRepositoryPort {
     }
 
     @Override
-    public List<Order> findByUser(User user) {
+    public List<Order> findByUserId(Long userId) {
         return entityManager.createQuery(
-            "SELECT o FROM Order o WHERE o.user = :user ORDER BY o.createdAt DESC", Order.class)
-            .setParameter("user", user)
+            "SELECT o FROM Order o WHERE o.userId = :userId ORDER BY o.createdAt DESC", Order.class)
+            .setParameter("userId", userId)
             .getResultList();
     }
 
     @Override
-    public Optional<Order> findByIdAndUser(Long orderId, User user) {
+    public Optional<Order> findByIdAndUserId(Long orderId, Long userId) {
         try {
             Order order = entityManager.createQuery(
-                "SELECT o FROM Order o WHERE o.id = :orderId AND o.user = :user", Order.class)
+                "SELECT o FROM Order o WHERE o.id = :orderId AND o.userId = :userId", Order.class)
                 .setParameter("orderId", orderId)
-                .setParameter("user", user)
+                .setParameter("userId", userId)
                 .getSingleResult();
             return Optional.of(order);
         } catch (Exception e) {

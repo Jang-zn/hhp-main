@@ -2,7 +2,6 @@ package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
-import kr.hhplus.be.server.domain.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -42,14 +41,11 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     }
 
     @Override
-    public Optional<Balance> findByUser(@NotNull User user) {
-        if (user == null) {
+    public Optional<Balance> findByUserId(@NotNull Long userId) {
+        if (userId == null) {
             throw new BalanceException.UserIdAndAmountRequired();
         }
-        if (user.getId() == null) {
-            throw new BalanceException.UserIdAndAmountRequired();
-        }
-        return Optional.ofNullable(userBalances.get(user.getId()));
+        return Optional.ofNullable(userBalances.get(userId));
     }
 
     @Override
@@ -57,10 +53,7 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
         if (balance == null) {
             throw new BalanceException.BalanceCannotBeNull();
         }
-        if (balance.getUser() == null) {
-            throw new BalanceException.UserIdAndAmountRequired();
-        }
-        if (balance.getUser().getId() == null) {
+        if (balance.getUserId() == null) {
             throw new BalanceException.UserIdAndAmountRequired();
         }
         if (balance.getAmount() == null) {
@@ -70,7 +63,7 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
             throw new BalanceException.InvalidAmountPositive();
         }
         
-        Long userId = balance.getUser().getId();
+        Long userId = balance.getUserId();
         
         // 동기화 블록을 사용하여 두 맵을 원자적으로 업데이트
         synchronized (this) {
