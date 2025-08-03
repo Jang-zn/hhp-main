@@ -74,8 +74,8 @@ class CouponHistoryJpaRepositoryTest {
             User user = User.builder().id(1L).name("테스트 사용자").build();
             Coupon coupon = Coupon.builder().id(1L).code("TEST_COUPON").build();
             CouponHistory couponHistory = CouponHistory.builder()
-                    .user(user)
-                    .coupon(coupon)
+                    .userId(user.getId())
+                    .couponId(coupon.getId())
                     .status(CouponHistoryStatus.ISSUED)
                     .issuedAt(LocalDateTime.now())
                     .build();
@@ -99,8 +99,8 @@ class CouponHistoryJpaRepositoryTest {
             Coupon coupon = Coupon.builder().id(1L).code("TEST_COUPON").build();
             CouponHistory couponHistory = CouponHistory.builder()
                     .id(1L)
-                    .user(user)
-                    .coupon(coupon)
+                    .userId(user.getId())
+                    .couponId(coupon.getId())
                     .status(CouponHistoryStatus.USED)
                     .issuedAt(LocalDateTime.now())
                     .usedAt(LocalDateTime.now())
@@ -125,8 +125,8 @@ class CouponHistoryJpaRepositoryTest {
             User user = User.builder().id(1L).build();
             Coupon coupon = Coupon.builder().id(1L).build();
             CouponHistory couponHistory = CouponHistory.builder()
-                    .user(user)
-                    .coupon(coupon)
+                    .userId(user.getId())
+                    .couponId(coupon.getId())
                     .status(status)
                     .issuedAt(LocalDateTime.now())
                     .build();
@@ -154,12 +154,12 @@ class CouponHistoryJpaRepositoryTest {
             Coupon coupon = Coupon.builder().id(1L).build();
 
             when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
-            when(countQuery.setParameter("user", user)).thenReturn(countQuery);
-            when(countQuery.setParameter("coupon", coupon)).thenReturn(countQuery);
+            when(countQuery.setParameter("userId", user.getId())).thenReturn(countQuery);
+            when(countQuery.setParameter("couponId", coupon.getId())).thenReturn(countQuery);
             when(countQuery.getSingleResult()).thenReturn(1L);
 
             // when
-            boolean exists = couponHistoryJpaRepository.existsByUserAndCoupon(user, coupon);
+            boolean exists = couponHistoryJpaRepository.existsByUserIdAndCouponId(user.getId(), coupon.getId());
 
             // then
             assertThat(exists).isTrue();
@@ -173,12 +173,12 @@ class CouponHistoryJpaRepositoryTest {
             Coupon coupon = Coupon.builder().id(1L).build();
 
             when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
-            when(countQuery.setParameter("user", user)).thenReturn(countQuery);
-            when(countQuery.setParameter("coupon", coupon)).thenReturn(countQuery);
+            when(countQuery.setParameter("userId", user.getId())).thenReturn(countQuery);
+            when(countQuery.setParameter("couponId", coupon.getId())).thenReturn(countQuery);
             when(countQuery.getSingleResult()).thenReturn(0L);
 
             // when
-            boolean exists = couponHistoryJpaRepository.existsByUserAndCoupon(user, coupon);
+            boolean exists = couponHistoryJpaRepository.existsByUserIdAndCouponId(user.getId(), coupon.getId());
 
             // then
             assertThat(exists).isFalse();
@@ -239,13 +239,13 @@ class CouponHistoryJpaRepositoryTest {
             List<CouponHistory> expectedHistories = createCouponHistories(5);
 
             when(entityManager.createQuery(anyString(), eq(CouponHistory.class))).thenReturn(couponHistoryQuery);
-            when(couponHistoryQuery.setParameter("user", user)).thenReturn(couponHistoryQuery);
+            when(couponHistoryQuery.setParameter("userId", user.getId())).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.setMaxResults(limit)).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.setFirstResult(offset)).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.getResultList()).thenReturn(expectedHistories);
 
             // when
-            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserWithPagination(user, limit, offset);
+            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserIdWithPagination(user.getId(), limit, offset);
 
             // then
             assertThat(histories).hasSize(5);
@@ -261,13 +261,13 @@ class CouponHistoryJpaRepositoryTest {
             int offset = 0;
 
             when(entityManager.createQuery(anyString(), eq(CouponHistory.class))).thenReturn(couponHistoryQuery);
-            when(couponHistoryQuery.setParameter("user", user)).thenReturn(couponHistoryQuery);
+            when(couponHistoryQuery.setParameter("userId", user.getId())).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.setMaxResults(limit)).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.setFirstResult(offset)).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.getResultList()).thenReturn(new ArrayList<>());
 
             // when
-            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserWithPagination(user, limit, offset);
+            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserIdWithPagination(user.getId(), limit, offset);
 
             // then
             assertThat(histories).isEmpty();
@@ -287,12 +287,12 @@ class CouponHistoryJpaRepositoryTest {
             List<CouponHistory> expectedHistories = createCouponHistoriesWithStatus(3, status);
 
             when(entityManager.createQuery(anyString(), eq(CouponHistory.class))).thenReturn(couponHistoryQuery);
-            when(couponHistoryQuery.setParameter("user", user)).thenReturn(couponHistoryQuery);
+            when(couponHistoryQuery.setParameter("userId", user.getId())).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.setParameter("status", status)).thenReturn(couponHistoryQuery);
             when(couponHistoryQuery.getResultList()).thenReturn(expectedHistories);
 
             // when
-            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserAndStatus(user, status);
+            List<CouponHistory> histories = couponHistoryJpaRepository.findByUserIdAndStatus(user.getId(), status);
 
             // then
             assertThat(histories).hasSize(3);
@@ -339,13 +339,13 @@ class CouponHistoryJpaRepositoryTest {
             long expectedCount = 5L;
 
             when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
-            when(countQuery.setParameter("user", user)).thenReturn(countQuery);
+            when(countQuery.setParameter("userId", user.getId())).thenReturn(countQuery);
             when(countQuery.setParameter("status", CouponHistoryStatus.ISSUED)).thenReturn(countQuery);
             when(countQuery.setParameter(eq("now"), any(LocalDateTime.class))).thenReturn(countQuery);
             when(countQuery.getSingleResult()).thenReturn(expectedCount);
 
             // when
-            long count = couponHistoryJpaRepository.countUsableCouponsByUser(user);
+            long count = couponHistoryJpaRepository.countUsableCouponsByUserId(user.getId());
 
             // then
             assertThat(count).isEqualTo(expectedCount);
@@ -358,13 +358,13 @@ class CouponHistoryJpaRepositoryTest {
             User user = User.builder().id(1L).build();
 
             when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
-            when(countQuery.setParameter("user", user)).thenReturn(countQuery);
+            when(countQuery.setParameter("userId", user.getId())).thenReturn(countQuery);
             when(countQuery.setParameter("status", CouponHistoryStatus.ISSUED)).thenReturn(countQuery);
             when(countQuery.setParameter(eq("now"), any(LocalDateTime.class))).thenReturn(countQuery);
             when(countQuery.getSingleResult()).thenReturn(0L);
 
             // when
-            long count = couponHistoryJpaRepository.countUsableCouponsByUser(user);
+            long count = couponHistoryJpaRepository.countUsableCouponsByUserId(user.getId());
 
             // then
             assertThat(count).isZero();
@@ -402,8 +402,8 @@ class CouponHistoryJpaRepositoryTest {
                         startLatch.await();
                         
                         CouponHistory history = CouponHistory.builder()
-                                .user(user)
-                                .coupon(coupon)
+                                .userId(user.getId())
+                                .couponId(coupon.getId())
                                 .status(CouponHistoryStatus.ISSUED)
                                 .issuedAt(LocalDateTime.now())
                                 .build();
@@ -438,8 +438,8 @@ class CouponHistoryJpaRepositoryTest {
         void save_PersistException() {
             // given
             CouponHistory history = CouponHistory.builder()
-                    .user(User.builder().id(1L).build())
-                    .coupon(Coupon.builder().id(1L).build())
+                    .userId(1L)
+                    .couponId(1L)
                     .status(CouponHistoryStatus.ISSUED)
                     .build();
 
@@ -500,7 +500,7 @@ class CouponHistoryJpaRepositoryTest {
                     .build();
             histories.add(CouponHistory.builder()
                     .id((long) (i + 1))
-                    .coupon(expiredCoupon)
+                    .couponId(expiredCoupon.getId())
                     .status(status)
                     .issuedAt(now.minusDays(60))
                     .build());

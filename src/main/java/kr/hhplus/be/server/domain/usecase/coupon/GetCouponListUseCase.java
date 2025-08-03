@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
@@ -30,18 +29,17 @@ public class GetCouponListUseCase {
         validateInputs(userId, limit, offset);
         
         try {
-            // 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("사용자 없음: userId={}", userId);
-                        return new UserException.NotFound();
-                    });
+            // 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                log.warn("사용자 없음: userId={}", userId);
+                throw new UserException.NotFound();
+            }
             
             // 캐시 키 생성
             String cacheKey = "coupon_list_" + userId + "_" + limit + "_" + offset;
             
             // 캐시에서 조회 시도
-            List<CouponHistory> result = getCachedCouponList(cacheKey, user, limit, offset);
+            List<CouponHistory> result = getCachedCouponList(cacheKey, userId, limit, offset);
             
             log.debug("쿠폰 목록 조회 완료: userId={}, count={}", userId, result.size());
             
@@ -77,17 +75,17 @@ public class GetCouponListUseCase {
         }
     }
     
-    private List<CouponHistory> getCachedCouponList(String cacheKey, User user, int limit, int offset) {
+    private List<CouponHistory> getCachedCouponList(String cacheKey, Long userId, int limit, int offset) {
         try {
             return cachePort.get(cacheKey, List.class, () -> {
-                List<CouponHistory> couponHistories = couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset);
-                log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", user.getId(), couponHistories.size());
+                List<CouponHistory> couponHistories = couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
+                log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
                 return couponHistories;
             });
         } catch (Exception e) {
-            log.warn("캐시 조회 실패, 직접 DB 조회: userId={}, error={}", user.getId(), e.getMessage());
+            log.warn("캐시 조회 실패, 직접 DB 조회: userId={}, error={}", userId, e.getMessage());
             // 캐시 실패 시 직접 DB에서 조회
-            return couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset);
+            return couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
         }
     }
 } 

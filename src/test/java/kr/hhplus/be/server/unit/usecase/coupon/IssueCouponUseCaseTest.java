@@ -79,7 +79,7 @@ class IssueCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
+        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
         when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -88,8 +88,8 @@ class IssueCouponUseCaseTest {
 
         // then
         assertThat(result).isNotNull();
-        assertThat(result.getUser()).isEqualTo(user);
-        assertThat(result.getCoupon()).isEqualTo(coupon);
+        assertThat(result.getUserId()).isEqualTo(userId);
+        assertThat(result.getCouponId()).isEqualTo(couponId);
         assertThat(result.getIssuedAt()).isNotNull();
         
         verify(couponRepositoryPort).save(coupon);
@@ -118,7 +118,7 @@ class IssueCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(false);
+        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
         when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -127,7 +127,7 @@ class IssueCouponUseCaseTest {
 
         // then
         assertThat(result).isNotNull();
-        assertThat(result.getCoupon().getCode()).isEqualTo(couponCode);
+        assertThat(result.getCouponId()).isEqualTo(couponId);
         
         
     }
@@ -263,7 +263,7 @@ class IssueCouponUseCaseTest {
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)).thenReturn(true);
+        when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(true);
         
         // when & then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))

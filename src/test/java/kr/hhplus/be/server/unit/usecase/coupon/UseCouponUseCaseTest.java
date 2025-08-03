@@ -4,7 +4,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.entity.Coupon;
-import kr.hhplus.be.server.domain.entity.OrderStatus;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
@@ -294,8 +294,8 @@ class UseCouponUseCaseTest {
 
         return CouponHistory.builder()
                 .id(id)
-                .user(user)
-                .coupon(coupon)
+                .userId(user.getId())
+                .couponId(coupon.getId())
                 .issuedAt(LocalDateTime.now())
                 .status(CouponHistoryStatus.ISSUED)
                 .build();
