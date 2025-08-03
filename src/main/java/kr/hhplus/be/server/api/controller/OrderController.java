@@ -7,14 +7,19 @@ import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.docs.annotation.OrderApiDocs;
 import kr.hhplus.be.server.domain.entity.Order;
+import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Payment;
+import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.OrderException;
+import kr.hhplus.be.server.domain.exception.ProductException;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
 import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +44,8 @@ public class OrderController {
     private final PayOrderFacade payOrderFacade;
     private final GetOrderFacade getOrderFacade;
     private final GetOrderListFacade getOrderListFacade;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
+    private final ProductRepositoryPort productRepositoryPort;
 
     @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
@@ -75,18 +82,11 @@ public class OrderController {
         Order order = createOrderFacade.createOrder(request.getUserId(), productQuantities);
         
         // OrderItem들을 OrderItemResponse로 변환
-        List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
-                .map(item -> new OrderResponse.OrderItemResponse(
-                        item.getProduct().getId(),
-                        item.getProduct().getName(),
-                        item.getQuantity(),
-                        item.getProduct().getPrice()
-                ))
-                .collect(Collectors.toList());
+        List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
         
         return new OrderResponse(
                 order.getId(),
-                order.getUser().getId(),
+                order.getUserId(),
                 order.getStatus().name(),
                 order.getTotalAmount(),
                 order.getCreatedAt(),
@@ -111,7 +111,7 @@ public class OrderController {
         
         return new PaymentResponse(
                 payment.getId(),
-                payment.getOrder().getId(),
+                payment.getOrderId(),
                 payment.getStatus().name(),
                 payment.getAmount(),
                 payment.getCreatedAt()  // paidAt 대신 createdAt 사용
@@ -133,18 +133,11 @@ public class OrderController {
         Order order = getOrderFacade.getOrder(orderId, userId);
         
         // OrderItem들을 OrderItemResponse로 변환
-        List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
-                .map(item -> new OrderResponse.OrderItemResponse(
-                        item.getProduct().getId(),
-                        item.getProduct().getName(),
-                        item.getQuantity(),
-                        item.getProduct().getPrice()
-                ))
-                .collect(Collectors.toList());
+        List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
         
         return new OrderResponse(
                 order.getId(),
-                order.getUser().getId(),
+                order.getUserId(),
                 order.getStatus().name(),
                 order.getTotalAmount(),
                 order.getCreatedAt(),
@@ -164,22 +157,37 @@ public class OrderController {
         return orders.stream()
                 .map(order -> {
                     // OrderItem들을 OrderItemResponse로 변환
-                    List<OrderResponse.OrderItemResponse> itemResponses = order.getItems().stream()
-                            .map(item -> new OrderResponse.OrderItemResponse(
-                                    item.getProduct().getId(),
-                                    item.getProduct().getName(),
-                                    item.getQuantity(),
-                                    item.getProduct().getPrice()
-                            ))
-                            .collect(Collectors.toList());
+                    List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
                     
                     return new OrderResponse(
                             order.getId(),
-                            order.getUser().getId(),
+                            order.getUserId(),
                             order.getStatus().name(),
                             order.getTotalAmount(),
                             order.getCreatedAt(),
                             itemResponses
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * OrderItem들을 OrderItemResponse로 변환하는 helper 메소드
+     */
+    private List<OrderResponse.OrderItemResponse> getOrderItemResponses(Long orderId) {
+        List<OrderItem> orderItems = orderItemRepositoryPort.findByOrderId(orderId);
+        
+        return orderItems.stream()
+                .map(orderItem -> {
+                    // Product 정보 조회
+                    Product product = productRepositoryPort.findById(orderItem.getProductId())
+                            .orElseThrow(() -> new ProductException.NotFound());
+                    
+                    return new OrderResponse.OrderItemResponse(
+                            orderItem.getProductId(),
+                            product.getName(),
+                            orderItem.getQuantity(),
+                            orderItem.getPrice()
                     );
                 })
                 .collect(Collectors.toList());

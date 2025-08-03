@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -37,6 +38,9 @@ class CreateOrderUseCaseTest {
     private OrderRepositoryPort orderRepositoryPort;
     
     @Mock
+    private OrderItemRepositoryPort orderItemRepositoryPort;
+    
+    @Mock
     private EventLogRepositoryPort eventLogRepositoryPort;
     @Mock
     private CachePort cachePort;
@@ -54,6 +58,7 @@ class CreateOrderUseCaseTest {
             userRepositoryPort,
             productRepositoryPort, 
             orderRepositoryPort,
+            orderItemRepositoryPort,
             eventLogRepositoryPort,
             cachePort
         );

@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.facade.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
@@ -51,16 +52,15 @@ class CreateOrderFacadeTest {
             .build();
             
         OrderItem orderItem = OrderItem.builder()
-            .product(product)
+            .productId(product.getId())
             .quantity(2)
             .build();
             
         testOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("100000"))
-            .items(List.of(orderItem))
             .build();
     }
 
@@ -83,7 +83,7 @@ class CreateOrderFacadeTest {
             
             // then
             assertThat(result).isNotNull();
-            assertThat(result.getUser().getId()).isEqualTo(userId);
+            assertThat(result.getUserId()).isEqualTo(userId);
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(result.getTotalAmount()).isEqualTo(new BigDecimal("100000"));
             

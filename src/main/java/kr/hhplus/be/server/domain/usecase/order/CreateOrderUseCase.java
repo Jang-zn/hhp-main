@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -28,6 +29,7 @@ public class CreateOrderUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final CachePort cachePort;
 
@@ -81,8 +83,20 @@ public class CreateOrderUseCase {
                     .build();
 
             Order savedOrder = orderRepositoryPort.save(order);
-            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}", 
-                    savedOrder.getId(), userId, totalAmount);
+            
+            // OrderItem들에 orderId 설정 후 저장
+            orderItems.forEach(item -> {
+                OrderItem orderItemWithOrderId = OrderItem.builder()
+                        .orderId(savedOrder.getId())
+                        .productId(item.getProductId())
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .build();
+                orderItemRepositoryPort.save(orderItemWithOrderId);
+            });
+            
+            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
+                    savedOrder.getId(), userId, totalAmount, orderItems.size());
             
             // 캐시 무효화
             invalidateUserRelatedCache(userId);

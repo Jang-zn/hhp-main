@@ -56,7 +56,7 @@ class OrderJpaRepositoryTest {
             // given
             User user = User.builder().id(1L).name("테스트 사용자").build();
             Order order = Order.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("10000"))
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -78,7 +78,7 @@ class OrderJpaRepositoryTest {
             User user = User.builder().id(1L).build();
             Order order = Order.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("15000"))
                     .build();
 
@@ -103,21 +103,21 @@ class OrderJpaRepositoryTest {
             // given
             User user = User.builder().id(1L).build();
             List<Order> expectedOrders = Arrays.asList(
-                    Order.builder().id(1L).user(user).totalAmount(new BigDecimal("10000")).build(),
-                    Order.builder().id(2L).user(user).totalAmount(new BigDecimal("20000")).build()
+                    Order.builder().id(1L).userId(user.getId()).totalAmount(new BigDecimal("10000")).build(),
+                    Order.builder().id(2L).userId(user.getId()).totalAmount(new BigDecimal("20000")).build()
             );
 
             when(entityManager.createQuery(anyString(), eq(Order.class))).thenReturn(orderQuery);
-            when(orderQuery.setParameter("user", user)).thenReturn(orderQuery);
+            when(orderQuery.setParameter("userId", user.getId())).thenReturn(orderQuery);
             when(orderQuery.getResultList()).thenReturn(expectedOrders);
 
             // when
-            List<Order> orders = orderJpaRepository.findByUser(user);
+            List<Order> orders = orderJpaRepository.findByUserId(user.getId());
 
             // then
             assertThat(orders).hasSize(2);
-            assertThat(orders).allMatch(o -> o.getUser().equals(user));
-            verify(entityManager).createQuery("SELECT o FROM Order o WHERE o.user = :user ORDER BY o.createdAt DESC", Order.class);
+            assertThat(orders).allMatch(o -> o.getUserId().equals(user.getId()));
+            verify(entityManager).createQuery("SELECT o FROM Order o WHERE o.userId = :userId ORDER BY o.createdAt DESC", Order.class);
         }
 
         @Test
@@ -127,11 +127,11 @@ class OrderJpaRepositoryTest {
             User user = User.builder().id(999L).build();
 
             when(entityManager.createQuery(anyString(), eq(Order.class))).thenReturn(orderQuery);
-            when(orderQuery.setParameter("user", user)).thenReturn(orderQuery);
+            when(orderQuery.setParameter("userId", user.getId())).thenReturn(orderQuery);
             when(orderQuery.getResultList()).thenReturn(Arrays.asList());
 
             // when
-            List<Order> orders = orderJpaRepository.findByUser(user);
+            List<Order> orders = orderJpaRepository.findByUserId(user.getId());
 
             // then
             assertThat(orders).isEmpty();
@@ -150,17 +150,17 @@ class OrderJpaRepositoryTest {
             User user = User.builder().id(1L).build();
             Order expectedOrder = Order.builder()
                     .id(orderId)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("10000"))
                     .build();
 
             when(entityManager.createQuery(anyString(), eq(Order.class))).thenReturn(orderQuery);
             when(orderQuery.setParameter("orderId", orderId)).thenReturn(orderQuery);
-            when(orderQuery.setParameter("user", user)).thenReturn(orderQuery);
+            when(orderQuery.setParameter("userId", user.getId())).thenReturn(orderQuery);
             when(orderQuery.getSingleResult()).thenReturn(expectedOrder);
 
             // when
-            Optional<Order> foundOrder = orderJpaRepository.findByIdAndUser(orderId, user);
+            Optional<Order> foundOrder = orderJpaRepository.findByIdAndUserId(orderId, user.getId());
 
             // then
             assertThat(foundOrder).isPresent();
@@ -176,11 +176,11 @@ class OrderJpaRepositoryTest {
 
             when(entityManager.createQuery(anyString(), eq(Order.class))).thenReturn(orderQuery);
             when(orderQuery.setParameter("orderId", orderId)).thenReturn(orderQuery);
-            when(orderQuery.setParameter("user", user)).thenReturn(orderQuery);
+            when(orderQuery.setParameter("userId", user.getId())).thenReturn(orderQuery);
             when(orderQuery.getSingleResult()).thenThrow(new RuntimeException());
 
             // when
-            Optional<Order> foundOrder = orderJpaRepository.findByIdAndUser(orderId, user);
+            Optional<Order> foundOrder = orderJpaRepository.findByIdAndUserId(orderId, user.getId());
 
             // then
             assertThat(foundOrder).isEmpty();
@@ -235,7 +235,7 @@ class OrderJpaRepositoryTest {
         void save_PersistException() {
             // given
             Order order = Order.builder()
-                    .user(User.builder().id(1L).build())
+                    .userId(1L)
                     .totalAmount(new BigDecimal("10000"))
                     .build();
 

@@ -80,17 +80,17 @@ class GetOrderListUseCaseTest {
             List<Order> cachedOrders = List.of(
                     Order.builder()
                             .id(1L)
-                            .user(user)
+                            .userId(user.getId())
                             .totalAmount(new BigDecimal("120000"))
                             .build(),
                     Order.builder()
                             .id(2L)
-                            .user(user)
+                            .userId(user.getId())
                             .totalAmount(new BigDecimal("80000"))
                             .build()
             );
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                     .thenReturn(cachedOrders);
 
@@ -103,9 +103,9 @@ class GetOrderListUseCaseTest {
             assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
             assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
             
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
-            verify(orderRepositoryPort, never()).findByUser(any(User.class)); // 캐시에서 조회되므로 DB 호출 없음
+            verify(orderRepositoryPort, never()).findByUserId(any(Long.class)); // 캐시에서 조회되므로 DB 호출 없음
         }
         
         @Test
@@ -122,15 +122,15 @@ class GetOrderListUseCaseTest {
             List<Order> dbOrders = List.of(
                     Order.builder()
                             .id(1L)
-                            .user(user)
+                            .userId(user.getId())
                             .totalAmount(new BigDecimal("150000"))
                             .build()
             );
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                     .thenThrow(new RuntimeException("캐시 오류"));
-            when(orderRepositoryPort.findByUser(user)).thenReturn(dbOrders);
+            when(orderRepositoryPort.findByUserId(user.getId())).thenReturn(dbOrders);
 
             // when
             List<Order> result = getOrderListUseCase.execute(userId);
@@ -140,9 +140,9 @@ class GetOrderListUseCaseTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
             
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
-            verify(orderRepositoryPort).findByUser(user); // 캐시 실패로 인한 DB 조회
+            verify(orderRepositoryPort).findByUserId(user.getId()); // 캐시 실패로 인한 DB 조회
         }
         
         @Test
@@ -156,7 +156,7 @@ class GetOrderListUseCaseTest {
                     .name("주문 없는 사용자")
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                     .thenReturn(Collections.emptyList());
 
@@ -167,7 +167,7 @@ class GetOrderListUseCaseTest {
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
             
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
         }
         
@@ -185,12 +185,12 @@ class GetOrderListUseCaseTest {
             for (int i = 1; i <= orderCount; i++) {
                 orders.add(Order.builder()
                         .id((long) i)
-                        .user(user)
+                        .userId(user.getId())
                         .totalAmount(new BigDecimal("50000").multiply(BigDecimal.valueOf(i)))
                         .build());
             }
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                     .thenReturn(orders);
 
@@ -201,10 +201,10 @@ class GetOrderListUseCaseTest {
             assertThat(result).isNotNull();
             assertThat(result).hasSize(orderCount);
             if (orderCount > 0) {
-                assertThat(result.get(0).getUser().getName()).isEqualTo(userName);
+                assertThat(result.get(0).getUserId()).isEqualTo(userId);
             }
             
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
         }
     }
@@ -228,16 +228,16 @@ class GetOrderListUseCaseTest {
             // given
             Long userId = 999L;
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+            when(userRepositoryPort.existsById(userId)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> getOrderListUseCase.execute(userId))
                     .isInstanceOf(UserException.NotFound.class)
                     .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
                     
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-            verify(orderRepositoryPort, never()).findByUser(any(User.class));
+            verify(orderRepositoryPort, never()).findByUserId(any(Long.class));
         }
         
         @Test
@@ -248,7 +248,7 @@ class GetOrderListUseCaseTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("UserId cannot be null");
                     
-            verify(userRepositoryPort, never()).findById(any());
+            verify(userRepositoryPort, never()).existsById(any());
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
         }
         
@@ -263,7 +263,7 @@ class GetOrderListUseCaseTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("UserId must be positive");
                     
-            verify(userRepositoryPort, never()).findById(any());
+            verify(userRepositoryPort, never()).existsById(any());
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
         }
         
@@ -278,7 +278,7 @@ class GetOrderListUseCaseTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("UserId must be positive");
                     
-            verify(userRepositoryPort, never()).findById(any());
+            verify(userRepositoryPort, never()).existsById(any());
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
         }
         
@@ -291,7 +291,7 @@ class GetOrderListUseCaseTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage(expectedMessage);
                     
-            verify(userRepositoryPort, never()).findById(any());
+            verify(userRepositoryPort, never()).existsById(any());
             verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
         }
     }
@@ -325,12 +325,12 @@ class GetOrderListUseCaseTest {
                 List<Order> orders = List.of(
                         Order.builder()
                                 .id(userId)
-                                .user(user)
+                                .userId(user.getId())
                                 .totalAmount(new BigDecimal("100000"))
                                 .build()
                 );
                 
-                when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+                when(userRepositoryPort.existsById(userId)).thenReturn(true);
                 when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                         .thenReturn(orders);
                 
@@ -342,7 +342,7 @@ class GetOrderListUseCaseTest {
                         
                         assertThat(result).isNotNull();
                         assertThat(result).hasSize(1);
-                        assertThat(result.get(0).getUser().getName()).isEqualTo("사용자" + userId);
+                        assertThat(result.get(0).getUserId()).isEqualTo(userId);
                         successCount.incrementAndGet();
                         
                     } catch (Exception e) {
@@ -391,17 +391,17 @@ class GetOrderListUseCaseTest {
             List<Order> orders = List.of(
                     Order.builder()
                             .id(1L)
-                            .user(user)
+                            .userId(user.getId())
                             .totalAmount(new BigDecimal("100000"))
                             .build(),
                     Order.builder()
                             .id(2L)
-                            .user(user)
+                            .userId(user.getId())
                             .totalAmount(new BigDecimal("200000"))
                             .build()
             );
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
                     .thenReturn(orders);
             
@@ -417,7 +417,7 @@ class GetOrderListUseCaseTest {
                         
                         assertThat(result).isNotNull();
                         assertThat(result).hasSize(2);
-                        assertThat(result.get(0).getUser().getName()).isEqualTo("테스트 사용자");
+                        assertThat(result.get(0).getUserId()).isEqualTo(userId);
                         successCount.incrementAndGet();
                         
                     } catch (Exception e) {

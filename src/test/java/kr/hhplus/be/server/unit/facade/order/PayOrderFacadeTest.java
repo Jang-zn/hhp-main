@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.facade.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
 import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
@@ -79,15 +80,15 @@ class PayOrderFacadeTest {
             
         testOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("50000"))
             .build();
             
         testPayment = Payment.builder()
             .id(1L)
-            .order(testOrder)
-            .user(testUser)
+            .orderId(testOrder.getId())
+            .userId(testUser.getId())
             .amount(new BigDecimal("50000"))
             .status(PaymentStatus.PAID)
             .build();
@@ -107,12 +108,12 @@ class PayOrderFacadeTest {
             
             when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(validateOrderUseCase.execute(orderId, userId)).thenReturn(testOrder);
             when(applyCouponUseCase.execute(testOrder.getTotalAmount(), couponId)).thenReturn(testOrder.getTotalAmount());
-            when(deductBalanceUseCase.execute(testUser, testOrder.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser.getId(), testOrder.getTotalAmount())).thenReturn(null);
             doNothing().when(completeOrderUseCase).execute(testOrder);
-            when(createPaymentUseCase.execute(testOrder, testUser, testOrder.getTotalAmount())).thenReturn(testPayment);
+            when(createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), testOrder.getTotalAmount())).thenReturn(testPayment);
             
             // when
             Payment result = payOrderFacade.payOrder(orderId, userId, couponId);
@@ -122,12 +123,12 @@ class PayOrderFacadeTest {
             assertThat(result.getStatus()).isEqualTo(PaymentStatus.PAID);
             
             // UseCase 호출 순서 검증
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(validateOrderUseCase).execute(orderId, userId);
             verify(applyCouponUseCase).execute(testOrder.getTotalAmount(), couponId);
-            verify(deductBalanceUseCase).execute(testUser, testOrder.getTotalAmount());
+            verify(deductBalanceUseCase).execute(testUser.getId(), testOrder.getTotalAmount());
             verify(completeOrderUseCase).execute(testOrder);
-            verify(createPaymentUseCase).execute(testOrder, testUser, testOrder.getTotalAmount());
+            verify(createPaymentUseCase).execute(testOrder.getId(), testUser.getId(), testOrder.getTotalAmount());
             
             // Lock 해제 검증
             verify(lockingPort).releaseLock("payment-" + orderId);
@@ -152,7 +153,7 @@ class PayOrderFacadeTest {
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger lockFailureCount = new AtomicInteger(0);
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             
             // 첫 번째 스레드만 payment 락 획득 성공
             when(lockingPort.acquireLock("payment-" + orderId))
@@ -162,9 +163,9 @@ class PayOrderFacadeTest {
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
             when(validateOrderUseCase.execute(orderId, userId)).thenReturn(testOrder);
             when(applyCouponUseCase.execute(testOrder.getTotalAmount(), couponId)).thenReturn(testOrder.getTotalAmount());
-            when(deductBalanceUseCase.execute(testUser, testOrder.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser.getId(), testOrder.getTotalAmount())).thenReturn(null);
             doNothing().when(completeOrderUseCase).execute(testOrder);
-            when(createPaymentUseCase.execute(testOrder, testUser, testOrder.getTotalAmount())).thenReturn(testPayment);
+            when(createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), testOrder.getTotalAmount())).thenReturn(testPayment);
             
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             
@@ -225,21 +226,21 @@ class PayOrderFacadeTest {
                 
             Order testOrder2 = Order.builder()
                 .id(2L)
-                .user(testUser2)
+                .userId(testUser2.getId())
                 .status(OrderStatus.PENDING)
                 .totalAmount(new BigDecimal("30000"))
                 .build();
                 
             Payment testPayment2 = Payment.builder()
                 .id(2L)
-                .order(testOrder2)
-                .user(testUser2)
+                .orderId(testOrder2.getId())
+                .userId(testUser2.getId())
                 .amount(new BigDecimal("30000"))
                 .status(PaymentStatus.PAID)
                 .build();
             
-            when(userRepositoryPort.findById(userId1)).thenReturn(Optional.of(testUser));
-            when(userRepositoryPort.findById(userId2)).thenReturn(Optional.of(testUser2));
+            when(userRepositoryPort.existsById(userId1)).thenReturn(true);
+            when(userRepositoryPort.existsById(userId2)).thenReturn(true);
             
             // 각각 다른 락이므로 모두 성공해야 함
             when(lockingPort.acquireLock("payment-" + orderId1)).thenReturn(true);
@@ -251,12 +252,12 @@ class PayOrderFacadeTest {
             when(validateOrderUseCase.execute(orderId2, userId2)).thenReturn(testOrder2);
             when(applyCouponUseCase.execute(testOrder.getTotalAmount(), couponId)).thenReturn(testOrder.getTotalAmount());
             when(applyCouponUseCase.execute(testOrder2.getTotalAmount(), couponId)).thenReturn(testOrder2.getTotalAmount());
-            when(deductBalanceUseCase.execute(testUser, testOrder.getTotalAmount())).thenReturn(null);
-            when(deductBalanceUseCase.execute(testUser2, testOrder2.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser.getId(), testOrder.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser2.getId(), testOrder2.getTotalAmount())).thenReturn(null);
             doNothing().when(completeOrderUseCase).execute(testOrder);
             doNothing().when(completeOrderUseCase).execute(testOrder2);
-            when(createPaymentUseCase.execute(testOrder, testUser, testOrder.getTotalAmount())).thenReturn(testPayment);
-            when(createPaymentUseCase.execute(testOrder2, testUser2, testOrder2.getTotalAmount())).thenReturn(testPayment2);
+            when(createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), testOrder.getTotalAmount())).thenReturn(testPayment);
+            when(createPaymentUseCase.execute(testOrder2.getId(), testUser2.getId(), testOrder2.getTotalAmount())).thenReturn(testPayment2);
             
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             
@@ -325,20 +326,20 @@ class PayOrderFacadeTest {
             
             Order testOrder2 = Order.builder()
                 .id(2L)
-                .user(testUser)
+                .userId(testUser.getId())
                 .status(OrderStatus.PENDING)
                 .totalAmount(new BigDecimal("30000"))
                 .build();
                 
             Payment testPayment2 = Payment.builder()
                 .id(2L)
-                .order(testOrder2)
-                .user(testUser)
+                .orderId(testOrder2.getId())
+                .userId(testUser.getId())
                 .amount(new BigDecimal("30000"))
                 .status(PaymentStatus.PAID)
                 .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             
             // payment 락은 각각 다르므로 성공하지만, balance 락은 동일 사용자이므로 하나만 성공
             when(lockingPort.acquireLock("payment-" + orderId1)).thenReturn(true);
@@ -351,12 +352,12 @@ class PayOrderFacadeTest {
             when(validateOrderUseCase.execute(orderId2, userId)).thenReturn(testOrder2);
             when(applyCouponUseCase.execute(testOrder.getTotalAmount(), couponId)).thenReturn(testOrder.getTotalAmount());
             when(applyCouponUseCase.execute(testOrder2.getTotalAmount(), couponId)).thenReturn(testOrder2.getTotalAmount());
-            when(deductBalanceUseCase.execute(testUser, testOrder.getTotalAmount())).thenReturn(null);
-            when(deductBalanceUseCase.execute(testUser, testOrder2.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser.getId(), testOrder.getTotalAmount())).thenReturn(null);
+            when(deductBalanceUseCase.execute(testUser.getId(), testOrder2.getTotalAmount())).thenReturn(null);
             doNothing().when(completeOrderUseCase).execute(testOrder);
             doNothing().when(completeOrderUseCase).execute(testOrder2);
-            when(createPaymentUseCase.execute(testOrder, testUser, testOrder.getTotalAmount())).thenReturn(testPayment);
-            when(createPaymentUseCase.execute(testOrder2, testUser, testOrder2.getTotalAmount())).thenReturn(testPayment2);
+            when(createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), testOrder.getTotalAmount())).thenReturn(testPayment);
+            when(createPaymentUseCase.execute(testOrder2.getId(), testUser.getId(), testOrder2.getTotalAmount())).thenReturn(testPayment2);
             
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             
