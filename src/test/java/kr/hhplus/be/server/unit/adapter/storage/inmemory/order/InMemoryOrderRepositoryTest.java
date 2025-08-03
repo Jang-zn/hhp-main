@@ -52,7 +52,7 @@ class InMemoryOrderRepositoryTest {
         
         Order order = Order.builder()
                 .id(1L)
-                .user(user)
+                .userId(user.getId())
                 .totalAmount(new BigDecimal("120000"))
                 .build();
 
@@ -61,7 +61,7 @@ class InMemoryOrderRepositoryTest {
 
         // then
         assertThat(savedOrder).isNotNull();
-        assertThat(savedOrder.getUser()).isEqualTo(user);
+        assertThat(savedOrder.getUserId()).isEqualTo(user.getId());
         assertThat(savedOrder.getTotalAmount()).isEqualTo(new BigDecimal("120000"));
     }
 
@@ -77,7 +77,7 @@ class InMemoryOrderRepositoryTest {
             
             Order order = Order.builder()
                     .id(2L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal(totalAmount))
                     .build();
 
@@ -86,7 +86,7 @@ class InMemoryOrderRepositoryTest {
 
             // then
             assertThat(savedOrder).isNotNull();
-            assertThat(savedOrder.getUser().getName()).isEqualTo(userName);
+            assertThat(savedOrder.getUserId()).isEqualTo(user.getId());
             assertThat(savedOrder.getTotalAmount()).isEqualTo(new BigDecimal(totalAmount));
         }
 
@@ -101,7 +101,7 @@ class InMemoryOrderRepositoryTest {
             
             Order order = Order.builder()
                     .id(3L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(BigDecimal.ZERO)
                     .build();
 
@@ -124,7 +124,7 @@ class InMemoryOrderRepositoryTest {
             
             Order order = Order.builder()
                     .id(4L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("999999999"))
                     .build();
 
@@ -152,7 +152,7 @@ class InMemoryOrderRepositoryTest {
         
         Order order = Order.builder()
                 .id(5L)
-                .user(user)
+                .userId(user.getId())
                 .totalAmount(new BigDecimal("50000"))
                 .build();
         Order savedOrder = orderRepository.save(order);
@@ -162,7 +162,7 @@ class InMemoryOrderRepositoryTest {
 
         // then
         assertThat(foundOrder).isPresent();
-        assertThat(foundOrder.get().getUser()).isEqualTo(user);
+        assertThat(foundOrder.get().getUserId()).isEqualTo(user.getId());
             assertThat(foundOrder.get().getTotalAmount()).isEqualTo(new BigDecimal("50000"));
         }
 
@@ -223,7 +223,7 @@ class InMemoryOrderRepositoryTest {
                         
                         Order order = Order.builder()
                                 .id((long) orderIndex)
-                                .user(user)
+                                .userId(user.getId())
                                 .totalAmount(new BigDecimal(String.valueOf(orderIndex * 1000)))
                                 .build();
                         
@@ -279,7 +279,7 @@ class InMemoryOrderRepositoryTest {
                         
                         Order order = Order.builder()
                                 .id((long) (500 + orderIndex))
-                                .user(user)
+                                .userId(user.getId())
                                 .totalAmount(new BigDecimal(String.valueOf(orderIndex * 5000)))
                                 .build();
                         
@@ -302,7 +302,7 @@ class InMemoryOrderRepositoryTest {
             assertThat(successfulOrders.get()).isEqualTo(numberOfOrders);
             
             // 사용자의 주문 목록 확인
-            List<Order> userOrders = orderRepository.findByUser(user);
+            List<Order> userOrders = orderRepository.findByUserId(user.getId());
             assertThat(userOrders).hasSize(numberOfOrders);
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
@@ -321,7 +321,7 @@ class InMemoryOrderRepositoryTest {
             // 초기 주문 생성
             Order initialOrder = Order.builder()
                     .id(600L)
-                    .user(testUser)
+                    .userId(testUser.getId())
                     .totalAmount(new BigDecimal("100000"))
                     .build();
             orderRepository.save(initialOrder);
@@ -362,7 +362,7 @@ class InMemoryOrderRepositoryTest {
                         for (int j = 0; j < 10; j++) {
                             Order newOrder = Order.builder()
                                     .id((long) (700 + writerId * 20 + j))
-                                    .user(testUser)
+                                    .userId(testUser.getId())
                                     .totalAmount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
                                     .build();
                             
@@ -387,7 +387,7 @@ class InMemoryOrderRepositoryTest {
             assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 10);
             
             // 최종 상태 확인
-            List<Order> userOrders = orderRepository.findByUser(testUser);
+            List<Order> userOrders = orderRepository.findByUserId(testUser.getId());
             assertThat(userOrders.size()).isGreaterThan(1);
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);

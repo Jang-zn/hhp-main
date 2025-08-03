@@ -36,8 +36,13 @@ public class InMemoryBalanceRepository implements BalanceRepositoryPort {
     @PreDestroy
     public void cleanup() {
         log.info("InMemory Balance Repository 정리 중...");
+        clear();
+    }
+    
+    public void clear() {
         balances.clear();
         userBalances.clear();
+        nextId.set(1L);
     }
 
     @Override

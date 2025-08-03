@@ -36,6 +36,7 @@ class InMemoryBalanceRepositoryTest {
     @BeforeEach
     void setUp() {
         balanceRepository = new InMemoryBalanceRepository();
+        balanceRepository.clear(); // 각 테스트 전에 데이터 초기화
     }
 
     @Nested
@@ -46,12 +47,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("성공케이스: 정상 잔액 저장")
         void save_Success() {
         // given
-        User user = User.builder()
-                .id(1L)
-                .name("테스트 사용자")
-                .build();
         Balance balance = Balance.builder()
-                .user(user)
+                .userId(1L)
                 .amount(new BigDecimal("100000"))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -64,7 +61,7 @@ class InMemoryBalanceRepositoryTest {
         assertThat(savedBalance).isNotNull();
         assertThat(savedBalance.getId()).isNotNull();
         assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-        assertThat(savedBalance.getUser().getId()).isEqualTo(1L);
+        assertThat(savedBalance.getUserId()).isEqualTo(1L);
     }
 
         @ParameterizedTest
@@ -72,12 +69,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("성공케이스: 다양한 잔액 데이터로 저장")
         void save_WithDifferentBalanceData(String userName, String amount) {
             // given
-            User user = User.builder()
-                    .id(2L)
-                    .name(userName)
-                    .build();
             Balance balance = Balance.builder()
-                    .user(user)
+                    .userId(2L)
                     .amount(new BigDecimal(amount))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -90,19 +83,15 @@ class InMemoryBalanceRepositoryTest {
             assertThat(savedBalance).isNotNull();
             assertThat(savedBalance.getId()).isNotNull();
             assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-            assertThat(savedBalance.getUser().getName()).isEqualTo(userName);
+            assertThat(savedBalance.getUserId()).isEqualTo(2L);
         }
 
         @Test
         @DisplayName("성공케이스: 동일 사용자 잔액 업데이트")
         void save_UpdateExistingBalance() {
             // given
-            User user = User.builder()
-                    .id(3L)
-                    .name("테스트 사용자")
-                    .build();
             Balance originalBalance = Balance.builder()
-                    .user(user)
+                    .userId(3L)
                     .amount(new BigDecimal("50000"))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -110,7 +99,7 @@ class InMemoryBalanceRepositoryTest {
             balanceRepository.save(originalBalance);
 
             Balance updatedBalance = Balance.builder()
-                    .user(user)
+                    .userId(3L)
                     .amount(new BigDecimal("100000"))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -121,7 +110,7 @@ class InMemoryBalanceRepositoryTest {
 
             // then
             assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-            Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+            Optional<Balance> foundBalance = balanceRepository.findByUserId(3L);
             assertThat(foundBalance).isPresent();
             assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("100000"));
         }
@@ -131,12 +120,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("성공케이스: 극한값 잔액으로 저장")
         void save_WithEdgeCaseAmounts(String description, String amount) {
             // given
-            User user = User.builder()
-                    .id(4L)
-                    .name("엣지케이스 사용자")
-                    .build();
             Balance balance = Balance.builder()
-                    .user(user)
+                    .userId(4L)
                     .amount(new BigDecimal(amount))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -164,7 +149,7 @@ class InMemoryBalanceRepositoryTest {
         void save_WithNullUser() {
             // given
             Balance balance = Balance.builder()
-                    .user(null)
+                    .userId(null)
                     .amount(new BigDecimal("100000"))
                     .build();
 
@@ -182,19 +167,15 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("성공케이스: 사용자 ID로 잔액 조회")
         void findByUser_Success() {
         // given
-        User user = User.builder()
-                .id(1L)
-                .name("테스트 사용자")
-                .build();
         Balance balance = Balance.builder()
                 .id(1L)
-                .user(user)
+                .userId(1L)
                 .amount(new BigDecimal("50000"))
                 .build();
         balanceRepository.save(balance);
 
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+        Optional<Balance> foundBalance = balanceRepository.findByUserId(1L);
 
         // then
         assertThat(foundBalance).isPresent();
@@ -205,10 +186,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
         void findByUser_NotFound() {
         // given
-        User user = User.builder().id(999L).build();
-
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+        Optional<Balance> foundBalance = balanceRepository.findByUserId(999L);
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -218,7 +197,7 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("실패케이스: null 사용자 객체로 조회")
         void findByUser_WithNullUser() {
             // when & then
-            assertThatThrownBy(() -> balanceRepository.findByUser(null))
+            assertThatThrownBy(() -> balanceRepository.findByUserId(null))
                     .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
         }
 
@@ -226,10 +205,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("실패케이스: null 사용자 ID로 조회")
         void findByUser_WithNullUserId() {
             // given
-            User user = User.builder().id(null).name("테스트 사용자").build();
-            
             // when & then
-            assertThatThrownBy(() -> balanceRepository.findByUser(user))
+            assertThatThrownBy(() -> balanceRepository.findByUserId(null))
                     .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
         }
 
@@ -237,10 +214,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("실패케이스: 음수 사용자 ID로 조회")
         void findByUserId_WithNegativeUserId() {
         // given
-        User user = User.builder().id(-1L).name("테스트 사용자").build();
-        
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+        Optional<Balance> foundBalance = balanceRepository.findByUserId(-1L);
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -251,10 +226,8 @@ class InMemoryBalanceRepositoryTest {
         @DisplayName("실패케이스: 유효하지 않은 사용자 ID들로 조회")
         void findByUserId_WithInvalidUserIds(Long invalidUserId) {
         // given
-        User user = User.builder().id(invalidUserId).name("테스트 사용자").build();
-        
         // when
-        Optional<Balance> foundBalance = balanceRepository.findByUser(user);
+        Optional<Balance> foundBalance = balanceRepository.findByUserId(invalidUserId);
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -290,7 +263,7 @@ class InMemoryBalanceRepositoryTest {
                         
                         for (int j = 0; j < updatesPerThread; j++) {
                             Balance balance = Balance.builder()
-                                    .user(user)
+                                    .userId(user.getId())
                                     .amount(new BigDecimal("1000"))
                                     .createdAt(LocalDateTime.now())
                                     .updatedAt(LocalDateTime.now())
@@ -310,10 +283,10 @@ class InMemoryBalanceRepositoryTest {
             doneLatch.await(); // 모든 스레드 완료 대기
 
             // then - 최종 상태 검증
-            Optional<Balance> finalBalance = balanceRepository.findByUser(user);
+            Optional<Balance> finalBalance = balanceRepository.findByUserId(user.getId());
             assertThat(finalBalance).isPresent();
             assertThat(finalBalance.get().getAmount()).isEqualTo(new BigDecimal("1000"));
-            assertThat(finalBalance.get().getUser().getId()).isEqualTo(100L);
+            assertThat(finalBalance.get().getUserId()).isEqualTo(100L);
 
             executor.shutdown();
             boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
@@ -345,7 +318,7 @@ class InMemoryBalanceRepositoryTest {
                                 .build();
                         
                         Balance balance = Balance.builder()
-                                .user(user)
+                                .userId(user.getId())
                                 .amount(new BigDecimal(String.valueOf(userId * 1000)))
                                 .createdAt(LocalDateTime.now())
                                 .updatedAt(LocalDateTime.now())
@@ -372,7 +345,7 @@ class InMemoryBalanceRepositoryTest {
             // 각 사용자의 잔액이 올바르게 저장되었는지 확인
             for (int i = 1; i <= numberOfUsers; i++) {
                 User user = User.builder().id((long) i).name("사용자" + i).build();
-                Optional<Balance> balance = balanceRepository.findByUser(user);
+                Optional<Balance> balance = balanceRepository.findByUserId(user.getId());
                 assertThat(balance).isPresent();
                 assertThat(balance.get().getAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
             }
@@ -393,7 +366,7 @@ class InMemoryBalanceRepositoryTest {
 
             // 초기 잔액 설정
             Balance initialBalance = Balance.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .amount(new BigDecimal("50000"))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -418,7 +391,7 @@ class InMemoryBalanceRepositoryTest {
                         startLatch.await();
                         
                         for (int j = 0; j < 100; j++) {
-                            Optional<Balance> balance = balanceRepository.findByUser(user);
+                            Optional<Balance> balance = balanceRepository.findByUserId(user.getId());
                             if (balance.isPresent()) {
                                 successfulReads.incrementAndGet();
                             }
@@ -441,7 +414,7 @@ class InMemoryBalanceRepositoryTest {
                         
                         for (int j = 0; j < 50; j++) {
                             Balance balance = Balance.builder()
-                                    .user(user)
+                                    .userId(user.getId())
                                     .amount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
                                     .createdAt(LocalDateTime.now())
                                     .updatedAt(LocalDateTime.now())
@@ -466,7 +439,7 @@ class InMemoryBalanceRepositoryTest {
             assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 50);
             
             // 최종 상태 확인
-            Optional<Balance> finalBalance = balanceRepository.findByUser(user);
+            Optional<Balance> finalBalance = balanceRepository.findByUserId(user.getId());
             assertThat(finalBalance).isPresent();
 
             executor.shutdown();

@@ -64,7 +64,7 @@ class InMemoryCouponRepositoryTest {
                 .startDate(LocalDateTime.now())
                 .endDate(LocalDateTime.now().plusDays(30))
                 .status(CouponStatus.ACTIVE)
-                .product(product)
+                .productId(product.getId())
                 .build();
 
         // when
