@@ -43,7 +43,7 @@ class DeductBalanceUseCaseTest {
             
         testBalance = Balance.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .amount(new BigDecimal("1000000"))
             .build();
     }
@@ -55,11 +55,11 @@ class DeductBalanceUseCaseTest {
         BigDecimal deductAmount = new BigDecimal("50000");
         BigDecimal expectedRemainingAmount = new BigDecimal("950000");
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.of(testBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        Balance result = deductBalanceUseCase.execute(testUser, deductAmount);
+        Balance result = deductBalanceUseCase.execute(testUser.getId(), deductAmount);
         
         // then
         assertThat(testBalance.getAmount()).isEqualTo(expectedRemainingAmount);
@@ -71,10 +71,10 @@ class DeductBalanceUseCaseTest {
         // given
         BigDecimal deductAmount = new BigDecimal("50000");
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.empty());
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.empty());
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser.getId(), deductAmount))
             .isInstanceOf(BalanceException.NotFound.class);
             
         verify(balanceRepositoryPort, never()).save(any());
@@ -86,10 +86,10 @@ class DeductBalanceUseCaseTest {
         // given
         BigDecimal deductAmount = new BigDecimal("2000000"); // 잔액보다 큰 금액
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.of(testBalance));
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser.getId(), deductAmount))
             .isInstanceOf(BalanceException.InsufficientBalance.class);
             
         verify(balanceRepositoryPort, never()).save(any());
@@ -103,10 +103,10 @@ class DeductBalanceUseCaseTest {
         // given
         BigDecimal deductAmount = new BigDecimal("-1000");
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.of(testBalance));
         
         // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser, deductAmount))
+        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser.getId(), deductAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
         verify(balanceRepositoryPort, never()).save(any());

@@ -43,7 +43,7 @@ class GetBalanceFacadeTest {
             
         testBalance = Balance.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .amount(new BigDecimal("100000"))
             .updatedAt(LocalDateTime.now())
             .build();
@@ -66,7 +66,7 @@ class GetBalanceFacadeTest {
             
             // then
             assertThat(result).isPresent();
-            assertThat(result.get().getUser().getId()).isEqualTo(userId);
+            assertThat(result.get().getUserId()).isEqualTo(userId);
             assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("100000"));
             
             verify(getBalanceUseCase).execute(userId);

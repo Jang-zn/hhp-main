@@ -69,12 +69,8 @@ class BalanceJpaRepositoryTest {
         @DisplayName("성공케이스: 새로운 잔액 저장 (persist)")
         void save_NewBalance_Success() {
             // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
             Balance balance = Balance.builder()
-                    .user(user)
+                    .userId(1L)
                     .amount(new BigDecimal("100000"))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -95,13 +91,9 @@ class BalanceJpaRepositoryTest {
         @DisplayName("성공케이스: 기존 잔액 업데이트 (merge)")
         void save_ExistingBalance_Success() {
             // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(1L)
                     .amount(new BigDecimal("150000"))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -123,12 +115,8 @@ class BalanceJpaRepositoryTest {
         @DisplayName("성공케이스: 다양한 잔액 데이터로 저장")
         void save_WithDifferentBalanceData(String userName, String amount) {
             // given
-            User user = User.builder()
-                    .id(2L)
-                    .name(userName)
-                    .build();
             Balance balance = Balance.builder()
-                    .user(user)
+                    .userId(2L)
                     .amount(new BigDecimal(amount))
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -142,7 +130,7 @@ class BalanceJpaRepositoryTest {
             // then
             assertThat(savedBalance).isNotNull();
             assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-            assertThat(savedBalance.getUser().getName()).isEqualTo(userName);
+            assertThat(savedBalance.getUserId()).isEqualTo(2L);
             verify(entityManager, times(1)).persist(balance);
         }
 
@@ -150,12 +138,8 @@ class BalanceJpaRepositoryTest {
         @DisplayName("실패케이스: EntityManager persist 예외")
         void save_PersistException() {
             // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
             Balance balance = Balance.builder()
-                    .user(user)
+                    .userId(1L)
                     .amount(new BigDecimal("100000"))
                     .build();
 
@@ -171,13 +155,9 @@ class BalanceJpaRepositoryTest {
         @DisplayName("실패케이스: EntityManager merge 예외")
         void save_MergeException() {
             // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(1L)
                     .amount(new BigDecimal("100000"))
                     .build();
 
@@ -198,42 +178,36 @@ class BalanceJpaRepositoryTest {
         @DisplayName("성공케이스: 사용자로 잔액 조회")
         void findByUser_Success() {
             // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
             Balance expectedBalance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(1L)
                     .amount(new BigDecimal("50000"))
                     .build();
 
             when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", user)).thenReturn(typedQuery);
+            when(typedQuery.setParameter("userId", 1L)).thenReturn(typedQuery);
             when(typedQuery.getSingleResult()).thenReturn(expectedBalance);
 
             // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
+            Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(1L);
 
             // then
             assertThat(foundBalance).isPresent();
             assertThat(foundBalance.get()).isEqualTo(expectedBalance);
-            verify(entityManager).createQuery("SELECT b FROM Balance b WHERE b.user = :user", Balance.class);
-            verify(typedQuery).setParameter("user", user);
+            verify(entityManager).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
+            verify(typedQuery).setParameter("userId", 1L);
         }
 
         @Test
         @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
         void findByUser_NotFound() {
             // given
-            User user = User.builder().id(999L).build();
-
             when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", user)).thenReturn(typedQuery);
+            when(typedQuery.setParameter("userId", 999L)).thenReturn(typedQuery);
             when(typedQuery.getSingleResult()).thenThrow(new NoResultException());
 
             // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
+            Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(999L);
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -243,13 +217,11 @@ class BalanceJpaRepositoryTest {
         @DisplayName("실패케이스: JPA 쿼리 실행 중 예외 발생")
         void findByUser_QueryException() {
             // given
-            User user = User.builder().id(1L).build();
-
             when(entityManager.createQuery(anyString(), eq(Balance.class)))
                     .thenThrow(new RuntimeException("데이터베이스 연결 오류"));
 
             // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
+            Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(1L);
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -261,11 +233,11 @@ class BalanceJpaRepositoryTest {
         void findByUser_WithInvalidUsers(User invalidUser) {
             // given
             when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", invalidUser)).thenReturn(typedQuery);
+            when(typedQuery.setParameter("userId", invalidUser.getId())).thenReturn(typedQuery);
             when(typedQuery.getSingleResult()).thenThrow(new NoResultException());
 
             // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(invalidUser);
+            Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(invalidUser.getId());
 
             // then
             assertThat(foundBalance).isEmpty();
@@ -280,10 +252,7 @@ class BalanceJpaRepositoryTest {
         @DisplayName("동시성 테스트: 동일 사용자 잔액 동시 저장")
         void save_ConcurrentSaveForSameUser() throws Exception {
             // given
-            User user = User.builder()
-                    .id(100L)
-                    .name("동시성 테스트 사용자")
-                    .build();
+            Long userId = 100L;
 
             int numberOfThreads = 10;
             ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
@@ -306,7 +275,7 @@ class BalanceJpaRepositoryTest {
                         startLatch.await();
                         
                         Balance balance = Balance.builder()
-                                .user(user)
+                                .userId(userId)
                                 .amount(new BigDecimal("1000"))
                                 .createdAt(LocalDateTime.now())
                                 .updatedAt(LocalDateTime.now())
@@ -345,12 +314,12 @@ class BalanceJpaRepositoryTest {
 
             // Mock 설정
             when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter(eq("user"), any(User.class))).thenReturn(typedQuery);
+            when(typedQuery.setParameter(eq("userId"), any(Long.class))).thenReturn(typedQuery);
             when(typedQuery.getSingleResult()).thenAnswer(invocation -> {
                 successfulReads.incrementAndGet();
                 return Balance.builder()
                         .id(1L)
-                        .user(User.builder().id(1L).build())
+                        .userId(1L)
                         .amount(new BigDecimal("1000"))
                         .build();
             });
@@ -364,12 +333,7 @@ class BalanceJpaRepositoryTest {
                     try {
                         startLatch.await();
                         
-                        User user = User.builder()
-                                .id((long) userId)
-                                .name("사용자" + userId)
-                                .build();
-                        
-                        Optional<Balance> balance = balanceJpaRepository.findByUser(user);
+                        Optional<Balance> balance = balanceJpaRepository.findByUserId((long) userId);
                         assertThat(balance).isPresent();
                     } catch (Exception e) {
                         System.err.println("Error for user " + userId + ": " + e.getMessage());
@@ -412,13 +376,8 @@ class BalanceJpaRepositoryTest {
             for (int i = 0; i < numberOfOperations; i++) {
                 final int operationId = i;
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    User user = User.builder()
-                            .id((long) operationId)
-                            .name("사용자" + operationId)
-                            .build();
-                    
                     Balance balance = Balance.builder()
-                            .user(user)
+                            .userId((long) operationId)
                             .amount(new BigDecimal(String.valueOf(operationId * 1000)))
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
@@ -454,7 +413,7 @@ class BalanceJpaRepositoryTest {
         void save_TransactionRollback() {
             // given
             Balance balance = Balance.builder()
-                    .user(User.builder().id(1L).build())
+                    .userId(1L)
                     .amount(new BigDecimal("1000"))
                     .build();
 

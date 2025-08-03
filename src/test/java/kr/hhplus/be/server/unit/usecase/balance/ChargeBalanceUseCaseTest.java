@@ -43,7 +43,7 @@ class ChargeBalanceUseCaseTest {
             
         testBalance = Balance.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .amount(TestConstants.DEFAULT_ORDER_AMOUNT)
             .updatedAt(LocalDateTime.now())
             .build();
@@ -56,18 +56,18 @@ class ChargeBalanceUseCaseTest {
         BigDecimal chargeAmount = TestConstants.DEFAULT_CHARGE_AMOUNT;
         BigDecimal expectedAmount = new BigDecimal("150000");
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.of(testBalance));
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.of(testBalance));
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        Balance result = chargeBalanceUseCase.execute(testUser, chargeAmount);
+        Balance result = chargeBalanceUseCase.execute(testUser.getId(), chargeAmount);
         
         // then
         assertThat(result).isNotNull();
         assertThat(result.getAmount()).isEqualTo(expectedAmount);
-        assertThat(result.getUser()).isEqualTo(testUser);
+        assertThat(result.getUserId()).isEqualTo(testUser.getId());
         
-        verify(balanceRepositoryPort).findByUser(testUser);
+        verify(balanceRepositoryPort).findByUserId(testUser.getId());
         verify(balanceRepositoryPort).save(testBalance);
     }
     
@@ -77,18 +77,18 @@ class ChargeBalanceUseCaseTest {
         // given
         BigDecimal chargeAmount = TestConstants.DEFAULT_CHARGE_AMOUNT;
         
-        when(balanceRepositoryPort.findByUser(testUser)).thenReturn(Optional.empty());
+        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.empty());
         when(balanceRepositoryPort.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         // when
-        Balance result = chargeBalanceUseCase.execute(testUser, chargeAmount);
+        Balance result = chargeBalanceUseCase.execute(testUser.getId(), chargeAmount);
         
         // then
         assertThat(result).isNotNull();
         assertThat(result.getAmount()).isEqualTo(chargeAmount);
-        assertThat(result.getUser()).isEqualTo(testUser);
+        assertThat(result.getUserId()).isEqualTo(testUser.getId());
         
-        verify(balanceRepositoryPort).findByUser(testUser);
+        verify(balanceRepositoryPort).findByUserId(testUser.getId());
         verify(balanceRepositoryPort).save(any(Balance.class));
     }
     
@@ -100,10 +100,10 @@ class ChargeBalanceUseCaseTest {
         BigDecimal chargeAmount = new BigDecimal("-10000");
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser, chargeAmount))
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
-        verify(balanceRepositoryPort, never()).findByUser(any());
+        verify(balanceRepositoryPort, never()).findByUserId(any());
         verify(balanceRepositoryPort, never()).save(any());
     }
     
@@ -114,10 +114,10 @@ class ChargeBalanceUseCaseTest {
         BigDecimal chargeAmount = BigDecimal.ZERO;
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser, chargeAmount))
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
-        verify(balanceRepositoryPort, never()).findByUser(any());
+        verify(balanceRepositoryPort, never()).findByUserId(any());
         verify(balanceRepositoryPort, never()).save(any());
     }
     
@@ -128,7 +128,7 @@ class ChargeBalanceUseCaseTest {
         assertThatThrownBy(() -> chargeBalanceUseCase.execute(null, new BigDecimal("10000")))
             .isInstanceOf(NullPointerException.class);
             
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser, null))
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), null))
             .isInstanceOf(BalanceException.InvalidAmount.class);
     }
     
@@ -139,10 +139,10 @@ class ChargeBalanceUseCaseTest {
         BigDecimal chargeAmount = new BigDecimal("2000000"); // 100만원 초과
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser, chargeAmount))
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
-        verify(balanceRepositoryPort, never()).findByUser(any());
+        verify(balanceRepositoryPort, never()).findByUserId(any());
         verify(balanceRepositoryPort, never()).save(any());
     }
     
@@ -153,10 +153,10 @@ class ChargeBalanceUseCaseTest {
         BigDecimal chargeAmount = new BigDecimal("500"); // 1000원 미만
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser, chargeAmount))
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
-        verify(balanceRepositoryPort, never()).findByUser(any());
+        verify(balanceRepositoryPort, never()).findByUserId(any());
         verify(balanceRepositoryPort, never()).save(any());
     }
 }

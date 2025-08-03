@@ -77,7 +77,7 @@ class BalanceControllerTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(user.getId())
                     .amount(new BigDecimal("150000"))
                     .updatedAt(LocalDateTime.now())
                     .build();
@@ -105,7 +105,7 @@ class BalanceControllerTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(user.getId())
                     .amount(new BigDecimal(chargeAmount))
                     .updatedAt(LocalDateTime.now())
                     .build();
@@ -214,7 +214,7 @@ class BalanceControllerTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(user.getId())
                     .amount(new BigDecimal("100000"))
                     .updatedAt(LocalDateTime.now())
                     .build();
@@ -239,7 +239,7 @@ class BalanceControllerTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder()
                     .id(1L)
-                    .user(user)
+                    .userId(user.getId())
                     .amount(new BigDecimal("50000"))
                     .updatedAt(LocalDateTime.now())
                     .build();
@@ -283,8 +283,7 @@ class BalanceControllerTest {
         @DisplayName("실패케이스: 비정상 사용자 ID로 잔액 조회")
         void getBalance_WithInvalidUserIds(Long invalidUserId) {
             // given
-            // TODO: Fix after facade migration
-            // when(getBalanceFacade.getBalance(invalidUserId)).thenReturn(Optional.empty());
+            when(getBalanceFacade.getBalance(invalidUserId)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> balanceController.getBalance(invalidUserId))
