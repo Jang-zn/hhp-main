@@ -11,6 +11,7 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
 import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
+import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +23,7 @@ import org.mockito.MockitoAnnotations;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +39,9 @@ class CouponControllerTest {
     @Mock
     private GetCouponListFacade getCouponListFacade;
     
+    @Mock
+    private CouponRepositoryPort couponRepositoryPort;
+    
     private CouponController couponController;
     
     private User testUser;
@@ -46,7 +51,7 @@ class CouponControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        couponController = new CouponController(issueCouponFacade, getCouponListFacade);
+        couponController = new CouponController(issueCouponFacade, getCouponListFacade, couponRepositoryPort);
         
         testUser = User.builder()
             .id(1L)
@@ -80,6 +85,7 @@ class CouponControllerTest {
             // given
             CouponRequest request = new CouponRequest(1L, 1L);
             when(issueCouponFacade.issueCoupon(1L, 1L)).thenReturn(testCouponHistory);
+            when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(testCoupon));
             
             // when
             CouponResponse result = couponController.issueCoupon(request);
@@ -88,9 +94,9 @@ class CouponControllerTest {
             assertThat(result).isNotNull();
             assertThat(result.couponHistoryId()).isEqualTo(1L);
             assertThat(result.couponId()).isEqualTo(1L);
-            assertThat(result.code()).isEqualTo("TEMP_CODE");  // Controller에서 하드코딩된 값
-            assertThat(result.discountRate()).isNull();        // Controller에서 null로 설정
-            assertThat(result.couponStatus()).isNull();        // Controller에서 null로 설정
+            assertThat(result.code()).isEqualTo("TEST-COUPON-001");  // testCoupon의 실제 코드
+            assertThat(result.discountRate()).isEqualTo(new BigDecimal("10.0"));
+            assertThat(result.couponStatus()).isEqualTo(CouponStatus.ACTIVE);
             assertThat(result.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
             assertThat(result.usable()).isTrue();
             
@@ -180,6 +186,8 @@ class CouponControllerTest {
                 
             when(getCouponListFacade.getCouponList(userId, 10, 0))
                 .thenReturn(List.of(testCouponHistory, history2));
+            when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(testCoupon));
+            when(couponRepositoryPort.findById(2L)).thenReturn(Optional.of(testCoupon));
             
             // when
             List<CouponResponse> result = couponController.getCoupons(userId, request);

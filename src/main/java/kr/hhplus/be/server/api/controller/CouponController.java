@@ -4,12 +4,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
+import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
 import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
+import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class CouponController {
     
     private final IssueCouponFacade issueCouponFacade;
     private final GetCouponListFacade getCouponListFacade;
+    private final CouponRepositoryPort couponRepositoryPort;
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
@@ -42,13 +45,18 @@ public class CouponController {
         }
 
         CouponHistory couponHistory = issueCouponFacade.issueCoupon(request.getUserId(), request.getCouponId());
+        
+        // Coupon 정보 조회
+        Coupon coupon = couponRepositoryPort.findById(couponHistory.getCouponId())
+                .orElseThrow(() -> new CouponException.NotFound());
+        
         return new CouponResponse(
                 couponHistory.getId(),
-                couponHistory.getCoupon().getId(),
-                couponHistory.getCoupon().getCode(),
-                couponHistory.getCoupon().getDiscountRate(),
-                couponHistory.getCoupon().getEndDate(),
-                couponHistory.getCoupon().getStatus(),
+                couponHistory.getCouponId(),
+                coupon.getCode(),
+                coupon.getDiscountRate(),
+                coupon.getEndDate(),
+                coupon.getStatus(),
                 couponHistory.getStatus(),
                 couponHistory.getIssuedAt(),
                 couponHistory.getUsedAt(),
@@ -71,18 +79,24 @@ public class CouponController {
 
         List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
-                .map(history -> new CouponResponse(
-                        history.getId(),
-                        history.getCoupon().getId(),
-                        history.getCoupon().getCode(),
-                        history.getCoupon().getDiscountRate(),
-                        history.getCoupon().getEndDate(),
-                        history.getCoupon().getStatus(),
-                        history.getStatus(),
-                        history.getIssuedAt(),
-                        history.getUsedAt(),
-                        history.canUse()
-                ))
+                .map(history -> {
+                    // Coupon 정보 조회
+                    Coupon coupon = couponRepositoryPort.findById(history.getCouponId())
+                            .orElseThrow(() -> new CouponException.NotFound());
+                    
+                    return new CouponResponse(
+                            history.getId(),
+                            history.getCouponId(),
+                            coupon.getCode(),
+                            coupon.getDiscountRate(),
+                            coupon.getEndDate(),
+                            coupon.getStatus(),
+                            history.getStatus(),
+                            history.getIssuedAt(),
+                            history.getUsedAt(),
+                            history.canUse()
+                    );
+                })
                 .collect(Collectors.toList());
     }
 } 
