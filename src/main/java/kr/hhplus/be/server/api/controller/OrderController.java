@@ -17,12 +17,11 @@ import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderWithDetailsFacade;
 import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
-import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
-import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
+import kr.hhplus.be.server.domain.dto.OrderWithDetailsDto;
 
-import java.util.HashMap;
-import java.util.Map;
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,10 +41,7 @@ public class OrderController {
 
     private final CreateOrderFacade createOrderFacade;
     private final PayOrderFacade payOrderFacade;
-    private final GetOrderFacade getOrderFacade;
-    private final GetOrderListFacade getOrderListFacade;
-    private final OrderItemRepositoryPort orderItemRepositoryPort;
-    private final ProductRepositoryPort productRepositoryPort;
+    private final GetOrderWithDetailsFacade getOrderWithDetailsFacade;
 
     @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
@@ -57,23 +53,19 @@ public class OrderController {
         }
         request.validate();
         
-        // 상품 수량 정보를 Map<Long, Integer> 형태로 변환
-        Map<Long, Integer> productQuantities;
+        // 상품 수량 정보를 타입 안전한 DTO로 변환
+        List<ProductQuantityDto> productQuantities;
         
         if (request.getProducts() != null && !request.getProducts().isEmpty()) {
             // 새로운 products 필드 사용 (수량 정보 포함)
             productQuantities = request.getProducts().stream()
-                    .collect(Collectors.toMap(
-                            OrderRequest.ProductQuantity::getProductId,
-                            OrderRequest.ProductQuantity::getQuantity
-                    ));
+                    .map(p -> new ProductQuantityDto(p.getProductId(), p.getQuantity()))
+                    .collect(Collectors.toList());
         } else if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
             // 기존 productIds 필드 사용 (하위 호환성을 위해 수량 1로 설정)
             productQuantities = request.getProductIds().stream()
-                    .collect(Collectors.toMap(
-                            productId -> productId,
-                            productId -> 1
-                    ));
+                    .map(productId -> new ProductQuantityDto(productId, 1))
+                    .collect(Collectors.toList());
         } else {
             // 상품 정보가 없는 경우 예외 처리
             throw new OrderException.EmptyItems();
@@ -81,17 +73,10 @@ public class OrderController {
         
         Order order = createOrderFacade.createOrder(request.getUserId(), productQuantities);
         
-        // OrderItem들을 OrderItemResponse로 변환
-        List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
+        // 파사드를 통해 상세 정보 조회
+        OrderWithDetailsDto orderDetails = getOrderWithDetailsFacade.getOrderWithDetails(order.getId(), order.getUserId());
         
-        return new OrderResponse(
-                order.getId(),
-                order.getUserId(),
-                order.getStatus().name(),
-                order.getTotalAmount(),
-                order.getCreatedAt(),
-                itemResponses
-        );
+        return convertToOrderResponse(orderDetails);
     }
 
     @OrderApiDocs(summary = "주문 결제", description = "주문을 결제 처리합니다")
@@ -130,19 +115,10 @@ public class OrderController {
             throw new CommonException.InvalidRequest();
         }
         
-        Order order = getOrderFacade.getOrder(orderId, userId);
+        // 파사드를 통해 상세 정보 조회
+        OrderWithDetailsDto orderDetails = getOrderWithDetailsFacade.getOrderWithDetails(orderId, userId);
         
-        // OrderItem들을 OrderItemResponse로 변환
-        List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
-        
-        return new OrderResponse(
-                order.getId(),
-                order.getUserId(),
-                order.getStatus().name(),
-                order.getTotalAmount(),
-                order.getCreatedAt(),
-                itemResponses
-        );
+        return convertToOrderResponse(orderDetails);
     }
 
     @OrderApiDocs(summary = "사용자 주문 목록 조회", description = "사용자의 모든 주문 목록을 조회합니다")
@@ -152,44 +128,34 @@ public class OrderController {
             throw new CommonException.InvalidRequest();
         }
         
-        List<Order> orders = getOrderListFacade.getOrderList(userId, 0, 0);
+        // 파사드를 통해 상세 정보 조회
+        List<OrderWithDetailsDto> ordersWithDetails = getOrderWithDetailsFacade.getUserOrdersWithDetails(userId);
         
-        return orders.stream()
-                .map(order -> {
-                    // OrderItem들을 OrderItemResponse로 변환
-                    List<OrderResponse.OrderItemResponse> itemResponses = getOrderItemResponses(order.getId());
-                    
-                    return new OrderResponse(
-                            order.getId(),
-                            order.getUserId(),
-                            order.getStatus().name(),
-                            order.getTotalAmount(),
-                            order.getCreatedAt(),
-                            itemResponses
-                    );
-                })
+        return ordersWithDetails.stream()
+                .map(this::convertToOrderResponse)
                 .collect(Collectors.toList());
     }
     
     /**
-     * OrderItem들을 OrderItemResponse로 변환하는 helper 메소드
+     * OrderWithDetailsDto를 OrderResponse로 변환하는 helper 메소드
      */
-    private List<OrderResponse.OrderItemResponse> getOrderItemResponses(Long orderId) {
-        List<OrderItem> orderItems = orderItemRepositoryPort.findByOrderId(orderId);
-        
-        return orderItems.stream()
-                .map(orderItem -> {
-                    // Product 정보 조회
-                    Product product = productRepositoryPort.findById(orderItem.getProductId())
-                            .orElseThrow(() -> new ProductException.NotFound());
-                    
-                    return new OrderResponse.OrderItemResponse(
-                            orderItem.getProductId(),
-                            product.getName(),
-                            orderItem.getQuantity(),
-                            orderItem.getPrice()
-                    );
-                })
+    private OrderResponse convertToOrderResponse(OrderWithDetailsDto orderDetails) {
+        List<OrderResponse.OrderItemResponse> itemResponses = orderDetails.getItems().stream()
+                .map(item -> new OrderResponse.OrderItemResponse(
+                        item.getProductId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getPrice()
+                ))
                 .collect(Collectors.toList());
+        
+        return new OrderResponse(
+                orderDetails.getOrderId(),
+                orderDetails.getUserId(),
+                orderDetails.getStatus(),
+                orderDetails.getTotalAmount(),
+                orderDetails.getCreatedAt(),
+                itemResponses
+        );
     }
 } 

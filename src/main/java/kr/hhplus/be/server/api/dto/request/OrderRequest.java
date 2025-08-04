@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.api.ErrorCode;
 
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 import java.util.List;
-import java.util.Map;
 
 @Schema(description = "주문 관련 요청")
 public class OrderRequest implements DocumentedDto {
@@ -54,14 +54,14 @@ public class OrderRequest implements DocumentedDto {
     public void setCouponId(Long couponId) { this.couponId = couponId; }
 
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "userId", new SchemaInfo("사용자 ID", "1"),
-                "productIds", new SchemaInfo("상품 ID 목록", "[1, 2, 3]", false),
-                "products", new SchemaInfo("상품 정보 목록 (ID와 수량)", "[{\"productId\": 1, \"quantity\": 2}]", false),
-                "couponIds", new SchemaInfo("쿠폰 ID 목록", "[1, 2]", false),
-                "couponId", new SchemaInfo("쿠폰 ID (결제 시 사용)", "1", false)
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("userId", "사용자 ID", "1")
+                .field("productIds", "상품 ID 목록", "[1, 2, 3]", false)
+                .field("products", "상품 정보 목록 (ID와 수량)", "[{\"productId\": 1, \"quantity\": 2}]", false)
+                .field("couponIds", "쿠폰 ID 목록", "[1, 2]", false)
+                .field("couponId", "쿠폰 ID (결제 시 사용)", "1", false)
+                .build();
     }
     
     /**

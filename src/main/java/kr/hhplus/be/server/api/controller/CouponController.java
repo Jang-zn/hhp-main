@@ -15,9 +15,11 @@ import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 쿠폰 관리 Controller
@@ -27,6 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/coupon")
 @RequiredArgsConstructor
+@Slf4j
 public class CouponController {
     
     private final IssueCouponFacade issueCouponFacade;
@@ -79,24 +82,50 @@ public class CouponController {
 
         List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, request.getLimit(), request.getOffset());
         return couponHistories.stream()
-                .map(history -> {
-                    // Coupon 정보 조회
-                    Coupon coupon = couponRepositoryPort.findById(history.getCouponId())
-                            .orElseThrow(() -> new CouponException.NotFound());
-                    
-                    return new CouponResponse(
-                            history.getId(),
-                            history.getCouponId(),
-                            coupon.getCode(),
-                            coupon.getDiscountRate(),
-                            coupon.getEndDate(),
-                            coupon.getStatus(),
-                            history.getStatus(),
-                            history.getIssuedAt(),
-                            history.getUsedAt(),
-                            history.canUse()
-                    );
-                })
+                .map(history -> safeCouponLookup(history))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 쿠폰 정보를 안전하게 조회하고 CouponResponse를 생성합니다.
+     * 쿠폰 조회에 실패해도 전체 요청이 실패하지 않도록 예외를 처리합니다.
+     * 
+     * @param history 쿠폰 이력
+     * @return 성공 시 CouponResponse를 담은 Optional, 실패 시 Optional.empty()
+     */
+    private Optional<CouponResponse> safeCouponLookup(CouponHistory history) {
+        try {
+            // Coupon 정보 조회
+            Optional<Coupon> couponOpt = couponRepositoryPort.findById(history.getCouponId());
+            
+            if (couponOpt.isEmpty()) {
+                log.warn("쿠폰 정보를 찾을 수 없습니다 - historyId: {}, couponId: {}", 
+                        history.getId(), history.getCouponId());
+                return Optional.empty();
+            }
+            
+            Coupon coupon = couponOpt.get();
+            CouponResponse response = new CouponResponse(
+                    history.getId(),
+                    history.getCouponId(),
+                    coupon.getCode(),
+                    coupon.getDiscountRate(),
+                    coupon.getEndDate(),
+                    coupon.getStatus(),
+                    history.getStatus(),
+                    history.getIssuedAt(),
+                    history.getUsedAt(),
+                    history.canUse()
+            );
+            
+            return Optional.of(response);
+            
+        } catch (Exception e) {
+            log.error("쿠폰 조회 중 예외 발생 - historyId: {}, couponId: {}", 
+                    history.getId(), history.getCouponId(), e);
+            return Optional.empty();
+        }
     }
 } 

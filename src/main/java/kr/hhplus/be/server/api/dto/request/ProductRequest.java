@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.api.ErrorCode;
 
-import java.util.Map;
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 
 @Schema(description = "상품 관련 요청")
 public class ProductRequest implements DocumentedDto {
@@ -40,12 +40,12 @@ public class ProductRequest implements DocumentedDto {
     public void setDays(int days) { this.days = days; }
 
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "limit", new SchemaInfo("페이지 크기", "10", false),
-                "offset", new SchemaInfo("페이지 오프셋", "0", false),
-                "days", new SchemaInfo("조회 기간(일)", "3", false)
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("limit", "페이지 크기", "10", false)
+                .field("offset", "페이지 오프셋", "0", false)
+                .field("days", "조회 기간(일)", "3", false)
+                .build();
     }
     
     /**

@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import kr.hhplus.be.server.api.dto.ErrorResponse;
+import kr.hhplus.be.server.api.docs.dto.ApiResponseDto;
 import kr.hhplus.be.server.api.CommonResponse;
 
 import java.lang.annotation.ElementType;
@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
                         schema = @Schema(implementation = CommonResponse.class))),
         @ApiResponse(responseCode = "500", description = "요청 실패",
                 content = @Content(mediaType = "application/json",
-                        schema = @Schema(implementation = ErrorResponse.class))),
+                        schema = @Schema(implementation = ApiResponseDto.class))),
 })
 public @interface ApiCreate {
     String summary();

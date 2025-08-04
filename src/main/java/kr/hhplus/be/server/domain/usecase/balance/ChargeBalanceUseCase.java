@@ -23,6 +23,7 @@ public class ChargeBalanceUseCase {
         log.info("잔액 충전 요청: userId={}, amount={}", userId, amount);
         
         // 입력 값 검증
+        validateUserId(userId);
         validateAmount(amount);
         
         // 기존 잔액 조회 또는 새 잔액 생성
@@ -41,6 +42,16 @@ public class ChargeBalanceUseCase {
                 userId, originalAmount, amount, savedBalance.getAmount());
         
         return savedBalance;
+    }
+    
+    private void validateUserId(Long userId) {
+        if (userId == null) {
+            throw new UserException.UserIdCannotBeNull();
+        }
+        
+        if (userId <= 0) {
+            throw new IllegalArgumentException("UserId must be positive");
+        }
     }
     
     private void validateAmount(BigDecimal amount) {

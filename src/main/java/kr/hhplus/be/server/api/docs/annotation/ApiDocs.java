@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import kr.hhplus.be.server.api.dto.ErrorResponse;
+import kr.hhplus.be.server.api.docs.dto.ApiResponseDto;
 import kr.hhplus.be.server.api.CommonResponse;
 import org.springframework.http.HttpStatus;
 
@@ -27,10 +27,10 @@ import java.lang.annotation.Target;
                         schema = @Schema(implementation = CommonResponse.class))),
         @ApiResponse(responseCode = "400", description = "잘못된 요청",
                 content = @Content(mediaType = "application/json",
-                        schema = @Schema(implementation = ErrorResponse.class))),
+                        schema = @Schema(implementation = ApiResponseDto.class))),
         @ApiResponse(responseCode = "500", description = "서버 오류",
                 content = @Content(mediaType = "application/json",
-                        schema = @Schema(implementation = ErrorResponse.class)))
+                        schema = @Schema(implementation = ApiResponseDto.class)))
 })
 public @interface ApiDocs {
     String summary();

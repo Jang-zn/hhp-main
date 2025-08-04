@@ -9,11 +9,9 @@ import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
-import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
-import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
+import kr.hhplus.be.server.domain.facade.order.GetOrderWithDetailsFacade;
 import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
-import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
-import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
+import kr.hhplus.be.server.domain.dto.OrderWithDetailsDto;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,13 +38,7 @@ class OrderControllerTest {
     @Mock
     private PayOrderFacade payOrderFacade;
     @Mock
-    private GetOrderFacade getOrderFacade;
-    @Mock
-    private GetOrderListFacade getOrderListFacade;
-    @Mock
-    private OrderItemRepositoryPort orderItemRepositoryPort;
-    @Mock
-    private ProductRepositoryPort productRepositoryPort;
+    private GetOrderWithDetailsFacade getOrderWithDetailsFacade;
     
     private OrderController orderController;
     
@@ -59,10 +52,7 @@ class OrderControllerTest {
         orderController = new OrderController(
             createOrderFacade,
             payOrderFacade,
-            getOrderFacade,
-            getOrderListFacade,
-            orderItemRepositoryPort,
-            productRepositoryPort
+            getOrderWithDetailsFacade
         );
         
         testUser = User.builder()
@@ -92,8 +82,12 @@ class OrderControllerTest {
     void createOrder_Success() {
         // given
         OrderRequest request = new OrderRequest(1L, List.of(1L), List.of());
+        OrderWithDetailsDto orderDetails = new OrderWithDetailsDto(
+            1L, 1L, "PENDING", new BigDecimal("100000"), LocalDateTime.now(), List.of()
+        );
         
-        when(createOrderFacade.createOrder(eq(1L), any(Map.class))).thenReturn(testOrder);
+        when(createOrderFacade.createOrder(eq(1L), anyList())).thenReturn(testOrder);
+        when(getOrderWithDetailsFacade.getOrderWithDetails(eq(1L), eq(1L))).thenReturn(orderDetails);
         
         // when
         OrderResponse result = orderController.createOrder(request);
@@ -104,7 +98,8 @@ class OrderControllerTest {
         assertThat(result.userId()).isEqualTo(1L);
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.totalAmount()).isEqualTo(new BigDecimal("100000"));
-        verify(createOrderFacade).createOrder(eq(1L), any(Map.class));
+        verify(createOrderFacade).createOrder(eq(1L), anyList());
+        verify(getOrderWithDetailsFacade).getOrderWithDetails(eq(1L), eq(1L));
     }
     
     @Test
@@ -116,7 +111,7 @@ class OrderControllerTest {
         // when & then
         assertThatThrownBy(() -> orderController.createOrder(nullRequest))
             .isInstanceOf(CommonException.InvalidRequest.class);
-        verify(createOrderFacade, never()).createOrder(anyLong(), any(Map.class));
+        verify(createOrderFacade, never()).createOrder(anyLong(), anyList());
     }
     
     @Test
@@ -159,8 +154,12 @@ class OrderControllerTest {
         // given
         Long orderId = 1L;
         Long userId = 1L;
+        OrderWithDetailsDto orderDetails = new OrderWithDetailsDto(
+            1L, 1L, "PENDING", new BigDecimal("100000"), LocalDateTime.now(), List.of()
+        );
         
-        when(getOrderFacade.getOrder(userId, orderId)).thenReturn(testOrder);
+        when(getOrderWithDetailsFacade.getOrderWithDetails(orderId, userId)).thenReturn(orderDetails);
+        
         // when
         OrderResponse result = orderController.getOrder(orderId, userId);
         
@@ -171,7 +170,7 @@ class OrderControllerTest {
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.totalAmount()).isEqualTo(new BigDecimal("100000"));
         
-        verify(getOrderFacade).getOrder(userId, orderId);
+        verify(getOrderWithDetailsFacade).getOrderWithDetails(orderId, userId);
     }
     
     @Test
@@ -185,7 +184,7 @@ class OrderControllerTest {
         assertThatThrownBy(() -> orderController.getOrder(nullOrderId, userId))
             .isInstanceOf(OrderException.OrderIdCannotBeNull.class);
             
-        verify(getOrderFacade, never()).getOrder(anyLong(), anyLong());
+        verify(getOrderWithDetailsFacade, never()).getOrderWithDetails(anyLong(), anyLong());
     }
     
     @Test
@@ -193,7 +192,10 @@ class OrderControllerTest {
     void getUserOrders_Success() {
         // given
         Long userId = 1L;
-        when(getOrderListFacade.getOrderList(userId, 0, 0)).thenReturn(List.of(testOrder));
+        OrderWithDetailsDto orderDetails = new OrderWithDetailsDto(
+            1L, 1L, "PENDING", new BigDecimal("100000"), LocalDateTime.now(), List.of()
+        );
+        when(getOrderWithDetailsFacade.getUserOrdersWithDetails(userId)).thenReturn(List.of(orderDetails));
         
         // when
         List<OrderResponse> result = orderController.getUserOrders(userId);
@@ -206,7 +208,7 @@ class OrderControllerTest {
         assertThat(result.get(0).status()).isEqualTo(OrderStatus.PENDING.name());
         assertThat(result.get(0).totalAmount()).isEqualTo(new BigDecimal("100000"));
         
-        verify(getOrderListFacade).getOrderList(userId, 0, 0);
+        verify(getOrderWithDetailsFacade).getUserOrdersWithDetails(userId);
     }
     
     @Test
@@ -219,6 +221,6 @@ class OrderControllerTest {
         assertThatThrownBy(() -> orderController.getUserOrders(nullUserId))
             .isInstanceOf(CommonException.InvalidRequest.class);
             
-        verify(getOrderListFacade, never()).getOrderList(anyLong(), anyInt(), anyInt());
+        verify(getOrderWithDetailsFacade, never()).getUserOrdersWithDetails(anyLong());
     }
 }

@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.api.ErrorCode;
 
-import java.util.Map;
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 
 @Schema(description = "쿠폰 관련 요청")
 public class CouponRequest implements DocumentedDto {
@@ -46,13 +46,13 @@ public class CouponRequest implements DocumentedDto {
     public void setOffset(int offset) { this.offset = offset; }
 
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "userId", new SchemaInfo("사용자 ID", "1"),
-                "couponId", new SchemaInfo("쿠폰 ID", "1"),
-                "limit", new SchemaInfo("페이지 크기", "10", false),
-                "offset", new SchemaInfo("페이지 오프셋", "0", false)
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("userId", "사용자 ID", "1")
+                .field("couponId", "쿠폰 ID", "1")
+                .field("limit", "페이지 크기", "10", false)
+                .field("offset", "페이지 오프셋", "0", false)
+                .build();
     }
     
     /**

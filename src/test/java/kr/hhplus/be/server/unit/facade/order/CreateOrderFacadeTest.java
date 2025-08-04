@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,10 @@ class CreateOrderFacadeTest {
         void createOrder_Success() {
             // given
             Long userId = 1L;
-            Map<Long, Integer> productQuantities = Map.of(1L, 2, 2L, 1);
+            List<ProductQuantityDto> productQuantities = List.of(
+                new ProductQuantityDto(1L, 2),
+                new ProductQuantityDto(2L, 1)
+            );
             
             when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities)).thenReturn(testOrder);
@@ -97,7 +101,7 @@ class CreateOrderFacadeTest {
         void createOrder_ConcurrencyConflict() {
             // given
             Long userId = 1L;
-            Map<Long, Integer> productQuantities = Map.of(1L, 2);
+            List<ProductQuantityDto> productQuantities = List.of(new ProductQuantityDto(1L, 2));
 
             when(lockingPort.acquireLock(anyString())).thenReturn(false);
 
@@ -107,7 +111,7 @@ class CreateOrderFacadeTest {
 
             verify(lockingPort).acquireLock(anyString());
             verify(lockingPort, never()).releaseLock(anyString());
-            verify(createOrderUseCase, never()).execute(anyLong(), anyMap());
+            verify(createOrderUseCase, never()).execute(anyLong(), anyList());
         }
         
         @Test
@@ -115,7 +119,7 @@ class CreateOrderFacadeTest {
         void createOrder_UserNotFound() {
             // given
             Long userId = 999L;
-            Map<Long, Integer> productQuantities = Map.of(1L, 2);
+            List<ProductQuantityDto> productQuantities = List.of(new ProductQuantityDto(1L, 2));
             
             when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))
@@ -135,7 +139,7 @@ class CreateOrderFacadeTest {
         void createOrder_EmptyProducts() {
             // given
             Long userId = 1L;
-            Map<Long, Integer> productQuantities = Map.of();
+            List<ProductQuantityDto> productQuantities = List.of();
             
             when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))
@@ -155,7 +159,7 @@ class CreateOrderFacadeTest {
         void createOrder_OutOfStock() {
             // given
             Long userId = 1L;
-            Map<Long, Integer> productQuantities = Map.of(1L, 100);
+            List<ProductQuantityDto> productQuantities = List.of(new ProductQuantityDto(1L, 100));
             
             when(lockingPort.acquireLock(anyString())).thenReturn(true);
             when(createOrderUseCase.execute(userId, productQuantities))

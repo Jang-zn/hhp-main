@@ -2,12 +2,11 @@ package kr.hhplus.be.server.api.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
-import kr.hhplus.be.server.api.ErrorCode;
-import kr.hhplus.be.server.domain.exception.UserException; // 추가
-import kr.hhplus.be.server.domain.exception.BalanceException; // 추가
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
+import kr.hhplus.be.server.domain.exception.BalanceException;
+import kr.hhplus.be.server.domain.exception.UserException;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 @Schema(description = "잔액 관련 요청")
 public class BalanceRequest implements DocumentedDto {
@@ -58,10 +57,10 @@ public class BalanceRequest implements DocumentedDto {
     }
 
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "userId", new SchemaInfo("사용자 ID", "1"),
-                "amount", new SchemaInfo("충전 금액", "10000")
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("userId", "사용자 ID", "1")
+                .field("amount", "충전 금액", "10000")
+                .build();
     }
 }
