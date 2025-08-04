@@ -13,7 +13,14 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "coupon_history")
+@Table(name = "coupon_history",
+       indexes = {
+           @Index(name = "idx_coupon_history_user_id", columnList = "userId"),
+           @Index(name = "idx_coupon_history_coupon_id", columnList = "couponId"),
+           @Index(name = "idx_coupon_history_status", columnList = "status"),
+           @Index(name = "idx_coupon_history_user_status", columnList = "userId, status"),
+           @Index(name = "idx_coupon_history_user_coupon", columnList = "userId, couponId")
+       })
 public class CouponHistory extends BaseEntity {
 
     private Long userId;

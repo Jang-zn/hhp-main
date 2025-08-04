@@ -14,7 +14,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "coupon")
+@Table(name = "coupon",
+       indexes = {
+           @Index(name = "idx_coupon_status", columnList = "status"),
+           @Index(name = "idx_coupon_product_id", columnList = "productId"),
+           @Index(name = "idx_coupon_code", columnList = "code", unique = true),
+           @Index(name = "idx_coupon_end_date", columnList = "endDate"),
+           @Index(name = "idx_coupon_status_end_date", columnList = "status, endDate"),
+           @Index(name = "idx_coupon_end_date_status", columnList = "endDate, status")
+       })
 public class Coupon extends BaseEntity {
 
     private String code;
