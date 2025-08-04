@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.api.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
  * <p>
  * CommonResponse.failure(...) 구조와 동일하지만, Swagger 문서를 위한 경량 모델이다.
  */
+@Getter
 @Schema(name = "ErrorResponse", description = "실패 응답 모델")
 public class ErrorResponse {
 
@@ -16,26 +18,13 @@ public class ErrorResponse {
     private final boolean success = false;
 
     @Schema(description = "에러 메시지", example = "Error Message")
-    private String message;
+    private final String message;
 
     @Schema(description = "응답 시간", example = "2025-07-17T13:40:00.123")
-    private LocalDateTime timestamp;
+    private final LocalDateTime timestamp;
 
     public ErrorResponse(String message) {
         this.message = message;
         this.timestamp = LocalDateTime.now();
-    }
-
-    // Getter (Swagger는 getter 기반으로 스키마를 생성한다)
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
     }
 } 

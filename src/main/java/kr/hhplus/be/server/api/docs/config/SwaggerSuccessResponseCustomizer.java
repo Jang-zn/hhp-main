@@ -14,6 +14,7 @@ import org.springframework.web.method.HandlerMethod;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -56,10 +57,10 @@ public class SwaggerSuccessResponseCustomizer implements OperationCustomizer {
         
         // 성공 응답 추가
         if (!responses.containsKey(statusCode)) {
-            Map<String, Object> successResponse = responseGenerator.generateSuccessResponse(exampleData);
+            var successResponse = responseGenerator.generateSuccessResponse(exampleData);
             responses.addApiResponse(statusCode, createSuccessResponse(
                 "201".equals(statusCode) ? "생성 성공" : "요청 성공",
-                successResponse
+                convertToMap(successResponse)
             ));
         }
     }
@@ -96,8 +97,8 @@ public class SwaggerSuccessResponseCustomizer implements OperationCustomizer {
                 DocumentedDto instance = (DocumentedDto) type.getDeclaredConstructor().newInstance();
                 Map<String, Object> exampleData = new HashMap<>();
                 
-                instance.getFieldDocumentation().forEach((fieldName, schemaInfo) -> {
-                    exampleData.put(fieldName, parseExampleValue(schemaInfo.example()));
+                instance.getFieldDocumentation().fields().forEach(fieldInfo -> {
+                    exampleData.put(fieldInfo.name(), parseExampleValue(fieldInfo.example()));
                 });
                 
                 return exampleData;
@@ -182,5 +183,20 @@ public class SwaggerSuccessResponseCustomizer implements OperationCustomizer {
         response.setContent(content);
 
         return response;
+    }
+    
+    /**
+     * ApiResponseDto를 Map으로 변환 (Swagger 예시용)
+     */
+    private Map<String, Object> convertToMap(kr.hhplus.be.server.api.docs.dto.ApiResponseDto<?> response) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("success", response.isSuccess());
+        map.put("message", response.getMessage());
+        map.put("data", response.getData());
+        if (response.getErrorCode() != null) {
+            map.put("errorCode", response.getErrorCode());
+        }
+        map.put("timestamp", response.getTimestamp().toString());
+        return map;
     }
 }

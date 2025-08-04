@@ -12,6 +12,7 @@ import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -81,7 +82,7 @@ public class SwaggerResponseCustomizer implements OperationCustomizer {
         if (!responses.containsKey("400")) {
             responses.addApiResponse("400", createErrorResponse(
                 "잘못된 요청",
-                responseGenerator.generateErrorResponse("INVALID_REQUEST", "잘못된 요청입니다")
+                convertToMap(responseGenerator.generateErrorResponse("INVALID_REQUEST", "잘못된 요청입니다"))
             ));
         }
 
@@ -89,72 +90,72 @@ public class SwaggerResponseCustomizer implements OperationCustomizer {
         if (!responses.containsKey("500")) {
             responses.addApiResponse("500", createErrorResponse(
                 "서버 오류",
-                responseGenerator.generateErrorResponse("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다")
+                convertToMap(responseGenerator.generateErrorResponse("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다"))
             ));
         }
     }
 
     private void addDomainSpecificErrorResponses(Operation operation, String domain) {
         ApiResponses responses = operation.getResponses();
-        Map<String, Map<String, Object>> domainErrors = responseGenerator.generateDomainErrorExamples(domain);
+        var domainErrors = responseGenerator.generateDomainErrorExamples(domain);
 
         switch (domain) {
             case "balance" -> {
                 // 402 Payment Required (잔액 부족)
                 responses.addApiResponse("402", createErrorResponse(
                     "잔액 부족",
-                    responseGenerator.generateSpecificErrorExample("INSUFFICIENT_BALANCE")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("INSUFFICIENT_BALANCE"))
                 ));
                 // 404 Not Found (잔액 정보 없음)
                 responses.addApiResponse("404", createErrorResponse(
                     "잔액 정보 없음",
-                    responseGenerator.generateSpecificErrorExample("BALANCE_NOT_FOUND")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("BALANCE_NOT_FOUND"))
                 ));
             }
             case "coupon" -> {
                 // 404 Not Found (쿠폰 없음)
                 responses.addApiResponse("404", createErrorResponse(
                     "쿠폰 없음",
-                    responseGenerator.generateSpecificErrorExample("COUPON_NOT_FOUND")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("COUPON_NOT_FOUND"))
                 ));
                 // 409 Conflict (이미 발급됨)
                 responses.addApiResponse("409", createErrorResponse(
                     "쿠폰 중복 발급",
-                    responseGenerator.generateSpecificErrorExample("COUPON_ALREADY_ISSUED")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("COUPON_ALREADY_ISSUED"))
                 ));
                 // 410 Gone (쿠폰 만료)
                 responses.addApiResponse("410", createErrorResponse(
                     "쿠폰 만료",
-                    responseGenerator.generateSpecificErrorExample("COUPON_EXPIRED")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("COUPON_EXPIRED"))
                 ));
             }
             case "product" -> {
                 // 404 Not Found (상품 없음)
                 responses.addApiResponse("404", createErrorResponse(
                     "상품 없음",
-                    responseGenerator.generateSpecificErrorExample("PRODUCT_NOT_FOUND")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("PRODUCT_NOT_FOUND"))
                 ));
                 // 409 Conflict (재고 부족)
                 responses.addApiResponse("409", createErrorResponse(
                     "재고 부족",
-                    responseGenerator.generateSpecificErrorExample("PRODUCT_OUT_OF_STOCK")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("PRODUCT_OUT_OF_STOCK"))
                 ));
             }
             case "order" -> {
                 // 403 Forbidden (권한 없음)
                 responses.addApiResponse("403", createErrorResponse(
                     "접근 권한 없음",
-                    responseGenerator.generateSpecificErrorExample("ORDER_UNAUTHORIZED")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("ORDER_UNAUTHORIZED"))
                 ));
                 // 404 Not Found (주문 없음)
                 responses.addApiResponse("404", createErrorResponse(
                     "주문 없음",
-                    responseGenerator.generateSpecificErrorExample("ORDER_NOT_FOUND")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("ORDER_NOT_FOUND"))
                 ));
                 // 409 Conflict (이미 결제됨)
                 responses.addApiResponse("409", createErrorResponse(
                     "이미 결제됨",
-                    responseGenerator.generateSpecificErrorExample("ORDER_ALREADY_PAID")
+                    convertToMap(responseGenerator.generateSpecificErrorExample("ORDER_ALREADY_PAID"))
                 ));
             }
         }
@@ -167,14 +168,14 @@ public class SwaggerResponseCustomizer implements OperationCustomizer {
             ApiResponses responses = operation.getResponses();
             
             for (String errorCode : apiDocs.errorCodes()) {
-                Map<String, Object> errorExample = responseGenerator.generateSpecificErrorExample(errorCode);
+                var errorExample = responseGenerator.generateSpecificErrorExample(errorCode);
                 
                 // HTTP 상태 코드 추정 (에러 코드 기반)
                 String httpStatus = estimateHttpStatusFromErrorCode(errorCode);
                 
                 responses.addApiResponse(httpStatus, createErrorResponse(
                     "에러: " + errorCode,
-                    errorExample
+                    convertToMap(errorExample)
                 ));
             }
         }
@@ -206,5 +207,20 @@ public class SwaggerResponseCustomizer implements OperationCustomizer {
         response.setContent(content);
 
         return response;
+    }
+    
+    /**
+     * ApiResponseDto를 Map으로 변환 (Swagger 예시용)
+     */
+    private Map<String, Object> convertToMap(kr.hhplus.be.server.api.docs.dto.ApiResponseDto<?> response) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("success", response.isSuccess());
+        map.put("message", response.getMessage());
+        map.put("data", response.getData());
+        if (response.getErrorCode() != null) {
+            map.put("errorCode", response.getErrorCode());
+        }
+        map.put("timestamp", response.getTimestamp().toString());
+        return map;
     }
 }
