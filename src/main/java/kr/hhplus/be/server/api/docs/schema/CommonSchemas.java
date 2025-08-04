@@ -29,18 +29,21 @@ public class CommonSchemas {
     ) {}
 
     /**
-     * 에러 응답 스키마
+     * 에러 응답 스키마 (ApiResponseDto와 구조적으로 동일)
      */
     @Schema(description = "에러 응답")
     public record ErrorResponse(
             @Schema(description = "성공 여부", example = "false")
             boolean success,
             
-            @Schema(description = "에러 코드", example = "INSUFFICIENT_BALANCE")
-            String errorCode,
-            
             @Schema(description = "에러 메시지", example = "잔액이 부족합니다")
             String message,
+            
+            @Schema(description = "데이터 (에러 시 null)", example = "null")
+            Object data,
+            
+            @Schema(description = "에러 코드", example = "INSUFFICIENT_BALANCE")
+            String errorCode,
             
             @Schema(description = "응답 시간", example = "2025-07-22T13:40:00.123")
             LocalDateTime timestamp
