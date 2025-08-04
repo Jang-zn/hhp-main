@@ -94,8 +94,8 @@ class CouponControllerTest {
             assertThat(result).isNotNull();
             assertThat(result.couponHistoryId()).isEqualTo(1L);
             assertThat(result.couponId()).isEqualTo(1L);
-            assertThat(result.code()).isEqualTo(TestConstants.TEST_COUPON_CODE);
-            assertThat(result.discountRate()).isEqualTo(TestConstants.DEFAULT_DISCOUNT_RATE);
+            assertThat(result.code()).isEqualTo("TEST-COUPON-001");  // testCoupon의 실제 코드
+            assertThat(result.discountRate()).isEqualTo(new BigDecimal("10.0"));
             assertThat(result.couponStatus()).isEqualTo(CouponStatus.ACTIVE);
             assertThat(result.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
             assertThat(result.usable()).isTrue();
