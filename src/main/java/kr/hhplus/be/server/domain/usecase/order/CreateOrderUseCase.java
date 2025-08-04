@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class CreateOrderUseCase {
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final CachePort cachePort;
 
-    public Order execute(Long userId, Map<Long, Integer> productQuantities) {
+    public Order execute(Long userId, List<ProductQuantityDto> productQuantities) {
         log.debug("주문 생성 요청: userId={}, products={}", userId, productQuantities);
         
         try {
@@ -46,10 +47,11 @@ public class CreateOrderUseCase {
             }
 
             // 상품별 재고 예약 및 주문 아이템 생성
-            List<OrderItem> orderItems = productQuantities.entrySet().stream()
-                    .map(entry -> {
-                        Long productId = entry.getKey();
-                        Integer quantity = entry.getValue();
+            List<OrderItem> orderItems = productQuantities.stream()
+                    .map(productQuantity -> {
+                        productQuantity.validate();
+                        Long productId = productQuantity.getProductId();
+                        Integer quantity = productQuantity.getQuantity();
                         
                         Product product = productRepositoryPort.findById(productId)
                                 .orElseThrow(() -> {
@@ -84,16 +86,15 @@ public class CreateOrderUseCase {
 
             Order savedOrder = orderRepositoryPort.save(order);
             
-            // OrderItem들에 orderId 설정 후 저장
-            orderItems.forEach(item -> {
-                OrderItem orderItemWithOrderId = OrderItem.builder()
-                        .orderId(savedOrder.getId())
-                        .productId(item.getProductId())
-                        .quantity(item.getQuantity())
-                        .price(item.getPrice())
-                        .build();
-                orderItemRepositoryPort.save(orderItemWithOrderId);
-            });
+            // OrderItem들에 orderId 설정 후 배치 저장 (성능 최적화)
+            List<OrderItem> orderItemsWithOrderId = orderItems.stream()
+                    .map(item -> item.withOrderId(savedOrder.getId()))
+                    .collect(Collectors.toList());
+            
+            orderItemRepositoryPort.saveAll(orderItemsWithOrderId);
+            
+            log.debug("OrderItem 배치 저장 완료: orderId={}, itemCount={}", 
+                    savedOrder.getId(), orderItemsWithOrderId.size());
             
             log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
                     savedOrder.getId(), userId, totalAmount, orderItems.size());
@@ -109,7 +110,7 @@ public class CreateOrderUseCase {
         }
     }
 
-    private void validateParameters(Long userId, Map<Long, Integer> productQuantities) {
+    private void validateParameters(Long userId, List<ProductQuantityDto> productQuantities) {
         if (userId == null) {
             throw new IllegalArgumentException("UserId cannot be null");
         }
@@ -117,15 +118,8 @@ public class CreateOrderUseCase {
             throw new OrderException.EmptyItems();
         }
         
-        // 수량 검증
-        productQuantities.forEach((productId, quantity) -> {
-            if (productId == null || productId <= 0) {
-                throw new IllegalArgumentException("Invalid productId: " + productId);
-            }
-            if (quantity == null || quantity <= 0) {
-                throw new IllegalArgumentException("Quantity must be positive");
-            }
-        });
+        // 수량 검증 (DTO 내부 validate 메서드 사용)
+        productQuantities.forEach(ProductQuantityDto::validate);
     }
     
     private void invalidateUserRelatedCache(Long userId) {

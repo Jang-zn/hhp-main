@@ -126,10 +126,26 @@ class ChargeBalanceUseCaseTest {
     void execute_NullParameters() {
         // when & then
         assertThatThrownBy(() -> chargeBalanceUseCase.execute(null, new BigDecimal("10000")))
-            .isInstanceOf(NullPointerException.class);
+            .isInstanceOf(UserException.UserIdCannotBeNull.class);
             
         assertThatThrownBy(() -> chargeBalanceUseCase.execute(testUser.getId(), null))
             .isInstanceOf(BalanceException.InvalidAmount.class);
+    }
+    
+    @Test
+    @DisplayName("실패 - 잘못된 사용자 ID (0 또는 음수)")
+    void execute_InvalidUserId() {
+        // when & then
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(0L, new BigDecimal("10000")))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("UserId must be positive");
+            
+        assertThatThrownBy(() -> chargeBalanceUseCase.execute(-1L, new BigDecimal("10000")))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("UserId must be positive");
+            
+        verify(balanceRepositoryPort, never()).findByUserId(any());
+        verify(balanceRepositoryPort, never()).save(any());
     }
     
     @Test
