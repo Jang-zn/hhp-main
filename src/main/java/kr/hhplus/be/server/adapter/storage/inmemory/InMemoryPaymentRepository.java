@@ -36,7 +36,7 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
             throw new PaymentException.PaymentIdCannotBeNull();
         }
         return payments.values().stream()
-                .filter(payment -> payment.getOrder() != null && payment.getOrder().getId().equals(orderId))
+                .filter(payment -> payment.getOrderId() != null && payment.getOrderId().equals(orderId))
                 .collect(Collectors.toList());
     }
     
@@ -45,10 +45,10 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
         if (payment == null) {
             throw new PaymentException.PaymentCannotBeNull();
         }
-        if (payment.getUser() == null) {
+        if (payment.getUserId() == null) {
             throw new PaymentException.PaymentCannotBeNull();
         }
-        if (payment.getOrder() == null) {
+        if (payment.getOrderId() == null) {
             throw new PaymentException.PaymentCannotBeNull();
         }
         if (payment.getAmount() != null && payment.getAmount().compareTo(java.math.BigDecimal.ZERO) < 0) {
@@ -88,8 +88,9 @@ public class InMemoryPaymentRepository implements PaymentRepositoryPort {
             if (existingPayment != null) {
                 return Payment.builder()
                         .id(existingPayment.getId())
-                        .order(existingPayment.getOrder())
-                        .user(existingPayment.getUser())
+                        .orderId(existingPayment.getOrderId())
+                        .userId(existingPayment.getUserId())
+                        .couponId(existingPayment.getCouponId())
                         .amount(existingPayment.getAmount())
                         .status(status)
                         .createdAt(existingPayment.getCreatedAt())

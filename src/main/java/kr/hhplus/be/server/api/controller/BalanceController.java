@@ -38,7 +38,7 @@ public class BalanceController {
         
         Balance balance = chargeBalanceFacade.chargeBalance(request.getUserId(), request.getAmount());
         return new BalanceResponse(
-                balance.getUser().getId(),
+                balance.getUserId(),
                 balance.getAmount(),
                 balance.getUpdatedAt()
         );
@@ -59,7 +59,7 @@ public class BalanceController {
         
         Balance balance = balanceOpt.get();
         return new BalanceResponse(
-                balance.getUser().getId(),
+                balance.getUserId(),
                 balance.getAmount(),
                 balance.getUpdatedAt()
         );

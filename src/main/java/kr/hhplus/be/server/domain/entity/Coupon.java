@@ -34,9 +34,7 @@ public class Coupon extends BaseEntity {
     @Column(nullable = false)
     private CouponStatus status;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
-    private Product product;
+    private Long productId;
 
     /**
      * 쿠폰 상태를 업데이트합니다.

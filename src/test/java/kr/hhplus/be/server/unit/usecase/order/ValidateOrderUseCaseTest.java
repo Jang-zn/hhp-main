@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
@@ -16,7 +17,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @DisplayName("ValidateOrderUseCase 단위 테스트")
@@ -48,7 +48,7 @@ class ValidateOrderUseCaseTest {
             
         testOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("50000"))
             .build();
@@ -70,7 +70,7 @@ class ValidateOrderUseCaseTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(orderId);
-        assertThat(result.getUser().getId()).isEqualTo(userId);
+        assertThat(result.getUserId()).isEqualTo(userId);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
     }
     
@@ -99,7 +99,7 @@ class ValidateOrderUseCaseTest {
         User otherUser = User.builder().id(2L).name("Other User").build();
         Order otherUserOrder = Order.builder()
             .id(1L)
-            .user(otherUser)
+            .userId(otherUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("50000"))
             .build();
@@ -121,7 +121,7 @@ class ValidateOrderUseCaseTest {
         
         Order paidOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.COMPLETED)
             .totalAmount(new BigDecimal("50000"))
             .build();

@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.adapter.storage.jpa;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -19,11 +18,11 @@ public class BalanceJpaRepository implements BalanceRepositoryPort {
     private final EntityManager entityManager;
 
     @Override
-    public Optional<Balance> findByUser(User user) {
+    public Optional<Balance> findByUserId(Long userId) {
         try {
             Balance balance = entityManager.createQuery(
-                "SELECT b FROM Balance b WHERE b.user = :user", Balance.class)
-                .setParameter("user", user)
+                "SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class)
+                .setParameter("userId", userId)
                 .getSingleResult();
             return Optional.of(balance);
         } catch (NoResultException e) {

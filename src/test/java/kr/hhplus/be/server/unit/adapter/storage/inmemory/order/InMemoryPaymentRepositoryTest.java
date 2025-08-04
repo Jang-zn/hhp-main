@@ -54,14 +54,14 @@ class InMemoryPaymentRepositoryTest {
         
         Order order = Order.builder()
                 .id(1L)
-                .user(user)
+                .userId(user.getId())
                 .totalAmount(new BigDecimal("120000"))
                 .build();
         
         Payment payment = Payment.builder()
                 .id(1L)
-                .order(order)
-                .user(user)
+                .orderId(order.getId())
+                .userId(user.getId())
                 .status(PaymentStatus.PENDING)
                 .amount(new BigDecimal("120000"))
                 .build();
@@ -71,8 +71,8 @@ class InMemoryPaymentRepositoryTest {
 
         // then
         assertThat(savedPayment).isNotNull();
-        assertThat(savedPayment.getOrder()).isEqualTo(order);
-        assertThat(savedPayment.getUser()).isEqualTo(user);
+        assertThat(savedPayment.getOrderId()).isEqualTo(order.getId());
+        assertThat(savedPayment.getUserId()).isEqualTo(user.getId());
         assertThat(savedPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
         assertThat(savedPayment.getAmount()).isEqualTo(new BigDecimal("120000"));
     }
@@ -89,14 +89,14 @@ class InMemoryPaymentRepositoryTest {
             
             Order order = Order.builder()
                     .id(2L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal(amount))
                     .build();
             
             Payment payment = Payment.builder()
                     .id(2L)
-                    .order(order)
-                    .user(user)
+                    .orderId(order.getId())
+                    .userId(user.getId())
                     .status(status)
                     .amount(new BigDecimal(amount))
                     .build();
@@ -106,7 +106,7 @@ class InMemoryPaymentRepositoryTest {
 
             // then
             assertThat(savedPayment).isNotNull();
-            assertThat(savedPayment.getUser().getName()).isEqualTo(userName);
+            assertThat(savedPayment.getUserId()).isEqualTo(user.getId());
             assertThat(savedPayment.getAmount()).isEqualTo(new BigDecimal(amount));
             assertThat(savedPayment.getStatus()).isEqualTo(status);
         }
@@ -122,14 +122,14 @@ class InMemoryPaymentRepositoryTest {
             
             Order order = Order.builder()
                     .id(3L)
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(BigDecimal.ZERO)
                     .build();
             
             Payment payment = Payment.builder()
                     .id(3L)
-                    .order(order)
-                    .user(user)
+                    .orderId(order.getId())
+                    .userId(user.getId())
                     .status(PaymentStatus.PAID)
                     .amount(BigDecimal.ZERO)
                     .build();
@@ -158,14 +158,14 @@ class InMemoryPaymentRepositoryTest {
         
         Order order = Order.builder()
                 .id(4L)
-                .user(user)
+                .userId(user.getId())
                 .totalAmount(new BigDecimal("50000"))
                 .build();
         
         Payment payment = Payment.builder()
                 .id(4L)
-                .order(order)
-                .user(user)
+                .orderId(order.getId())
+                .userId(user.getId())
                 .status(PaymentStatus.PAID)
                 .amount(new BigDecimal("50000"))
                 .build();
@@ -237,14 +237,14 @@ class InMemoryPaymentRepositoryTest {
                         
                         Order order = Order.builder()
                                 .id((long) paymentIndex)
-                                .user(user)
+                                .userId(user.getId())
                                 .totalAmount(new BigDecimal(String.valueOf(paymentIndex * 1000)))
                                 .build();
                         
                         Payment payment = Payment.builder()
                                 .id((long) paymentIndex)
-                                .order(order)
-                                .user(user)
+                                .orderId(order.getId())
+                                .userId(user.getId())
                                 .status(PaymentStatus.PENDING)
                                 .amount(new BigDecimal(String.valueOf(paymentIndex * 1000)))
                                 .build();
@@ -284,12 +284,12 @@ class InMemoryPaymentRepositoryTest {
             // given
             Long paymentId = 500L;
             User user = User.builder().id(500L).name("동시성 사용자").build();
-            Order order = Order.builder().id(500L).user(user).totalAmount(new BigDecimal("100000")).build();
+            Order order = Order.builder().id(500L).userId(user.getId()).totalAmount(new BigDecimal("100000")).build();
             
             Payment initialPayment = Payment.builder()
                     .id(paymentId)
-                    .order(order)
-                    .user(user)
+                    .orderId(order.getId())
+                    .userId(user.getId())
                     .status(PaymentStatus.PENDING)
                     .amount(new BigDecimal("100000"))
                     .build();
@@ -312,8 +312,8 @@ class InMemoryPaymentRepositoryTest {
                         for (int j = 0; j < updatesPerThread; j++) {
                             Payment updatedPayment = Payment.builder()
                                     .id(paymentId)
-                                    .order(order)
-                                    .user(user)
+                                    .orderId(order.getId())
+                                    .userId(user.getId())
                                     .status(threadId % 2 == 0 ? PaymentStatus.PAID : PaymentStatus.FAILED)
                                     .amount(new BigDecimal(String.valueOf(100000 + threadId * 1000 + j)))
                                     .build();
@@ -351,12 +351,12 @@ class InMemoryPaymentRepositoryTest {
         void concurrentReadAndWrite() throws Exception {
             // given
             User baseUser = User.builder().id(600L).name("읽기쓰기 테스트 사용자").build();
-            Order baseOrder = Order.builder().id(600L).user(baseUser).totalAmount(new BigDecimal("50000")).build();
+            Order baseOrder = Order.builder().id(600L).userId(baseUser.getId()).totalAmount(new BigDecimal("50000")).build();
             
             Payment basePayment = Payment.builder()
                     .id(600L)
-                    .order(baseOrder)
-                    .user(baseUser)
+                    .orderId(baseOrder.getId())
+                    .userId(baseUser.getId())
                     .status(PaymentStatus.PAID)
                     .amount(new BigDecimal("50000"))
                     .build();
@@ -403,14 +403,14 @@ class InMemoryPaymentRepositoryTest {
                             
                             Order newOrder = Order.builder()
                                     .id((long) (700 + writerId * 20 + j))
-                                    .user(newUser)
+                                    .userId(newUser.getId())
                                     .totalAmount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
                                     .build();
                             
                             Payment newPayment = Payment.builder()
                                     .id((long) (700 + writerId * 20 + j))
-                                    .order(newOrder)
-                                    .user(newUser)
+                                    .orderId(newOrder.getId())
+                                    .userId(newUser.getId())
                                     .status(PaymentStatus.PENDING)
                                     .amount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
                                     .build();

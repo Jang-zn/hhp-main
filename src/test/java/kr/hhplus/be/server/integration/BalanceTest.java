@@ -73,7 +73,7 @@ public class BalanceTest {
         // 잔액이 있는 테스트 사용자
         userWithBalance = userRepositoryPort.save(User.builder().name("User With Balance").build());
         balanceRepositoryPort.save(Balance.builder()
-                .user(userWithBalance)
+                .userId(userWithBalance.getId())
                 .amount(new BigDecimal("50000"))
                 .build());
 
@@ -256,7 +256,7 @@ public class BalanceTest {
             // given: 초기 잔액이 10000원인 사용자
             User testUser = userRepositoryPort.save(User.builder().name("ConcurrentChargeUser").build());
             balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
+                    .userId(testUser.getId())
                     .amount(new BigDecimal("10000"))
                     .build());
 
@@ -316,7 +316,7 @@ public class BalanceTest {
             // given: 초기 잔액이 5000원인 사용자
             User testUser = userRepositoryPort.save(User.builder().name("ConcurrentDeductUser").build());
             balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
+                    .userId(testUser.getId())
                     .amount(new BigDecimal("5000"))
                     .build());
 
@@ -376,7 +376,7 @@ public class BalanceTest {
             // given: 초기 잔액이 10000원인 사용자
             User testUser = userRepositoryPort.save(User.builder().name("ConcurrentMixedUser").build());
             balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
+                    .userId(testUser.getId())
                     .amount(new BigDecimal("10000"))
                     .build());
 

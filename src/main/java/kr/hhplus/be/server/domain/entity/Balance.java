@@ -22,13 +22,12 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @SuperBuilder
 @EqualsAndHashCode(callSuper = false)
-@ToString(exclude = "user") // 순환 참조 방지
+@ToString
 public class Balance extends BaseEntity {
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @Column(name = "user_id", nullable = false, unique = true)
     @NotNull
-    private User user;
+    private Long userId;
 
     @Column(nullable = false, precision = 19, scale = 2)
     @NotNull

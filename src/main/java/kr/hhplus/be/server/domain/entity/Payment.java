@@ -15,13 +15,9 @@ import java.math.BigDecimal;
 @Table(name = "payment")
 public class Payment extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    private Order order;
+    private Long orderId;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
@@ -29,9 +25,7 @@ public class Payment extends BaseEntity {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
-    @ManyToOne
-    @JoinColumn(name = "coupon_id")
-    private Coupon coupon;
+    private Long couponId;
 
     public void changeStatus(PaymentStatus status) {
         this.status = status;

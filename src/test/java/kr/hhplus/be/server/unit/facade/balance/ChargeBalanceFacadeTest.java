@@ -55,7 +55,7 @@ class ChargeBalanceFacadeTest {
             
         testBalance = Balance.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .amount(new BigDecimal("150000"))
             .updatedAt(LocalDateTime.now())
             .build();
@@ -71,21 +71,21 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-            when(chargeBalanceUseCase.execute(testUser, chargeAmount)).thenReturn(testBalance);
+            when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(testBalance);
             
             // when
             Balance result = chargeBalanceFacade.chargeBalance(userId, chargeAmount);
             
             // then
             assertThat(result).isNotNull();
-            assertThat(result.getUser().getId()).isEqualTo(userId);
+            assertThat(result.getUserId()).isEqualTo(userId);
             assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
             
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(lockingPort).acquireLock("balance-" + userId);
-            verify(chargeBalanceUseCase).execute(testUser, chargeAmount);
+            verify(chargeBalanceUseCase).execute(userId, chargeAmount);
             verify(lockingPort).releaseLock("balance-" + userId);
         }
         
@@ -95,14 +95,14 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(false);
             
             // when & then
             assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
                 .isInstanceOf(CommonException.ConcurrencyConflict.class);
                 
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(lockingPort).acquireLock("balance-" + userId);
             verify(chargeBalanceUseCase, never()).execute(any(), any());
             verify(lockingPort, never()).releaseLock(any());
@@ -114,18 +114,18 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-            when(chargeBalanceUseCase.execute(testUser, chargeAmount))
+            when(chargeBalanceUseCase.execute(userId, chargeAmount))
                 .thenThrow(new BalanceException.InvalidAmount());
             
             // when & then
             assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
                 .isInstanceOf(BalanceException.InvalidAmount.class);
                 
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(lockingPort).acquireLock("balance-" + userId);
-            verify(chargeBalanceUseCase).execute(testUser, chargeAmount);
+            verify(chargeBalanceUseCase).execute(userId, chargeAmount);
             verify(lockingPort).releaseLock("balance-" + userId);
         }
         
@@ -135,9 +135,9 @@ class ChargeBalanceFacadeTest {
             // given
             Long userId = 1L;
             BigDecimal invalidAmount = new BigDecimal("-10000");
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-            when(chargeBalanceUseCase.execute(testUser, invalidAmount))
+            when(chargeBalanceUseCase.execute(userId, invalidAmount))
                 .thenThrow(new BalanceException.InvalidAmount());
             
             // when & then
@@ -154,13 +154,13 @@ class ChargeBalanceFacadeTest {
             Long userId = 1L;
             BigDecimal chargeAmount = new BigDecimal("50000");
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+            when(userRepositoryPort.existsById(userId)).thenReturn(false);
             
             // when & then
             assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
                 .isInstanceOf(UserException.NotFound.class);
                 
-            verify(userRepositoryPort).findById(userId);
+            verify(userRepositoryPort).existsById(userId);
             verify(lockingPort, never()).acquireLock(any());
             verify(chargeBalanceUseCase, never()).execute(any(), any());
             verify(lockingPort, never()).releaseLock(any());
@@ -183,14 +183,14 @@ class ChargeBalanceFacadeTest {
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger lockFailureCount = new AtomicInteger(0);
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             
             // 첫 번째 스레드만 락 획득 성공, 나머지는 실패하도록 설정
             when(lockingPort.acquireLock("balance-" + userId))
                 .thenReturn(true)  // 첫 번째 호출만 성공
                 .thenReturn(false, false, false, false);  // 나머지는 실패
                 
-            when(chargeBalanceUseCase.execute(testUser, chargeAmount)).thenReturn(testBalance);
+            when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(testBalance);
             
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             
@@ -222,7 +222,7 @@ class ChargeBalanceFacadeTest {
             // 락 획득은 5번 시도되어야 함
             verify(lockingPort, times(5)).acquireLock("balance-" + userId);
             // UseCase는 성공한 1번만 실행되어야 함
-            verify(chargeBalanceUseCase, times(1)).execute(testUser, chargeAmount);
+            verify(chargeBalanceUseCase, times(1)).execute(userId, chargeAmount);
             // 락 해제는 성공한 1번만 호출되어야 함
             verify(lockingPort, times(1)).releaseLock("balance-" + userId);
         }
@@ -246,20 +246,20 @@ class ChargeBalanceFacadeTest {
                 
             Balance testBalance2 = Balance.builder()
                 .id(2L)
-                .user(testUser2)
+                .userId(testUser2.getId())
                 .amount(new BigDecimal("200000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
             
-            when(userRepositoryPort.findById(userId1)).thenReturn(Optional.of(testUser));
-            when(userRepositoryPort.findById(userId2)).thenReturn(Optional.of(testUser2));
+            when(userRepositoryPort.existsById(userId1)).thenReturn(true);
+            when(userRepositoryPort.existsById(userId2)).thenReturn(true);
             
             // 각각 다른 락이므로 모두 성공해야 함
             when(lockingPort.acquireLock("balance-" + userId1)).thenReturn(true);
             when(lockingPort.acquireLock("balance-" + userId2)).thenReturn(true);
             
-            when(chargeBalanceUseCase.execute(testUser, chargeAmount)).thenReturn(testBalance);
-            when(chargeBalanceUseCase.execute(testUser2, chargeAmount)).thenReturn(testBalance2);
+            when(chargeBalanceUseCase.execute(userId1, chargeAmount)).thenReturn(testBalance);
+            when(chargeBalanceUseCase.execute(userId2, chargeAmount)).thenReturn(testBalance2);
             
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             
@@ -300,8 +300,8 @@ class ChargeBalanceFacadeTest {
             verify(lockingPort).acquireLock("balance-" + userId2);
             
             // 각각의 UseCase가 실행되어야 함
-            verify(chargeBalanceUseCase).execute(testUser, chargeAmount);
-            verify(chargeBalanceUseCase).execute(testUser2, chargeAmount);
+            verify(chargeBalanceUseCase).execute(userId1, chargeAmount);
+            verify(chargeBalanceUseCase).execute(userId2, chargeAmount);
             
             // 각각의 락이 해제되어야 함
             verify(lockingPort).releaseLock("balance-" + userId1);

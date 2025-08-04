@@ -31,7 +31,7 @@ public class PaymentJpaRepository implements PaymentRepositoryPort {
     @Override
     public List<Payment> findByOrderId(Long orderId) {
         return entityManager.createQuery(
-            "SELECT p FROM Payment p WHERE p.order.id = :orderId", Payment.class)
+            "SELECT p FROM Payment p WHERE p.orderId = :orderId", Payment.class)
             .setParameter("orderId", orderId)
             .getResultList();
     }

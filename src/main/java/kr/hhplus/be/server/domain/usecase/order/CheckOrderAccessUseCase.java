@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.Order;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.exception.UserException;
@@ -32,12 +31,11 @@ public class CheckOrderAccessUseCase {
             throw new IllegalArgumentException("OrderId cannot be null");
         }
         
-        // 사용자 조회
-        User user = userRepositoryPort.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("존재하지 않는 사용자: userId={}", userId);
-                    return new UserException.NotFound();
-                });
+        // 사용자 존재 확인
+        if (!userRepositoryPort.existsById(userId)) {
+            log.warn("존재하지 않는 사용자: userId={}", userId);
+            throw new UserException.NotFound();
+        }
         
         // 주문이 존재하는지 먼저 확인
         boolean orderExists = orderRepositoryPort.findById(orderId).isPresent();
@@ -47,7 +45,7 @@ public class CheckOrderAccessUseCase {
         }
         
         // 해당 사용자의 주문인지 확인
-        Optional<Order> orderOpt = orderRepositoryPort.findByIdAndUser(orderId, user);
+        Optional<Order> orderOpt = orderRepositoryPort.findByIdAndUserId(orderId, userId);
         if (orderOpt.isEmpty()) {
             log.warn("주문 접근 권한 없음: userId={}, orderId={}", userId, orderId);
             throw new OrderException.Unauthorized();

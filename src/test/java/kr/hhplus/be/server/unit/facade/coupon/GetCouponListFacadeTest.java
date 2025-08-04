@@ -55,14 +55,16 @@ class GetCouponListFacadeTest {
             
         CouponHistory history1 = CouponHistory.builder()
             .id(1L)
-            .coupon(coupon1)
+            .couponId(coupon1.getId())
+            .userId(1L)
             .issuedAt(LocalDateTime.now())
             .status(CouponHistoryStatus.ISSUED)
             .build();
             
         CouponHistory history2 = CouponHistory.builder()
             .id(2L)
-            .coupon(coupon2)
+            .couponId(coupon2.getId())
+            .userId(1L)
             .issuedAt(LocalDateTime.now())
             .status(CouponHistoryStatus.ISSUED)
             .build();
@@ -90,8 +92,8 @@ class GetCouponListFacadeTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result).hasSize(2);
-            assertThat(result.get(0).getCoupon().getCode()).isEqualTo("COUPON123");
-            assertThat(result.get(1).getCoupon().getCode()).isEqualTo("COUPON456");
+            assertThat(result.get(0).getCouponId()).isEqualTo(1L);
+            assertThat(result.get(1).getCouponId()).isEqualTo(2L);
             
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }

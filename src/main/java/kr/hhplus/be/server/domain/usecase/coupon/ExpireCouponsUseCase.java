@@ -89,8 +89,8 @@ public class ExpireCouponsUseCase {
             try {
                 history.expire();
                 couponHistoryRepositoryPort.save(history);
-                log.debug("쿠폰 히스토리 만료 처리: historyId={}, couponCode={}", 
-                        history.getId(), history.getCoupon().getCode());
+                log.debug("쿠폰 히스토리 만료 처리: historyId={}, couponId={}", 
+                        history.getId(), history.getCouponId());
             } catch (Exception e) {
                 log.warn("쿠폰 히스토리 만료 처리 실패: historyId={}, error={}", 
                         history.getId(), e.getMessage());

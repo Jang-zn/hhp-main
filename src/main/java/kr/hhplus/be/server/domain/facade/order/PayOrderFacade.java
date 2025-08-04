@@ -2,7 +2,6 @@ package kr.hhplus.be.server.domain.facade.order;
 
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
@@ -62,9 +61,10 @@ public class PayOrderFacade {
         }
         
         try {
-            // 1. 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> new UserException.NotFound());
+            // 1. 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                throw new UserException.NotFound();
+            }
             
             // 2. 주문 검증
             Order order = validateOrderUseCase.execute(orderId, userId);
@@ -73,13 +73,13 @@ public class PayOrderFacade {
             BigDecimal finalAmount = applyCouponUseCase.execute(order.getTotalAmount(), couponId);
             
             // 4. 잔액 차감
-            deductBalanceUseCase.execute(user, finalAmount);
+            deductBalanceUseCase.execute(userId, finalAmount);
             
             // 5. 주문 완료 처리
             completeOrderUseCase.execute(order);
             
             // 6. 결제 생성
-            return createPaymentUseCase.execute(order, user, finalAmount);
+            return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             
         } finally {
             // 락 해제

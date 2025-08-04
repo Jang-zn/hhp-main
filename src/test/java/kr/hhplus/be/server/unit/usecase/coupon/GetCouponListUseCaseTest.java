@@ -62,41 +62,48 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         User user = User.builder()
+                .id(userId)
                 .name("테스트 사용자")
                 .build();
         
+        Coupon coupon1 = Coupon.builder()
+                .id(1L)
+                .code("DISCOUNT10")
+                .discountRate(new BigDecimal("0.10"))
+                .maxIssuance(100)
+                .issuedCount(50)
+                .startDate(LocalDateTime.now().minusDays(1))
+                .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
+                .build();
+        
+        Coupon coupon2 = Coupon.builder()
+                .id(2L)
+                .code("SUMMER25")
+                .discountRate(new BigDecimal("0.25"))
+                .maxIssuance(50)
+                .issuedCount(30)
+                .startDate(LocalDateTime.now().minusDays(5))
+                .endDate(LocalDateTime.now().plusDays(25))
+                .status(CouponStatus.ACTIVE)
+                .build();
+
         List<CouponHistory> couponHistories = List.of(
                 CouponHistory.builder()
-                        .user(user)
-                        .coupon(Coupon.builder()
-                                .code("DISCOUNT10")
-                                .discountRate(new BigDecimal("0.10"))
-                                .maxIssuance(100)
-                                .issuedCount(50)
-                                .startDate(LocalDateTime.now().minusDays(1))
-                                .endDate(LocalDateTime.now().plusDays(30))
-                                .status(CouponStatus.ACTIVE)
-                                .build())
+                        .userId(userId)
+                        .couponId(coupon1.getId())
                         .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build(),
                 CouponHistory.builder()
-                        .user(user)
-                        .coupon(Coupon.builder()
-                                .code("SUMMER25")
-                                .discountRate(new BigDecimal("0.25"))
-                                .maxIssuance(50)
-                                .issuedCount(30)
-                                .startDate(LocalDateTime.now().minusDays(5))
-                                .endDate(LocalDateTime.now().plusDays(25))
-                                .status(CouponStatus.ACTIVE)
-                                .build())
+                        .userId(userId)
+                        .couponId(coupon2.getId())
                         .issuedAt(LocalDateTime.now().minusDays(3))
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(couponHistories);
         // when
@@ -105,10 +112,10 @@ class GetCouponListUseCaseTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("DISCOUNT10");
-        assertThat(result.get(1).getCoupon().getCode()).isEqualTo("SUMMER25");
+        assertThat(result.get(0).getCouponId()).isEqualTo(coupon1.getId());
+        assertThat(result.get(1).getCouponId()).isEqualTo(coupon2.getId());
         
-        verify(userRepositoryPort).findById(userId);
+        verify(userRepositoryPort).existsById(userId);
         verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
     }
 
@@ -118,27 +125,31 @@ class GetCouponListUseCaseTest {
     void getCouponList_WithDifferentPagination(Long userId, int limit, int offset) {
         // given
         User user = User.builder()
+                .id(userId)
                 .name("테스트 사용자")
                 .build();
         
+        Coupon coupon = Coupon.builder()
+                .id(3L)
+                .code("VIP30")
+                .discountRate(new BigDecimal("0.30"))
+                .maxIssuance(20)
+                .issuedCount(10)
+                .startDate(LocalDateTime.now().minusDays(1))
+                .endDate(LocalDateTime.now().plusDays(10))
+                .status(CouponStatus.ACTIVE)
+                .build();
+
         List<CouponHistory> couponHistories = List.of(
                 CouponHistory.builder()
-                        .user(user)
-                        .coupon(Coupon.builder()
-                                .code("VIP30")
-                                .discountRate(new BigDecimal("0.30"))
-                                .maxIssuance(20)
-                                .issuedCount(10)
-                                .startDate(LocalDateTime.now().minusDays(1))
-                                .endDate(LocalDateTime.now().plusDays(10))
-                                .status(CouponStatus.ACTIVE)
-                                .build())
+                        .userId(userId)
+                        .couponId(coupon.getId())
                         .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(couponHistories);
 
@@ -148,7 +159,7 @@ class GetCouponListUseCaseTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result).isNotEmpty();
-        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("VIP30");
+        assertThat(result.get(0).getCouponId()).isEqualTo(coupon.getId());
     }
 
     @Test
@@ -159,7 +170,7 @@ class GetCouponListUseCaseTest {
         int limit = 10;
         int offset = 0;
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+        when(userRepositoryPort.existsById(userId)).thenReturn(false);
 
         // when & then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
@@ -189,10 +200,11 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         User user = User.builder()
+                .id(userId)
                 .name("쿠폰 없는 사용자")
                 .build();
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(Collections.emptyList());
 
@@ -203,7 +215,7 @@ class GetCouponListUseCaseTest {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
-        verify(userRepositoryPort).findById(userId);
+        verify(userRepositoryPort).existsById(userId);
         verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
     }
 
@@ -216,6 +228,7 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         User user = User.builder()
+                .id(userId)
                 .name("테스트 사용자")
                 .build();
         
@@ -234,6 +247,7 @@ class GetCouponListUseCaseTest {
         int offset = -1;
         
         User user = User.builder()
+                .id(userId)
                 .name("테스트 사용자")
                 .build();
         
@@ -252,7 +266,7 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         if (invalidUserId != null) {
-            when(userRepositoryPort.findById(invalidUserId)).thenReturn(Optional.empty());
+            when(userRepositoryPort.existsById(invalidUserId)).thenReturn(false);
             
             // when & then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
@@ -275,30 +289,34 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         User user = User.builder()
+                .id(userId)
                 .name("테스트 사용자")
                 .build();
         
+        Coupon coupon = Coupon.builder()
+                .id(4L)
+                .code("FALLBACK")
+                .discountRate(new BigDecimal("0.20"))
+                .maxIssuance(100)
+                .issuedCount(50)
+                .startDate(LocalDateTime.now().minusDays(1))
+                .endDate(LocalDateTime.now().plusDays(30))
+                .status(CouponStatus.ACTIVE)
+                .build();
+
         List<CouponHistory> couponHistories = List.of(
                 CouponHistory.builder()
-                        .user(user)
-                        .coupon(Coupon.builder()
-                                .code("FALLBACK")
-                                .discountRate(new BigDecimal("0.20"))
-                                .maxIssuance(100)
-                                .issuedCount(50)
-                                .startDate(LocalDateTime.now().minusDays(1))
-                                .endDate(LocalDateTime.now().plusDays(30))
-                                .status(CouponStatus.ACTIVE)
-                                .build())
+                        .userId(userId)
+                        .couponId(coupon.getId())
                         .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenThrow(new RuntimeException("Cache error"));
-        when(couponHistoryRepositoryPort.findByUserWithPagination(user, limit, offset))
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset))
                 .thenReturn(couponHistories);
 
         // when
@@ -307,9 +325,9 @@ class GetCouponListUseCaseTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getCoupon().getCode()).isEqualTo("FALLBACK");
+        assertThat(result.get(0).getCouponId()).isEqualTo(coupon.getId());
         
-        verify(couponHistoryRepositoryPort).findByUserWithPagination(user, limit, offset);
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
     }
 
     @ParameterizedTest

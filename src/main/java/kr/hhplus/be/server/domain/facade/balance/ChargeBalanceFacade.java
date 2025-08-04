@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.facade.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
@@ -29,9 +28,10 @@ public class ChargeBalanceFacade {
     public Balance chargeBalance(Long userId, BigDecimal chargeAmount) {
         String lockKey = "balance-" + userId;
         
-        // 사용자 조회
-        User user = userRepositoryPort.findById(userId)
-                .orElseThrow(() -> new UserException.NotFound());
+        // 사용자 존재 확인
+        if (!userRepositoryPort.existsById(userId)) {
+            throw new UserException.NotFound();
+        }
         
         // 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
@@ -39,7 +39,7 @@ public class ChargeBalanceFacade {
         }
         
         try {
-            return chargeBalanceUseCase.execute(user, chargeAmount);
+            return chargeBalanceUseCase.execute(userId, chargeAmount);
         } finally {
             // 락 해제
             lockingPort.releaseLock(lockKey);

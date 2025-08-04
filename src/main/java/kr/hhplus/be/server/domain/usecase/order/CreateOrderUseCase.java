@@ -3,10 +3,10 @@ package kr.hhplus.be.server.domain.usecase.order;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -29,6 +29,7 @@ public class CreateOrderUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final CachePort cachePort;
 
@@ -38,12 +39,11 @@ public class CreateOrderUseCase {
         try {
             // 파라미터 검증
             validateParameters(userId, productQuantities);
-            // 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("존재하지 않는 사용자: userId={}", userId);
-                        return new UserException.NotFound();
-                    });
+            // 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                log.warn("존재하지 않는 사용자: userId={}", userId);
+                throw new UserException.NotFound();
+            }
 
             // 상품별 재고 예약 및 주문 아이템 생성
             List<OrderItem> orderItems = productQuantities.entrySet().stream()
@@ -65,7 +65,7 @@ public class CreateOrderUseCase {
                                 productId, quantity, product.getStock() - product.getReservedStock());
                         
                         return OrderItem.builder()
-                                .product(product)
+                                .productId(productId)
                                 .quantity(quantity)
                                 .price(product.getPrice())
                                 .build();
@@ -78,14 +78,25 @@ public class CreateOrderUseCase {
 
             // 주문 생성
             Order order = Order.builder()
-                    .user(user)
+                    .userId(userId)
                     .totalAmount(totalAmount)
-                    .items(orderItems)
                     .build();
 
             Order savedOrder = orderRepositoryPort.save(order);
-            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}", 
-                    savedOrder.getId(), userId, totalAmount);
+            
+            // OrderItem들에 orderId 설정 후 저장
+            orderItems.forEach(item -> {
+                OrderItem orderItemWithOrderId = OrderItem.builder()
+                        .orderId(savedOrder.getId())
+                        .productId(item.getProductId())
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .build();
+                orderItemRepositoryPort.save(orderItemWithOrderId);
+            });
+            
+            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
+                    savedOrder.getId(), userId, totalAmount, orderItems.size());
             
             // 캐시 무효화
             invalidateUserRelatedCache(userId);

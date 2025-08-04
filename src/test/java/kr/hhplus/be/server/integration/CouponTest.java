@@ -248,8 +248,8 @@ public class CouponTest {
                 // given
                 // 먼저 쿠폰을 발급받음
                 CouponHistory history = CouponHistory.builder()
-                        .user(testUser)
-                        .coupon(availableCoupon)
+                        .userId(testUser.getId())
+                        .couponId(availableCoupon.getId())
                         .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build();
@@ -331,8 +331,8 @@ public class CouponTest {
 
                 // 사용자에게 쿠폰 발급
                 CouponHistory history = CouponHistory.builder()
-                        .user(user)
-                        .coupon(coupon)
+                        .userId(user.getId())
+                        .couponId(coupon.getId())
                         .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build();
@@ -385,8 +385,8 @@ public class CouponTest {
                     coupon = couponRepositoryPort.save(coupon);
 
                     CouponHistory history = CouponHistory.builder()
-                            .user(testUser)
-                            .coupon(coupon)
+                            .userId(testUser.getId())
+                            .couponId(coupon.getId())
                             .issuedAt(LocalDateTime.now().minusMinutes(i))
                             .status(CouponHistoryStatus.ISSUED)
                             .build();

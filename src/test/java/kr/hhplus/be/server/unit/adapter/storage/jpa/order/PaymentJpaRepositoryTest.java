@@ -57,9 +57,9 @@ class PaymentJpaRepositoryTest {
         @DisplayName("성공케이스: 새로운 결제 저장")
         void save_NewPayment_Success() {
             // given
-            Order order = Order.builder().id(1L).build();
             Payment payment = Payment.builder()
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(PaymentStatus.PENDING)
                     .createdAt(LocalDateTime.now())
@@ -79,10 +79,10 @@ class PaymentJpaRepositoryTest {
         @DisplayName("성공케이스: 기존 결제 업데이트")
         void save_ExistingPayment_Success() {
             // given
-            Order order = Order.builder().id(1L).build();
             Payment payment = Payment.builder()
                     .id(1L)
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("15000"))
                     .status(PaymentStatus.PAID)
                     .build();
@@ -102,9 +102,9 @@ class PaymentJpaRepositoryTest {
         @DisplayName("성공케이스: 다양한 상태의 결제 저장")
         void save_WithDifferentStatuses(PaymentStatus status) {
             // given
-            Order order = Order.builder().id(1L).build();
             Payment payment = Payment.builder()
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(status)
                     .build();
@@ -129,10 +129,10 @@ class PaymentJpaRepositoryTest {
         void findById_Success() {
             // given
             Long id = 1L;
-            Order order = Order.builder().id(1L).build();
             Payment expectedPayment = Payment.builder()
                     .id(id)
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(PaymentStatus.PAID)
                     .build();
@@ -171,10 +171,9 @@ class PaymentJpaRepositoryTest {
         void findByOrderId_Success() {
             // given
             Long orderId = 1L;
-            Order order = Order.builder().id(orderId).build();
             List<Payment> expectedPayments = Arrays.asList(
-                    Payment.builder().id(1L).order(order).amount(new BigDecimal("5000")).build(),
-                    Payment.builder().id(2L).order(order).amount(new BigDecimal("5000")).build()
+                    Payment.builder().id(1L).orderId(orderId).userId(1L).amount(new BigDecimal("5000")).build(),
+                    Payment.builder().id(2L).orderId(orderId).userId(1L).amount(new BigDecimal("5000")).build()
             );
 
             when(entityManager.createQuery(anyString(), eq(Payment.class))).thenReturn(paymentQuery);
@@ -186,8 +185,8 @@ class PaymentJpaRepositoryTest {
 
             // then
             assertThat(payments).hasSize(2);
-            assertThat(payments).allMatch(p -> p.getOrder().getId().equals(orderId));
-            verify(entityManager).createQuery("SELECT p FROM Payment p WHERE p.order.id = :orderId", Payment.class);
+            assertThat(payments).allMatch(p -> p.getOrderId().equals(orderId));
+            verify(entityManager).createQuery("SELECT p FROM Payment p WHERE p.orderId = :orderId", Payment.class);
         }
 
         @Test
@@ -218,10 +217,10 @@ class PaymentJpaRepositoryTest {
             // given
             Long paymentId = 1L;
             PaymentStatus newStatus = PaymentStatus.PAID;
-            Order order = Order.builder().id(1L).build();
             Payment existingPayment = Payment.builder()
                     .id(paymentId)
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(PaymentStatus.PENDING)
                     .build();
@@ -267,10 +266,10 @@ class PaymentJpaRepositoryTest {
         void updateStatus_WithDifferentStatuses(PaymentStatus newStatus) {
             // given
             Long paymentId = 1L;
-            Order order = Order.builder().id(1L).build();
             Payment existingPayment = Payment.builder()
                     .id(paymentId)
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(PaymentStatus.PENDING)
                     .build();
@@ -298,9 +297,9 @@ class PaymentJpaRepositoryTest {
         @DisplayName("실패케이스: persist 중 예외 발생")
         void save_PersistException() {
             // given
-            Order order = Order.builder().id(1L).build();
             Payment payment = Payment.builder()
-                    .order(order)
+                    .orderId(1L)
+                    .userId(1L)
                     .amount(new BigDecimal("10000"))
                     .status(PaymentStatus.PENDING)
                     .build();

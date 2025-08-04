@@ -8,10 +8,9 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.entity.OrderStatus;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.api.ErrorCode;
-import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
@@ -93,13 +92,9 @@ public class OrderTest {
 
         // 단일 주문 조회 테스트를 위한 주문 생성
         createdOrder = orderRepositoryPort.save(Order.builder()
-                .user(testUser)
+                .userId(testUser.getId())
                 .totalAmount(new BigDecimal("150000"))
                 .status(OrderStatus.PENDING)
-                .items(List.of(
-                        OrderItem.builder().product(product1).quantity(1).price(product1.getPrice()).build(),
-                        OrderItem.builder().product(product2).quantity(1).price(product2.getPrice()).build()
-                ))
                 .build());
     }
 
@@ -298,10 +293,9 @@ public class OrderTest {
                 // given
                 User anotherUser = userRepositoryPort.save(User.builder().name("Another User").build());
                 Order anotherUserOrder = orderRepositoryPort.save(Order.builder()
-                        .user(anotherUser)
+                        .userId(anotherUser.getId())
                         .totalAmount(new BigDecimal("10000"))
                         .status(OrderStatus.PENDING)
-                        .items(List.of(OrderItem.builder().product(product1).quantity(1).price(product1.getPrice()).build()))
                         .build());
 
                 // when & then (testUser가 anotherUserOrder를 조회 시도)
@@ -328,10 +322,9 @@ public class OrderTest {
                 // given
                 // 추가 주문 생성 (testUser의 주문)
                 orderRepositoryPort.save(Order.builder()
-                        .user(testUser)
+                        .userId(testUser.getId())
                         .totalAmount(new BigDecimal("50000"))
                         .status(OrderStatus.PAID)
-                        .items(List.of(OrderItem.builder().product(product2).quantity(1).price(product2.getPrice()).build()))
                         .build());
 
                 // when & then

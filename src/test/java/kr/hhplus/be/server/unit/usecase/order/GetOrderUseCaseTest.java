@@ -74,25 +74,26 @@ class GetOrderUseCaseTest {
             Long orderId = 1L;
             
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
             Order order = Order.builder()
-                    .user(user)
+                    .userId(userId)
                     .totalAmount(new BigDecimal("120000"))
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.of(order));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
             when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUser(orderId, user));
+                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
             // when
             Optional<Order> result = getOrderUseCase.execute(userId, orderId);
 
             // then
             assertThat(result).isPresent();
-            assertThat(result.get().getUser()).isEqualTo(user);
+            assertThat(result.get().getUserId()).isEqualTo(userId);
             assertThat(result.get().getTotalAmount()).isEqualTo(new BigDecimal("120000"));
         }
 
@@ -119,13 +120,14 @@ class GetOrderUseCaseTest {
             Long orderId = 999L;
             
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.empty());
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.empty());
             when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUser(orderId, user));
+                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
             // when
             Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -153,18 +155,19 @@ class GetOrderUseCaseTest {
         void getOrder_WithDifferentOrders(Long userId, Long orderId, String amount) {
             // given
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
             Order order = Order.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal(amount))
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.of(order));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
             when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUser(orderId, user));
+                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
             // when
             Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -188,15 +191,16 @@ class GetOrderUseCaseTest {
             String cacheKey = "order_" + orderId + "_" + userId;
             
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
             Order cachedOrder = Order.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("100000"))
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(eq(cacheKey), eq(Optional.class), any()))
                     .thenReturn(Optional.of(cachedOrder));
 
@@ -217,21 +221,22 @@ class GetOrderUseCaseTest {
             Long orderId = 1L;
             
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
             Order order = Order.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("100000"))
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(cachePort.get(anyString(), eq(Optional.class), any()))
                     .thenAnswer(invocation -> {
                         // 캐시 미스 시뮬레이션: supplier 실행
-                        return orderRepositoryPort.findByIdAndUser(orderId, user);
+                        return orderRepositoryPort.findByIdAndUserId(orderId, userId);
                     });
-            when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.of(order));
+            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
 
             // when
             Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -239,7 +244,7 @@ class GetOrderUseCaseTest {
             // then
             assertThat(result).isPresent();
             assertThat(result.get()).isEqualTo(order);
-            verify(orderRepositoryPort).findByIdAndUser(orderId, user);
+            verify(orderRepositoryPort).findByIdAndUserId(orderId, user.getId());
         }
     }
 
@@ -256,18 +261,19 @@ class GetOrderUseCaseTest {
             int threadCount = 10;
             
             User user = User.builder()
+                    .id(userId)
                     .name("테스트 사용자")
                     .build();
             
             Order order = Order.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .totalAmount(new BigDecimal("100000"))
                     .build();
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.of(order));
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
             when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUser(orderId, user));
+                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
             
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch startLatch = new CountDownLatch(1);
@@ -326,14 +332,14 @@ class GetOrderUseCaseTest {
                         .build();
                 
                 Order order = Order.builder()
-                        .user(user)
+                        .userId(user.getId())
                         .totalAmount(new BigDecimal(String.valueOf(100000 * i)))
                         .build();
                 
-                when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-                when(orderRepositoryPort.findByIdAndUser(orderId, user)).thenReturn(Optional.of(order));
+                when(userRepositoryPort.existsById(userId)).thenReturn(true);
+                when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
                 when(cachePort.get(eq("order_" + orderId + "_" + userId), eq(Optional.class), any()))
-                        .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUser(orderId, user));
+                        .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
                 
                 // 각 사용자당 2개 스레드 생성
                 for (int j = 0; j < 2; j++) {

@@ -64,7 +64,7 @@ public class IssueCouponUseCase {
         }
         
         // 중복 발급 검증
-        if (couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)) {
+        if (couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)) {
             log.warn("중복 발급 시도: userId={}, couponId={}", userId, couponId);
             throw new CouponException.AlreadyIssued();
         }
@@ -75,8 +75,8 @@ public class IssueCouponUseCase {
         
         // 쿠폰 발급 이력 저장
         CouponHistory couponHistory = CouponHistory.builder()
-                .user(user)
-                .coupon(savedCoupon)
+                .userId(userId)
+                .couponId(couponId)
                 .issuedAt(LocalDateTime.now())
                 .status(CouponHistoryStatus.ISSUED)
                 .build();

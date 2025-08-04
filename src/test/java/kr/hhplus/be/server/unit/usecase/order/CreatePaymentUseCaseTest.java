@@ -1,9 +1,9 @@
 package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.usecase.order.CreatePaymentUseCase;
-import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,7 +41,7 @@ class CreatePaymentUseCaseTest {
             
         testOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("50000"))
             .build();
@@ -56,8 +55,8 @@ class CreatePaymentUseCaseTest {
         
         Payment expectedPayment = Payment.builder()
             .id(1L)
-            .order(testOrder)
-            .user(testUser)
+            .orderId(testOrder.getId())
+            .userId(testUser.getId())
             .amount(amount)
             .status(PaymentStatus.PAID)
             .build();
@@ -65,12 +64,12 @@ class CreatePaymentUseCaseTest {
         when(paymentRepositoryPort.save(any(Payment.class))).thenReturn(expectedPayment);
         
         // when
-        Payment result = createPaymentUseCase.execute(testOrder, testUser, amount);
+        Payment result = createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), amount);
         
         // then
         assertThat(result).isNotNull();
-        assertThat(result.getOrder()).isEqualTo(testOrder);
-        assertThat(result.getUser()).isEqualTo(testUser);
+        assertThat(result.getOrderId()).isEqualTo(testOrder.getId());
+        assertThat(result.getUserId()).isEqualTo(testUser.getId());
         assertThat(result.getAmount()).isEqualTo(amount);
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.PAID);
         
@@ -85,8 +84,8 @@ class CreatePaymentUseCaseTest {
         
         Payment expectedPayment = Payment.builder()
             .id(1L)
-            .order(testOrder)
-            .user(testUser)
+            .orderId(testOrder.getId())
+            .userId(testUser.getId())
             .amount(amount)
             .status(PaymentStatus.PAID)
             .build();
@@ -94,12 +93,12 @@ class CreatePaymentUseCaseTest {
         when(paymentRepositoryPort.save(any(Payment.class))).thenReturn(expectedPayment);
         
         // when
-        Payment result = createPaymentUseCase.execute(testOrder, testUser, amount);
+        Payment result = createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), amount);
         
         // then
         assertThat(result).isNotNull();
-        assertThat(result.getOrder()).isEqualTo(testOrder);
-        assertThat(result.getUser()).isEqualTo(testUser);
+        assertThat(result.getOrderId()).isEqualTo(testOrder.getId());
+        assertThat(result.getUserId()).isEqualTo(testUser.getId());
         assertThat(result.getAmount()).isEqualTo(amount);
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.PAID);
         
@@ -113,7 +112,7 @@ class CreatePaymentUseCaseTest {
         BigDecimal amount = new BigDecimal("-10000");
         
         // when & then
-        assertThatThrownBy(() -> createPaymentUseCase.execute(testOrder, testUser, amount))
+        assertThatThrownBy(() -> createPaymentUseCase.execute(testOrder.getId(), testUser.getId(), amount))
             .isInstanceOf(IllegalArgumentException.class);
             
         verify(paymentRepositoryPort, never()).save(any());

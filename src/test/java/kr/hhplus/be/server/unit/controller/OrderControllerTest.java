@@ -6,11 +6,14 @@ import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
 import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
 import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +42,10 @@ class OrderControllerTest {
     private GetOrderFacade getOrderFacade;
     @Mock
     private GetOrderListFacade getOrderListFacade;
+    @Mock
+    private OrderItemRepositoryPort orderItemRepositoryPort;
+    @Mock
+    private ProductRepositoryPort productRepositoryPort;
     
     private OrderController orderController;
     
@@ -53,7 +60,9 @@ class OrderControllerTest {
             createOrderFacade,
             payOrderFacade,
             getOrderFacade,
-            getOrderListFacade
+            getOrderListFacade,
+            orderItemRepositoryPort,
+            productRepositoryPort
         );
         
         testUser = User.builder()
@@ -63,7 +72,7 @@ class OrderControllerTest {
             
         testOrder = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(TestConstants.DEFAULT_ORDER_AMOUNT)
             .createdAt(LocalDateTime.now())
@@ -71,7 +80,7 @@ class OrderControllerTest {
             
         testPayment = Payment.builder()
             .id(1L)
-            .order(testOrder)
+            .orderId(testOrder.getId())
             .status(PaymentStatus.PAID)
             .amount(TestConstants.DEFAULT_ORDER_AMOUNT)
             .createdAt(LocalDateTime.now())
