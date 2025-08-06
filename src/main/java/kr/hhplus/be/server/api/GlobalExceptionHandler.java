@@ -1,11 +1,16 @@
 package kr.hhplus.be.server.api;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import kr.hhplus.be.server.domain.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Set;
 
 /**
  * 전역 예외 처리 클래스
@@ -53,16 +58,33 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 입력값 검증 실패 예외 처리
+     * 입력값 검증 실패 예외 처리 (@Valid 어노테이션)
      * @Valid, @NotNull 등의 Bean Validation 실패 시 발생
+     * 모든 Bean Validation 오류를 INVALID_INPUT으로 통일 처리
      * 
      * @param ex 검증 실패 예외
-     * @return 400 Bad Request + 첫 번째 검증 오류 메시지
+     * @return 400 Bad Request + INVALID_INPUT ErrorCode
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT, errorMessage));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            CommonResponse.failure(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage())
+        );
+    }
+    
+    /**
+     * 경로 변수 검증 실패 예외 처리 (@Validated 어노테이션)
+     * @PathVariable, @RequestParam에 대한 Bean Validation 실패 시 발생
+     * 모든 경로 변수 검증 오류를 INVALID_INPUT으로 통일 처리
+     * 
+     * @param ex 제약 조건 위반 예외
+     * @return 400 Bad Request + INVALID_INPUT ErrorCode
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<CommonResponse<Object>> handleConstraintViolationException(ConstraintViolationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            CommonResponse.failure(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage())
+        );
     }
 
     /**
