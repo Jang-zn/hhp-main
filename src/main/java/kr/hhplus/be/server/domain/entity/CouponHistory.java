@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.*;
@@ -23,18 +24,25 @@ import java.time.LocalDateTime;
        })
 public class CouponHistory extends BaseEntity {
 
+    @NotNull
+    @Positive
     private Long userId;
 
+    @NotNull
+    @Positive
     private Long couponId;
 
+    @NotNull
     private LocalDateTime issuedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private CouponHistoryStatus status;
 
     private LocalDateTime usedAt;
 
+    @Positive
     private Long usedOrderId;
 
     /**

@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import lombok.*;
@@ -21,11 +22,14 @@ import lombok.experimental.SuperBuilder;
 public class EventLog extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
+    @NotNull
     private EventType eventType;
 
     @Lob
+    @NotBlank
     private String payload;
 
     @Enumerated(EnumType.STRING)
+    @NotNull
     private EventStatus status;
 } 

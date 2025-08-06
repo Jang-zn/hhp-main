@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import kr.hhplus.be.server.domain.exception.ProductException;
@@ -40,9 +41,7 @@ public class Product extends BaseEntity {
     /**
      * 재고를 예약합니다. 실제 재고는 차감하지 않고 예약 재고만 증가시킵니다.
      */
-    public void reserveStock(int quantity) {
-        validateQuantity(quantity);
-        
+    public void reserveStock(@Positive int quantity) {
         if (!hasAvailableStock(quantity)) {
             throw new ProductException.OutOfStock();
         }
@@ -53,9 +52,7 @@ public class Product extends BaseEntity {
     /**
      * 예약된 재고를 확정합니다. 실제 재고를 차감하고 예약 재고를 감소시킵니다.
      */
-    public void confirmReservation(int quantity) {
-        validateQuantity(quantity);
-        
+    public void confirmReservation(@Positive int quantity) {
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("Cannot confirm more than reserved quantity");
         }
@@ -71,9 +68,7 @@ public class Product extends BaseEntity {
     /**
      * 예약된 재고를 취소합니다. 예약 재고만 감소시킵니다.
      */
-    public void cancelReservation(int quantity) {
-        validateQuantity(quantity);
-        
+    public void cancelReservation(@Positive int quantity) {
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("Cannot cancel more than reserved quantity");
         }
@@ -85,8 +80,7 @@ public class Product extends BaseEntity {
      * 확정된 재고를 다시 예약 상태로 복원합니다. (보상 처리용)
      * 실제 재고를 증가시키고 예약 재고도 증가시킵니다.
      */
-    public void restoreReservation(int quantity) {
-        validateQuantity(quantity);
+    public void restoreReservation(@Positive int quantity) {
         
         this.stock += quantity;
         this.reservedStock += quantity;
@@ -100,9 +94,4 @@ public class Product extends BaseEntity {
         return (this.stock - this.reservedStock) >= quantity;
     }
     
-    private void validateQuantity(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
-        }
-    }
 } 

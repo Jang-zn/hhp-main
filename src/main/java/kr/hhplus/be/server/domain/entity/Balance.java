@@ -3,6 +3,7 @@ package kr.hhplus.be.server.domain.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import kr.hhplus.be.server.domain.exception.BalanceException;
@@ -31,29 +32,22 @@ public class Balance extends BaseEntity {
 
     @Column(nullable = false, precision = 19, scale = 2)
     @NotNull
-    @DecimalMin(value = "0.00", message = "잔액은 0 이상이어야 합니다")
+    @DecimalMin(value = "0.00")
     private BigDecimal amount;
 
     @Version // 낙관적 락 - JPA 사용 시 사용
     private Long version;
 
     // 비즈니스 메서드
-    public void addAmount(@NotNull BigDecimal amount) {
-        validateAmount(amount);
+    public void addAmount(@NotNull @Positive BigDecimal amount) {
         this.amount = this.amount.add(amount);
     }
 
-    public void subtractAmount(@NotNull BigDecimal amount) {
-        validateAmount(amount);
+    public void subtractAmount(@NotNull @Positive BigDecimal amount) {
         if (this.amount.compareTo(amount) < 0) {
             throw new BalanceException.InsufficientBalance();
         }
         this.amount = this.amount.subtract(amount);
     }
 
-    private void validateAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BalanceException.InvalidAmount();
-        }
-    }
 } 

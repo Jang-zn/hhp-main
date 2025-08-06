@@ -1,10 +1,10 @@
 package kr.hhplus.be.server.api.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
-import kr.hhplus.be.server.domain.exception.BalanceException;
-import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.api.ErrorCode;
 
 import java.math.BigDecimal;
 
@@ -12,9 +12,15 @@ import java.math.BigDecimal;
 public class BalanceRequest implements DocumentedDto {
     
     @Schema(description = "사용자 ID", example = "1", required = true)
+    @NotNull
+    @Positive
     private Long userId;
     
     @Schema(description = "충전 금액", example = "10000", required = true)
+    @NotNull
+    @DecimalMin(value = "1000")
+    @DecimalMax(value = "1000000")
+    @Positive
     private BigDecimal amount;
 
     // ChargeBalanceUseCase와 동일한 상수 정의
@@ -36,25 +42,6 @@ public class BalanceRequest implements DocumentedDto {
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     
-    /**
-     * 요청 데이터 검증
-     * @throws IllegalArgumentException 검증 실패 시
-     */
-    public void validate() {
-        if (userId == null || userId <= 0) { // userId가 null이거나 0 이하일 경우
-            throw new UserException.InvalidUser();
-        }
-        if (amount == null) {
-            throw new BalanceException.InvalidAmount();
-        }
-        // 금액 범위 검증 추가
-        if (amount.compareTo(MIN_CHARGE_AMOUNT) < 0 || amount.compareTo(MAX_CHARGE_AMOUNT) > 0) {
-            throw new BalanceException.InvalidAmount();
-        }
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) { // 0 이하일 경우
-            throw new BalanceException.InvalidAmount();
-        }
-    }
 
     @Override
     public FieldDocumentation getFieldDocumentation() {

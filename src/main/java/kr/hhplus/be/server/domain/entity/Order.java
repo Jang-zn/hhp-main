@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.OrderStatus;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -21,14 +22,19 @@ import java.math.BigDecimal;
        })
 public class Order extends BaseEntity {
 
+    @NotNull
+    @Positive
     private Long userId;
 
     @Column(nullable = false, precision = 19, scale = 2)
+    @NotNull
+    @DecimalMin(value = "0.00")
     private BigDecimal totalAmount;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private OrderStatus status = OrderStatus.PENDING;
 
 } 

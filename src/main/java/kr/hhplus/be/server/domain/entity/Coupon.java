@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.*;
@@ -25,21 +26,31 @@ import java.time.LocalDateTime;
        })
 public class Coupon extends BaseEntity {
 
+    @NotBlank
+    @Size(max = 255)
     private String code;
 
     @Column(nullable = false, precision = 5, scale = 2)
+    @NotNull
+    @DecimalMin(value = "0.00")
+    @DecimalMax(value = "1.00")
     private BigDecimal discountRate;
 
+    @PositiveOrZero
     private int maxIssuance;
 
+    @PositiveOrZero
     private int issuedCount;
 
+    @NotNull
     private LocalDateTime startDate;
 
+    @NotNull
     private LocalDateTime endDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private CouponStatus status;
 
     private Long productId;
@@ -99,7 +110,7 @@ public class Coupon extends BaseEntity {
     /**
      * 재고를 감소시키고 필요시 상태를 업데이트합니다.
      */
-    public void decreaseStock(int quantity) {
+    public void decreaseStock(@Positive int quantity) {
         if (this.issuedCount + quantity > this.maxIssuance) {
             throw new CouponException.CouponStockExceeded();
         }
