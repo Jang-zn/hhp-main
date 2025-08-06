@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.util;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 
 import java.math.BigDecimal;
@@ -89,6 +90,7 @@ public class TestBuilder {
         private Integer issuedCount = 0;
         private LocalDateTime startDate = LocalDateTime.now().minusHours(1);
         private LocalDateTime endDate = LocalDateTime.now().plusDays(7);
+        private kr.hhplus.be.server.domain.enums.CouponStatus status = kr.hhplus.be.server.domain.enums.CouponStatus.ACTIVE;
 
         public static CouponBuilder defaultCoupon() {
             return new CouponBuilder();
@@ -97,7 +99,8 @@ public class TestBuilder {
         public static CouponBuilder expiredCoupon() {
             return new CouponBuilder()
                 .startDate(LocalDateTime.now().minusDays(10))
-                .endDate(LocalDateTime.now().minusDays(3));
+                .endDate(LocalDateTime.now().minusDays(3))
+                .status(kr.hhplus.be.server.domain.enums.CouponStatus.ACTIVE);
         }
 
         public static CouponBuilder notYetStartedCoupon() {
@@ -107,7 +110,19 @@ public class TestBuilder {
         }
 
         public static CouponBuilder soldOutCoupon() {
-            return new CouponBuilder().withQuantity(10, 10);
+            return new CouponBuilder()
+                .withQuantity(10, 10)
+                .status(kr.hhplus.be.server.domain.enums.CouponStatus.SOLD_OUT);
+        }
+        
+        public static CouponBuilder invalidDatesCoupon() {
+            return new CouponBuilder()
+                .startDate(LocalDateTime.now().plusDays(10))
+                .endDate(LocalDateTime.now().plusDays(5));
+        }
+        
+        public static CouponBuilder overIssuedCoupon() {
+            return new CouponBuilder().withQuantity(100, 150);
         }
 
         public CouponBuilder id(Long id) {
@@ -140,6 +155,11 @@ public class TestBuilder {
             this.endDate = endDate;
             return this;
         }
+        
+        public CouponBuilder status(kr.hhplus.be.server.domain.enums.CouponStatus status) {
+            this.status = status;
+            return this;
+        }
 
         public Coupon build() {
             return Coupon.builder()
@@ -150,6 +170,7 @@ public class TestBuilder {
                 .issuedCount(issuedCount)
                 .startDate(startDate)
                 .endDate(endDate)
+                .status(status)
                 .build();
         }
     }
@@ -271,6 +292,128 @@ public class TestBuilder {
                 .userId(userId)
                 .totalAmount(totalAmount)
                 .status(status)
+                .build();
+        }
+    }
+
+    /**
+     * CouponHistory 테스트 빌더
+     */
+    public static class CouponHistoryBuilder {
+        private Long id = 1L;
+        private Long userId = 1L;
+        private Long couponId = 1L;
+        private LocalDateTime issuedAt = LocalDateTime.now();
+        private kr.hhplus.be.server.domain.enums.CouponHistoryStatus status = kr.hhplus.be.server.domain.enums.CouponHistoryStatus.ISSUED;
+
+        public static CouponHistoryBuilder defaultCouponHistory() {
+            return new CouponHistoryBuilder();
+        }
+
+        public static CouponHistoryBuilder usedCouponHistory() {
+            return new CouponHistoryBuilder()
+                .status(kr.hhplus.be.server.domain.enums.CouponHistoryStatus.USED);
+        }
+
+        public CouponHistoryBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public CouponHistoryBuilder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public CouponHistoryBuilder couponId(Long couponId) {
+            this.couponId = couponId;
+            return this;
+        }
+
+        public CouponHistoryBuilder issuedAt(LocalDateTime issuedAt) {
+            this.issuedAt = issuedAt;
+            return this;
+        }
+
+        public CouponHistoryBuilder status(kr.hhplus.be.server.domain.enums.CouponHistoryStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public CouponHistory build() {
+            return CouponHistory.builder()
+                .id(id)
+                .userId(userId)
+                .couponId(couponId)
+                .issuedAt(issuedAt)
+                .status(status)
+                .build();
+        }
+    }
+
+    /**
+     * Payment 테스트 빌더
+     */
+    public static class PaymentBuilder {
+        private Long id = 1L;
+        private Long orderId = 1L;
+        private Long userId = 1L;
+        private BigDecimal amount = BigDecimal.valueOf(100000);
+        private PaymentStatus status = PaymentStatus.PENDING;
+        private Long couponId;
+
+        public static PaymentBuilder pendingPayment() {
+            return new PaymentBuilder();
+        }
+
+        public static PaymentBuilder paidPayment() {
+            return new PaymentBuilder()
+                .status(PaymentStatus.PAID);
+        }
+
+        public static PaymentBuilder failedPayment() {
+            return new PaymentBuilder()
+                .status(PaymentStatus.FAILED);
+        }
+
+        public PaymentBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public PaymentBuilder orderId(Long orderId) {
+            this.orderId = orderId;
+            return this;
+        }
+
+        public PaymentBuilder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public PaymentBuilder amount(BigDecimal amount) {
+            this.amount = amount;
+            return this;
+        }
+
+        public PaymentBuilder status(PaymentStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public PaymentBuilder couponId(Long couponId) {
+            this.couponId = couponId;
+            return this;
+        }
+
+        public Payment build() {
+            return Payment.builder()
+                .id(id)
+                .orderId(orderId)
+                .userId(userId)
+                .amount(amount)
+                .status(status)
+                .couponId(couponId)
                 .build();
         }
     }
