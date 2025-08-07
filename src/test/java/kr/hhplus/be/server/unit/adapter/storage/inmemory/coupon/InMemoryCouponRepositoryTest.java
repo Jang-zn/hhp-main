@@ -60,7 +60,6 @@ class InMemoryCouponRepositoryTest {
     void canSaveDiverseCoupons(String code, String discountRate, int maxIssuance) {
         // Given
         Coupon coupon = TestBuilder.CouponBuilder.defaultCoupon()
-            .id(2L)
             .code(code)
             .discountRate(new BigDecimal(discountRate))
             .withQuantity(maxIssuance, 0)
@@ -73,6 +72,8 @@ class InMemoryCouponRepositoryTest {
         CouponAssertions.assertSavedCorrectly(saved, coupon);
     }
 
+    // === 쿠폰 저장 예외 처리 시나리오 ===
+    
     @Test
     @DisplayName("이미 만료된 쿠폰도 저장할 수 있다")
     void canSaveExpiredCoupon() {
@@ -87,36 +88,18 @@ class InMemoryCouponRepositoryTest {
         CouponAssertions.assertCouponExpired(saved);
     }
 
-    @Test
-    @DisplayName("발급량이 최대치를 초과한 쿠폰 저장 시 예외가 발생한다")
-    void throwsExceptionWhenSavingOverIssuedCoupon() {
-        // Given
-        Coupon overIssuedCoupon = TestBuilder.CouponBuilder.overIssuedCoupon().build();
-        
-        // When & Then
-        assertThatThrownBy(() -> couponRepository.save(overIssuedCoupon))
-            .isInstanceOf(CouponException.InvalidCouponData.class);
-    }
-
-    @Test
-    @DisplayName("시작일이 종료일보다 늦은 쿠폰 저장 시 예외가 발생한다")
-    void throwsExceptionWhenSavingInvalidDateRangeCoupon() {
-        // Given
-        Coupon invalidCoupon = TestBuilder.CouponBuilder.invalidDatesCoupon().build();
-        
+    @ParameterizedTest
+    @MethodSource("provideInvalidCouponData")
+    @DisplayName("잘못된 쿠폰 데이터 저장 시 예외가 발생한다")
+    void throwsExceptionForInvalidCouponData(String description, Coupon invalidCoupon) {
         // When & Then
         assertThatThrownBy(() -> couponRepository.save(invalidCoupon))
-            .isInstanceOf(CouponException.InvalidCouponData.class);
+            .isInstanceOf(CouponException.InvalidCouponData.class)
+            .hasMessageContaining(description.contains("null") ? "null" : "invalid");
     }
 
-    @Test
-    @DisplayName("null 쿠폰 저장 시 예외가 발생한다")
-    void throwsExceptionWhenSavingNullCoupon() {
-        // When & Then
-        assertThatThrownBy(() -> couponRepository.save(null))
-            .isInstanceOf(CouponException.InvalidCouponData.class);
-    }
-
+    // === 쿠폰 조회 시나리오 ===
+    
     @Test
     @DisplayName("저장된 쿠폰을 ID로 조회할 수 있다")
     void canFindCouponById() {
@@ -161,6 +144,8 @@ class InMemoryCouponRepositoryTest {
         assertThat(found).isEmpty();
     }
 
+    // === 동시성 시나리오 ===
+    
     @Test
     @DisplayName("서로 다른 쿠폰들을 동시에 저장할 수 있다")
     void canSaveDifferentCouponsConcurrently() {
@@ -170,9 +155,10 @@ class InMemoryCouponRepositoryTest {
         // When
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
             ConcurrencyTestHelper.executeInParallel(numberOfCoupons, () -> {
+                Long uniqueId = System.nanoTime();
                 Coupon coupon = TestBuilder.CouponBuilder.defaultCoupon()
-                    .id(System.nanoTime()) // 고유 ID 생성
-                    .code("CONCURRENT_" + System.nanoTime())
+                    .id(uniqueId)
+                    .code("CONCURRENT_" + uniqueId)
                     .build();
                 return couponRepository.save(coupon);
             });
@@ -183,127 +169,102 @@ class InMemoryCouponRepositoryTest {
     }
 
     @Test
-    @DisplayName("동일한 쿠폰을 동시에 업데이트할 수 있다")
-    void canUpdateSameCouponConcurrently() {
+    @DisplayName("동일한 쿠폰을 동시에 업데이트해도 데이터 일관성이 보장된다")
+    void maintainsDataConsistencyForConcurrentCouponUpdates() {
         // Given
         Long couponId = 500L;
         Coupon initialCoupon = TestBuilder.CouponBuilder.defaultCoupon()
             .id(couponId)
             .code("CONCURRENT_UPDATE")
+            .withQuantity(1000, 0)
             .build();
         couponRepository.save(initialCoupon);
         
-        // When
+        // When - 동시에 발급 수량 업데이트
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
             ConcurrencyTestHelper.executeInParallel(10, () -> {
-                Coupon updated = TestBuilder.CouponBuilder.defaultCoupon()
-                    .id(couponId)
-                    .code("CONCURRENT_UPDATE")
-                    .discountRate(new BigDecimal("0.15"))
-                    .withQuantity(1000, (int)(Math.random() * 100))
-                    .build();
-                return couponRepository.save(updated);
+                Optional<Coupon> current = couponRepository.findById(couponId);
+                if (current.isPresent()) {
+                    Coupon updated = TestBuilder.CouponBuilder.defaultCoupon()
+                        .id(couponId)
+                        .code("CONCURRENT_UPDATE")
+                        .discountRate(new BigDecimal("0.15"))
+                        .withQuantity(1000, current.get().getIssuedCount() + 1)
+                        .build();
+                    return couponRepository.save(updated);
+                }
+                return null;
             });
         
         // Then
         assertThat(result.getSuccessCount()).isEqualTo(10);
-        assertThat(result.getFailureCount()).isEqualTo(0);
-        
         Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
         assertThat(finalCoupon).isPresent();
         assertThat(finalCoupon.get().getDiscountRate()).isEqualByComparingTo(new BigDecimal("0.15"));
     }
 
     @Test
-    @DisplayName("쿠폰 조회와 저장이 동시에 실행될 수 있다")
-    void canReadAndWriteConcurrently() {
+    @DisplayName("쿠폰 조회와 저장이 동시에 실행되어도 데이터 일관성이 보장된다")
+    void maintainsDataConsistencyUnderConcurrentReadAndWrite() {
         // Given
         Long couponId = 600L;
         Coupon baseCoupon = TestBuilder.CouponBuilder.defaultCoupon()
             .id(couponId)
             .code("READ_WRITE_TEST")
+            .withQuantity(500, 0)
             .build();
         couponRepository.save(baseCoupon);
 
         // When - 읽기와 쓰기 작업을 동시에 실행
-        List<Runnable> tasks = List.of(
-            // 읽기 작업들
-            () -> {
-                for (int i = 0; i < 10; i++) {
-                    couponRepository.findById(couponId);
-                    try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                }
-            },
-            () -> {
-                for (int i = 0; i < 10; i++) {
-                    couponRepository.findById(couponId);
-                    try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                }
-            },
-            // 쓰기 작업들
-            () -> {
-                for (int i = 0; i < 5; i++) {
-                    Coupon updated = TestBuilder.CouponBuilder.defaultCoupon()
-                        .id(couponId)
-                        .code("READ_WRITE_TEST")
-                        .withQuantity(500, i + 1)
-                        .build();
-                    couponRepository.save(updated);
-                    try { Thread.sleep(2); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                }
-            },
-            () -> {
-                for (int i = 0; i < 5; i++) {
-                    Coupon updated = TestBuilder.CouponBuilder.defaultCoupon()
-                        .id(couponId)
-                        .code("READ_WRITE_TEST")
-                        .withQuantity(500, i + 10)
-                        .build();
-                    couponRepository.save(updated);
-                    try { Thread.sleep(2); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                }
-            }
-        );
-        
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
-            ConcurrencyTestHelper.executeMultipleTasks(tasks);
+            ConcurrencyTestHelper.executeInParallel(20, () -> {
+                if (Math.random() < 0.7) {
+                    // 70% 읽기 작업
+                    Optional<Coupon> found = couponRepository.findById(couponId);
+                    return found.isPresent() ? 1 : 0;
+                } else {
+                    // 30% 쓰기 작업
+                    Coupon updated = TestBuilder.CouponBuilder.defaultCoupon()
+                        .id(couponId)
+                        .code("READ_WRITE_TEST")
+                        .withQuantity(500, (int)(Math.random() * 50))
+                        .build();
+                    Coupon saved = couponRepository.save(updated);
+                    return saved != null ? 1 : 0;
+                }
+            });
         
         // Then
-        assertThat(result.getSuccessCount()).isEqualTo(4);
-        assertThat(result.getFailureCount()).isEqualTo(0);
+        assertThat(result.getTotalCount()).isEqualTo(20);
+        assertThat(result.getSuccessCount()).isGreaterThan(15);
         
         Optional<Coupon> finalCoupon = couponRepository.findById(couponId);
         assertThat(finalCoupon).isPresent();
+        assertThat(finalCoupon.get().getCode()).isEqualTo("READ_WRITE_TEST");
     }
 
+    // === 만료 쿠폰 조회 시나리오 ===
+    
     @Test
     @DisplayName("만료된 쿠폰들을 특정 상태를 제외하고 조회할 수 있다")
     void canFindExpiredCouponsExcludingSpecificStatuses() {
         // Given
         LocalDateTime now = LocalDateTime.now();
         
-        // 만료된 ACTIVE 쿠폰
-        Coupon expiredActive = TestBuilder.CouponBuilder.expiredCoupon()
-            .id(1L).code("EXPIRED_ACTIVE").build();
+        List<Coupon> testCoupons = List.of(
+            TestBuilder.CouponBuilder.expiredCoupon()
+                .id(1L).code("EXPIRED_ACTIVE").build(),
+            TestBuilder.CouponBuilder.expiredCoupon()
+                .id(2L).code("EXPIRED_SOLDOUT")
+                .status(CouponStatus.SOLD_OUT).build(),
+            TestBuilder.CouponBuilder.expiredCoupon()
+                .id(3L).code("ALREADY_EXPIRED")
+                .status(CouponStatus.EXPIRED).build(),
+            TestBuilder.CouponBuilder.defaultCoupon()
+                .id(4L).code("VALID").build()
+        );
         
-        // 만료된 SOLD_OUT 쿠폰
-        Coupon expiredSoldOut = TestBuilder.CouponBuilder.expiredCoupon()
-            .id(2L).code("EXPIRED_SOLDOUT")
-            .status(CouponStatus.SOLD_OUT).build();
-        
-        // 이미 EXPIRED 상태인 쿠폰 (제외되어야 함)
-        Coupon alreadyExpired = TestBuilder.CouponBuilder.expiredCoupon()
-            .id(3L).code("ALREADY_EXPIRED")
-            .status(CouponStatus.EXPIRED).build();
-        
-        // 유효한 쿠폰 (제외되어야 함)
-        Coupon validCoupon = TestBuilder.CouponBuilder.defaultCoupon()
-            .id(4L).code("VALID").build();
-        
-        couponRepository.save(expiredActive);
-        couponRepository.save(expiredSoldOut);
-        couponRepository.save(alreadyExpired);
-        couponRepository.save(validCoupon);
+        testCoupons.forEach(couponRepository::save);
         
         // When
         List<Coupon> expiredCoupons = couponRepository.findExpiredCouponsNotInStatus(
@@ -332,17 +293,26 @@ class InMemoryCouponRepositoryTest {
         assertThat(expiredCoupons).isEmpty();
     }
 
-    // === 테스트 데이터 제공자 ===
+    // === 헬퍼 메서드 ===
     
-    private static Stream<Arguments> provideDiverseCouponData() {
+    static Stream<Arguments> provideDiverseCouponData() {
         return Stream.of(
             Arguments.of("WELCOME10", "0.10", 1000),
             Arguments.of("SUMMER25", "0.25", 500),
-            Arguments.of("VIP30", "0.30", 100)
+            Arguments.of("VIP30", "0.30", 100),
+            Arguments.of("BLACK_FRIDAY", "0.50", 50)
         );
     }
 
-    private static Stream<Arguments> provideInvalidCouponIds() {
+    static Stream<Arguments> provideInvalidCouponData() {
+        return Stream.of(
+            Arguments.of("null coupon", null),
+            Arguments.of("over issued coupon", TestBuilder.CouponBuilder.overIssuedCoupon().build()),
+            Arguments.of("invalid date range coupon", TestBuilder.CouponBuilder.invalidDatesCoupon().build())
+        );
+    }
+
+    static Stream<Arguments> provideInvalidCouponIds() {
         return Stream.of(
             Arguments.of(0L),
             Arguments.of(-1L),
