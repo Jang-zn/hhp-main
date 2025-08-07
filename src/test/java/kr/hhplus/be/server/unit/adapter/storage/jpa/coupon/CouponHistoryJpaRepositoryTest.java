@@ -1,6 +1,5 @@
 package kr.hhplus.be.server.unit.adapter.storage.jpa.coupon;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.adapter.storage.jpa.CouponHistoryJpaRepository;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
@@ -17,8 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
@@ -42,8 +40,7 @@ import static kr.hhplus.be.server.util.TestAssertions.CommonAssertions;
  * Why: JPA를 통한 쿠폰 이력 저장소의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
  * How: 실제 쿠폰 발급 및 사용 시나리오를 반영한 Mock 기반 단위 테스트
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@DataJpaTest
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 @DisplayName("쿠폰 히스토리 JPA 저장소 비즈니스 시나리오")

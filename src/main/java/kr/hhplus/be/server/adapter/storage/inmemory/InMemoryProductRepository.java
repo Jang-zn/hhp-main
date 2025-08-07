@@ -87,4 +87,24 @@ public class InMemoryProductRepository implements ProductRepositoryPort {
                 .limit(limit)
                 .toList();
     }
+
+    @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        // InMemory 환경에서는 별도의 락 구현 없이 일반 조회와 동일하게 처리
+        return findById(id);
+    }
+
+    @Override
+    public List<Product> findByIdsWithLock(List<Long> ids) {
+        // InMemory 환경에서는 별도의 락 구현 없이 일반 배치 조회로 처리
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        
+        return ids.stream()
+                .map(this::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+    }
 } 

@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,16 @@ public class CouponJpaRepository implements CouponRepositoryPort {
     public Optional<Coupon> findById(Long id) {
         try {
             Coupon coupon = entityManager.find(Coupon.class, id);
+            return Optional.ofNullable(coupon);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<Coupon> findByIdWithLock(Long id) {
+        try {
+            Coupon coupon = entityManager.find(Coupon.class, id, LockModeType.PESSIMISTIC_WRITE);
             return Optional.ofNullable(coupon);
         } catch (Exception e) {
             return Optional.empty();

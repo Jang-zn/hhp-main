@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.retry.ExhaustedRetryException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -118,24 +119,13 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 공통 예외 처리 - InvalidRequest
+     * 공통 예외 처리 - InvalidRequest, InvalidPagination
      * 
-     * @param ex InvalidRequest 예외
+     * @param ex InvalidRequest 또는 InvalidPagination 예외
      * @return 400 Bad Request + ErrorCode 기반 메시지
      */
-    @ExceptionHandler(CommonException.InvalidRequest.class)
-    public ResponseEntity<CommonResponse<Object>> handleInvalidRequestException(CommonException.InvalidRequest ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT));
-    }
-
-    /**
-     * 공통 예외 처리 - InvalidPagination
-     * 
-     * @param ex InvalidPagination 예외
-     * @return 400 Bad Request + ErrorCode 기반 메시지
-     */
-    @ExceptionHandler(CommonException.InvalidPagination.class)
-    public ResponseEntity<CommonResponse<Object>> handleInvalidPaginationException(CommonException.InvalidPagination ex) {
+    @ExceptionHandler({CommonException.InvalidRequest.class, CommonException.InvalidPagination.class})
+    public ResponseEntity<CommonResponse<Object>> handleInvalidRequestAndPaginationException(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT));
     }
 
@@ -168,6 +158,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<CommonResponse<Object>> handleIllegalStateException(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.BAD_REQUEST, ex.getMessage()));
+    }
+
+    /**
+     * Spring Retry ExhaustedRetryException 처리
+     * 재시도가 모두 실패한 후 발생하는 예외를 처리한다.
+     * 원본 예외를 추출하여 적절한 처리를 수행한다.
+     * 
+     * @param ex 재시도 소진 예외
+     * @return 원본 예외에 따른 적절한 응답
+     */
+    @ExceptionHandler(ExhaustedRetryException.class)
+    public ResponseEntity<CommonResponse<Object>> handleExhaustedRetryException(ExhaustedRetryException ex) {
+        // 원본 예외 추출
+        Throwable cause = ex.getCause();
+        
+        // 원본 예외가 비즈니스 예외인 경우 해당 예외로 처리
+        if (cause instanceof BalanceException || cause instanceof CouponException || 
+            cause instanceof OrderException || cause instanceof PaymentException || 
+            cause instanceof ProductException || cause instanceof UserException || 
+            cause instanceof CommonException) {
+            return handleBusinessException((RuntimeException) cause);
+        }
+        
+        // 그 외의 경우 내부 서버 오류로 처리
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(CommonResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
     /**

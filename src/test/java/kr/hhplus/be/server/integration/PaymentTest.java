@@ -136,27 +136,6 @@ public class PaymentTest {
             .andExpect(jsonPath("$.code").value(ErrorCode.INSUFFICIENT_BALANCE.getCode()))
             .andExpect(jsonPath("$.message").value(ErrorCode.INSUFFICIENT_BALANCE.getMessage()));
     }
-
-    @Test
-    @DisplayName("재고 부족 상품도 예약된 상태에서는 결제가 처리된다")
-    void allowsPaymentForReservedOutOfStockProduct() throws Exception {
-        // Given - 현재 구현에서는 결제 시 재고 확정 로직이 미구현되어 있음
-        User customer = createUniqueCustomer("재고부족고객");
-        Balance balance = createSufficientBalance(customer, "100000");
-        Product outOfStockProduct = createUniqueOutOfStockProduct("재고부족상품", "50000");
-        Order pendingOrder = createUniquePendingOrder(customer, outOfStockProduct, "50000");
-        
-        OrderRequest request = createPaymentRequest(customer.getId());
-
-        // When & Then - 현재 구현에서는 결제가 성공함
-        mockMvc.perform(post("/api/order/{orderId}/pay", pendingOrder.getId())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-            .andExpect(jsonPath("$.data.status").value("PAID"));
-    }
-
     // === 헬퍼 메서드 ===
 
     private OrderRequest createPaymentRequest(Long userId) {

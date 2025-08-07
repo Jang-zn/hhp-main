@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.Check;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,9 +22,9 @@ import java.time.LocalDateTime;
            @Index(name = "idx_coupon_product_id", columnList = "productId"),
            @Index(name = "idx_coupon_code", columnList = "code", unique = true),
            @Index(name = "idx_coupon_end_date", columnList = "endDate"),
-           @Index(name = "idx_coupon_status_end_date", columnList = "status, endDate"),
            @Index(name = "idx_coupon_end_date_status", columnList = "endDate, status")
        })
+@Check(constraints = "issued_count <= max_issuance AND issued_count >= 0 AND max_issuance >= 0")
 public class Coupon extends BaseEntity {
 
     @NotBlank
@@ -36,11 +37,13 @@ public class Coupon extends BaseEntity {
     @DecimalMax(value = "1.00")
     private BigDecimal discountRate;
 
+    @Column(name = "max_issuance", nullable = false)
     @PositiveOrZero
     private int maxIssuance;
 
+    @Column(name = "issued_count", nullable = false)
     @PositiveOrZero
-    private int issuedCount;
+    private int issuedCount = 0;
 
     @NotNull
     private LocalDateTime startDate;
@@ -108,20 +111,26 @@ public class Coupon extends BaseEntity {
     }
 
     /**
-     * 재고를 감소시키고 필요시 상태를 업데이트합니다.
+     * 쿠폰을 발급합니다.
+     * DB @Check 제약조건으로 추가 무결성 보장:
+     * - issued_count <= max_issuance: 발급 수량이 최대 한도를 초과할 수 없음
+     * - issued_count >= 0: 발급 수량이 음수가 될 수 없음
+     * - max_issuance >= 0: 최대 발급량이 음수가 될 수 없음
      */
-    public void decreaseStock(@Positive int quantity) {
-        if (this.issuedCount + quantity > this.maxIssuance) {
+    public void issue() {
+        if (this.issuedCount >= this.maxIssuance) {
             throw new CouponException.CouponStockExceeded();
         }
         
-        this.issuedCount += quantity;
+        this.issuedCount += 1;
+        // DB @Check 제약 조건이 추가 검증 수행하여 데이터 무결성 보장
         
         // 재고 소진 시 상태 업데이트
         if (this.issuedCount >= this.maxIssuance) {
             updateStatus(CouponStatus.SOLD_OUT);
         }
     }
+
 
     /**
      * 쿠폰 발급이 가능한지 확인합니다 (상태 변경 없이 순수 조회).

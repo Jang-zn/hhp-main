@@ -1,6 +1,5 @@
 package kr.hhplus.be.server.unit.adapter.storage.jpa.product;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.adapter.storage.jpa.ProductJpaRepository;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -14,8 +13,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -38,9 +37,9 @@ import static org.mockito.Mockito.*;
  * 참고: 실제 ProductJpaRepository는 예외를 try-catch로 처리하여 빈 Optional을 반환하므로,
  *       단순한 동작 확인에 초점을 맞춰 테스트를 구성
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@DataJpaTest
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 @DisplayName("JPA 상품 저장소 비즈니스 시나리오")
 class ProductJpaRepositoryTest {
 

@@ -10,6 +10,7 @@ import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.service.LockOrderManager;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +34,21 @@ public class CreateOrderUseCase {
     private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final CachePort cachePort;
+    private final LockOrderManager lockOrderManager;
 
+    /**
+     * 주문을 생성하고 상품 재고를 예약합니다.
+     * 
+     * 동시성 제어:
+     * - LockOrderManager로 상품 ID 정렬하여 데드락 방지
+     * - 비관적 락으로 상품 조회하여 재고 경합 방지
+     * - 트랜잭션 타임아웃 10초 설정 (여러 상품 처리 고려)
+     * 
+     * @param userId 주문하는 사용자 ID
+     * @param productQuantities 주문할 상품과 수량 정보
+     * @return 생성된 주문 엔티티
+     */
+    @Transactional(timeout = 10)
     public Order execute(Long userId, List<ProductQuantityDto> productQuantities) {
         log.debug("주문 생성 요청: userId={}, products={}", userId, productQuantities);
         
@@ -46,19 +61,30 @@ public class CreateOrderUseCase {
                 throw new UserException.NotFound();
             }
 
+            // 데드락 방지를 위한 상품 ID 정렬
+            List<Long> productIds = productQuantities.stream()
+                    .map(ProductQuantityDto::getProductId)
+                    .collect(Collectors.toList());
+            List<Long> orderedProductIds = lockOrderManager.getOrderedLockIds(productIds);
+            
+            // 정렬된 순서로 비관적 락으로 상품 조회 (데드락 방지)
+            List<Product> products = productRepositoryPort.findByIdsWithLock(orderedProductIds);
+            Map<Long, Product> productMap = products.stream()
+                    .collect(Collectors.toMap(Product::getId, product -> product));
+            
             // 상품별 재고 예약 및 주문 아이템 생성
             List<OrderItem> orderItems = productQuantities.stream()
                     .map(productQuantity -> {
                         Long productId = productQuantity.getProductId();
                         Integer quantity = productQuantity.getQuantity();
                         
-                        Product product = productRepositoryPort.findById(productId)
-                                .orElseThrow(() -> {
-                                    log.warn("존재하지 않는 상품: productId={}", productId);
-                                    return new ProductException.NotFound();
-                                });
+                        Product product = productMap.get(productId);
+                        if (product == null) {
+                            log.warn("존재하지 않는 상품: productId={}", productId);
+                            throw new ProductException.NotFound();
+                        }
                         
-                        // 재고 예약 (기존 decreaseStock 대신 reserveStock 사용)
+                        // 재고 예약 (DB @Check 제약조건으로 추가 무결성 보장)
                         product.reserveStock(quantity);
                         productRepositoryPort.save(product);
                         

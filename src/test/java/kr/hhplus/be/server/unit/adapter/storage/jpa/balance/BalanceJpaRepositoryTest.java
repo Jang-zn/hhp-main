@@ -1,6 +1,5 @@
 package kr.hhplus.be.server.unit.adapter.storage.jpa.balance;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.adapter.storage.jpa.BalanceJpaRepository;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
@@ -15,8 +14,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
@@ -39,8 +37,7 @@ import static org.mockito.Mockito.*;
  * Why: JPA 잔액 저장소의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
  * How: JPA 기반 잔액 관리 시나리오를 반영한 단위 테스트로 구성
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@DataJpaTest
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 @DisplayName("JPA 잔액 저장소 비즈니스 시나리오")
