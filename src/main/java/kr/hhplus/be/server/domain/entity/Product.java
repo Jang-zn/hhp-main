@@ -51,7 +51,10 @@ public class Product extends BaseEntity {
      * - reserved_stock >= 0: 예약 재고는 음수가 될 수 없음  
      * - reserved_stock <= stock: 예약 재고는 실제 재고를 초과할 수 없음
      */
-    public void reserveStock(@Positive int quantity) {
+    public void reserveStock(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
         if (!hasAvailableStock(quantity)) {
             throw new ProductException.OutOfStock();
         }
@@ -63,7 +66,10 @@ public class Product extends BaseEntity {
     /**
      * 예약된 재고를 확정합니다. 실제 재고를 차감하고 예약 재고를 감소시킵니다.
      */
-    public void confirmReservation(@Positive int quantity) {
+    public void confirmReservation(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("예약된 수량보다 많은 수량을 확정할 수 없습니다");
         }
@@ -79,7 +85,10 @@ public class Product extends BaseEntity {
     /**
      * 예약된 재고를 취소합니다. 예약 재고만 감소시킵니다.
      */
-    public void cancelReservation(@Positive int quantity) {
+    public void cancelReservation(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("예약된 수량보다 많은 수량을 취소할 수 없습니다");
         }
@@ -91,7 +100,10 @@ public class Product extends BaseEntity {
      * 확정된 재고를 다시 예약 상태로 복원합니다. (보상 처리용)
      * 실제 재고를 증가시키고 예약 재고도 증가시킵니다.
      */
-    public void restoreReservation(@Positive int quantity) {
+    public void restoreReservation(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
         
         this.stock += quantity;
         this.reservedStock += quantity;

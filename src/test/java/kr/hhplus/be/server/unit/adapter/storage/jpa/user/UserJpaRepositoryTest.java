@@ -1,6 +1,5 @@
 package kr.hhplus.be.server.unit.adapter.storage.jpa.user;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.adapter.storage.jpa.UserJpaRepository;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -13,8 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -33,9 +32,9 @@ import static org.mockito.Mockito.*;
  * Why: JPA 사용자 저장소의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
  * How: JPA 기반 사용자 관리 시나리오를 반영한 단위 테스트로 구성
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@DataJpaTest
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 @DisplayName("JPA 사용자 저장소 비즈니스 시나리오")
 class UserJpaRepositoryTest {
 

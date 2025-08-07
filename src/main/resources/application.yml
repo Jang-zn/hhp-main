@@ -2,28 +2,7 @@ spring:
   application:
     name: hhplus
   profiles:
-    active: dev
-  datasource:
-    name: HangHaePlusDataSource
-    type: com.zaxxer.hikari.HikariDataSource
-    hikari:
-      maximum-pool-size: 3
-      connection-timeout: 10000
-      max-lifetime: 60000
-  jpa:
-    open-in-view: false
-    generate-ddl: true
-    show-sql: true
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate.timezone.default_storage: NORMALIZE_UTC
-      hibernate.jdbc.time_zone: UTC
-      hibernate:
-        format_sql: true
-  # Retry 설정 (동시성 제어용)
-  retry:
-    enabled: true
+    active: test
 
 # SpringDoc/Swagger 설정
 springdoc:
@@ -42,7 +21,7 @@ springdoc:
 
 ---
 # JPA + MySQL 환경 (일반적인 모든 환경)
-spring.config.activate.on-profile: local, test, dev, prod
+spring.config.activate.on-profile: local, dev, prod
 
 spring:
   datasource:
@@ -63,6 +42,9 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         use_sql_comments: true
+  # Retry 설정 (동시성 제어용)
+  retry:
+    enabled: true
 
 ---
 # TestContainers 환경 (통합 테스트용)
@@ -71,7 +53,6 @@ spring.config.activate.on-profile: integration-test
 spring:
   datasource:
     # TestContainers가 자동으로 설정
-    type: com.zaxxer.hikari.HikariDataSource
   logging:
     level:
       org.hibernate.SQL: DEBUG
