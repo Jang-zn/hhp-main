@@ -36,6 +36,11 @@ public class ProductController {
     @GetMapping("/list")
     public List<ProductResponse> getProductList(@Valid ProductRequest request) {
         
+        // null 요청 검증
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
+        
         List<Product> products = getProductListFacade.getProductList(request.getLimit(), request.getOffset());
         return products.stream()
                 .map(product -> new ProductResponse(
@@ -50,6 +55,11 @@ public class ProductController {
     @ProductApiDocs(summary = "인기 상품 조회", description = "지정된 기간 동안의 인기 상품을 조회합니다")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts(@Valid ProductRequest request) {
+        
+        // null 요청 검증
+        if (request == null) {
+            throw new CommonException.InvalidRequest();
+        }
         
         // 최근 N일간 인기 상품 조회
         List<Product> popularProducts = getPopularProductListFacade.getPopularProductList(request.getDays());

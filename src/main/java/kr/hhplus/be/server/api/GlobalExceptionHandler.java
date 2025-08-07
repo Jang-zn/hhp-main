@@ -5,10 +5,12 @@ import jakarta.validation.ConstraintViolationException;
 import kr.hhplus.be.server.domain.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Set;
 
@@ -85,6 +87,67 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             CommonResponse.failure(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage())
         );
+    }
+
+    /**
+     * 타입 변환 실패 예외 처리
+     * URL 경로에서 문자열을 숫자로 변환할 때 실패하는 경우 발생
+     * 
+     * @param ex 타입 변환 실패 예외
+     * @return 400 Bad Request + INVALID_INPUT ErrorCode
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<CommonResponse<Object>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            CommonResponse.failure(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage())
+        );
+    }
+
+    /**
+     * HTTP 메시지 읽기 실패 예외 처리
+     * JSON 파싱 실패, 잘못된 형식의 요청 본문 등에서 발생
+     * 
+     * @param ex HTTP 메시지 읽기 실패 예외
+     * @return 400 Bad Request + INVALID_INPUT ErrorCode
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<CommonResponse<Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            CommonResponse.failure(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage())
+        );
+    }
+
+    /**
+     * 공통 예외 처리 - InvalidRequest
+     * 
+     * @param ex InvalidRequest 예외
+     * @return 400 Bad Request + ErrorCode 기반 메시지
+     */
+    @ExceptionHandler(CommonException.InvalidRequest.class)
+    public ResponseEntity<CommonResponse<Object>> handleInvalidRequestException(CommonException.InvalidRequest ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT));
+    }
+
+    /**
+     * 공통 예외 처리 - InvalidPagination
+     * 
+     * @param ex InvalidPagination 예외
+     * @return 400 Bad Request + ErrorCode 기반 메시지
+     */
+    @ExceptionHandler(CommonException.InvalidPagination.class)
+    public ResponseEntity<CommonResponse<Object>> handleInvalidPaginationException(CommonException.InvalidPagination ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.failure(ErrorCode.INVALID_INPUT));
+    }
+
+    /**
+     * 공통 예외 처리 - ConcurrencyConflict
+     * 
+     * @param ex ConcurrencyConflict 예외
+     * @return 409 Conflict + ErrorCode 기반 메시지
+     */
+    @ExceptionHandler(CommonException.ConcurrencyConflict.class)
+    public ResponseEntity<CommonResponse<Object>> handleConcurrencyConflictException(CommonException.ConcurrencyConflict ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(CommonResponse.failure(ErrorCode.CONCURRENCY_ERROR));
     }
 
     /**

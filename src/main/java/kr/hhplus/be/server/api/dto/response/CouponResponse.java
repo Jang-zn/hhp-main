@@ -14,6 +14,9 @@ public record CouponResponse(
         @Schema(description = "쿠폰 히스토리 ID", example = "1")
         Long couponHistoryId,
         
+        @Schema(description = "사용자 ID", example = "1")
+        Long userId,
+        
         @Schema(description = "쿠폰 ID", example = "1")
         Long couponId,
         
@@ -46,6 +49,7 @@ public record CouponResponse(
     public FieldDocumentation getFieldDocumentation() {
         return FieldDocumentation.builder()
                 .field("couponHistoryId", "쿠폰 히스토리 ID", "1")
+                .field("userId", "사용자 ID", "1")
                 .field("couponId", "쿠폰 ID", "1")
                 .field("code", "쿠폰 코드", "SUMMER2025")
                 .field("discountRate", "할인율", "0.10")

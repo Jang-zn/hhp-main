@@ -42,6 +42,10 @@ public class Product extends BaseEntity {
      * 재고를 예약합니다. 실제 재고는 차감하지 않고 예약 재고만 증가시킵니다.
      */
     public void reserveStock(@Positive int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
+        
         if (!hasAvailableStock(quantity)) {
             throw new ProductException.OutOfStock();
         }

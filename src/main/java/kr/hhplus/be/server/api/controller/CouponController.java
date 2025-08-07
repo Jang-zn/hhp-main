@@ -2,7 +2,9 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
@@ -18,6 +20,7 @@ import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,7 +45,9 @@ public class CouponController {
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
+    @ResponseStatus(HttpStatus.CREATED)
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
+
 
         CouponHistory couponHistory = issueCouponFacade.issueCoupon(request.getUserId(), request.getCouponId());
         
@@ -52,6 +57,7 @@ public class CouponController {
         
         return new CouponResponse(
                 couponHistory.getId(),
+                couponHistory.getUserId(),
                 couponHistory.getCouponId(),
                 coupon.getCode(),
                 coupon.getDiscountRate(),
@@ -65,12 +71,14 @@ public class CouponController {
     }
 
     @CouponApiDocs(summary = "보유 쿠폰 조회", description = "사용자가 보유한 쿠폰 목록을 조회합니다")
-    @GetMapping("/{userId}")
+    @GetMapping("/user/{userId}")
     public List<CouponResponse> getCoupons(
             @PathVariable @Positive Long userId,
-            @Valid CouponRequest request) {
+            @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
+            @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
 
-        List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, request.getLimit(), request.getOffset());
+
+        List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, limit, offset);
         return couponHistories.stream()
                 .map(history -> safeCouponLookup(history))
                 .filter(Optional::isPresent)
@@ -99,6 +107,7 @@ public class CouponController {
             Coupon coupon = couponOpt.get();
             CouponResponse response = new CouponResponse(
                     history.getId(),
+                    history.getUserId(),
                     history.getCouponId(),
                     coupon.getCode(),
                     coupon.getDiscountRate(),

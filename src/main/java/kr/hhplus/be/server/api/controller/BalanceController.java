@@ -11,6 +11,7 @@ import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
 import kr.hhplus.be.server.domain.facade.balance.GetBalanceFacade;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,6 +37,7 @@ public class BalanceController {
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
         
+        
         Balance balance = chargeBalanceFacade.chargeBalance(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUserId(),
@@ -47,6 +49,7 @@ public class BalanceController {
     @BalanceApiDocs(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable @Positive Long userId) {
+        
         
         Optional<Balance> balanceOpt = getBalanceFacade.getBalance(userId);
         

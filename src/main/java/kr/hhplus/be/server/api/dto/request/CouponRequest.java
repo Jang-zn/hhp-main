@@ -11,9 +11,13 @@ import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 public class CouponRequest implements DocumentedDto {
     
     @Schema(description = "사용자 ID", example = "1")
+    @NotNull
+    @Positive
     private Long userId;
     
     @Schema(description = "쿠폰 ID", example = "1")
+    @NotNull
+    @Positive
     private Long couponId;
     
     @Schema(description = "페이지 크기", example = "10", defaultValue = "10")
