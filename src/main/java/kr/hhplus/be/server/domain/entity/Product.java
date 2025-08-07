@@ -52,10 +52,6 @@ public class Product extends BaseEntity {
      * - reserved_stock <= stock: 예약 재고는 실제 재고를 초과할 수 없음
      */
     public void reserveStock(@Positive int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("수량은 0보다 커야 합니다");
-        }
-        
         if (!hasAvailableStock(quantity)) {
             throw new ProductException.OutOfStock();
         }
