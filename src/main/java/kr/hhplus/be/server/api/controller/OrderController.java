@@ -2,6 +2,7 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
@@ -25,6 +26,7 @@ import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,6 +39,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/order")
 @RequiredArgsConstructor
+@Validated
 public class OrderController {
 
     private final CreateOrderFacade createOrderFacade;
@@ -48,10 +51,7 @@ public class OrderController {
     @ResponseStatus(HttpStatus.CREATED)
   
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
-        if (request == null) {
-            throw new CommonException.InvalidRequest();
-        }
-        request.validate();
+        
         
         // 상품 수량 정보를 타입 안전한 DTO로 변환
         List<ProductQuantityDto> productQuantities;
@@ -82,15 +82,9 @@ public class OrderController {
     @OrderApiDocs(summary = "주문 결제", description = "주문을 결제 처리합니다")
     @PostMapping("/{orderId}/pay")
     public PaymentResponse payOrder(
-            @PathVariable Long orderId,
+            @PathVariable @Positive Long orderId,
             @Valid @RequestBody OrderRequest request) {
-        if (orderId == null) {
-            throw new OrderException.OrderIdCannotBeNull();
-        }
-        if (request == null) {
-            throw new CommonException.InvalidRequest();
-        }
-        request.validate();
+        
         
         Payment payment = payOrderFacade.payOrder(orderId, request.getUserId(), request.getCouponId());
         
@@ -106,14 +100,9 @@ public class OrderController {
     @OrderApiDocs(summary = "단일 주문 조회", description = "특정 주문의 상세 정보를 조회합니다")
     @GetMapping("/{orderId}")
     public OrderResponse getOrder(
-            @PathVariable Long orderId,
-            @RequestParam Long userId) {
-        if (orderId == null) {
-            throw new OrderException.OrderIdCannotBeNull();
-        }
-        if (userId == null) {
-            throw new CommonException.InvalidRequest();
-        }
+            @PathVariable @Positive Long orderId,
+            @RequestParam @Positive Long userId) {
+        
         
         // 파사드를 통해 상세 정보 조회
         OrderWithDetailsDto orderDetails = getOrderWithDetailsFacade.getOrderWithDetails(orderId, userId);
@@ -123,10 +112,8 @@ public class OrderController {
 
     @OrderApiDocs(summary = "사용자 주문 목록 조회", description = "사용자의 모든 주문 목록을 조회합니다")
     @GetMapping("/user/{userId}")
-    public List<OrderResponse> getUserOrders(@PathVariable Long userId) {
-        if (userId == null) {
-            throw new CommonException.InvalidRequest();
-        }
+    public List<OrderResponse> getUserOrders(@PathVariable @Positive Long userId) {
+        
         
         // 파사드를 통해 상세 정보 조회
         List<OrderWithDetailsDto> ordersWithDetails = getOrderWithDetailsFacade.getUserOrdersWithDetails(userId);

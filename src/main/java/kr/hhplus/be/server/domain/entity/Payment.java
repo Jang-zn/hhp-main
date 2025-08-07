@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
@@ -25,6 +26,8 @@ public class Payment extends BaseEntity {
      * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
+    @NotNull
+    @Positive
     private Long orderId;
 
     /**
@@ -32,13 +35,18 @@ public class Payment extends BaseEntity {
      * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
+    @NotNull
+    @Positive
     private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private PaymentStatus status;
 
     @Column(nullable = false, precision = 19, scale = 2)
+    @NotNull
+    @DecimalMin(value = "0.00")
     private BigDecimal amount;
 
     /**
@@ -46,6 +54,7 @@ public class Payment extends BaseEntity {
      * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = true)  // 명시적으로 nullable 설정 (선택적 필드)
+    @Positive
     private Long couponId;
 
     public void changeStatus(PaymentStatus status) {

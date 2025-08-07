@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
@@ -23,6 +24,8 @@ public class OrderItem extends BaseEntity {
      * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
+    @NotNull
+    @Positive
     private Long orderId;
 
     /**
@@ -30,12 +33,17 @@ public class OrderItem extends BaseEntity {
      * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
+    @NotNull
+    @Positive
     private Long productId;
 
     @Column(nullable = false)
+    @Positive
     private int quantity;
 
     @Column(nullable = false, precision = 19, scale = 2)
+    @NotNull
+    @DecimalMin(value = "0.00")
     private BigDecimal price;
     
     /**
@@ -45,13 +53,7 @@ public class OrderItem extends BaseEntity {
      * @param orderId 설정할 주문 ID
      * @return orderId가 설정된 현재 OrderItem 인스턴스
      */
-    public OrderItem withOrderId(Long orderId) {
-        if (orderId == null) {
-            throw new IllegalArgumentException("OrderId cannot be null");
-        }
-        if (orderId <= 0) {
-            throw new IllegalArgumentException("OrderId must be positive");
-        }
+    public OrderItem withOrderId(@NotNull @Positive Long orderId) {
         this.orderId = orderId;
         return this;
     }

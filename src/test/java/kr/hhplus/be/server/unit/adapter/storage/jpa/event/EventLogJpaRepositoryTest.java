@@ -5,6 +5,7 @@ import kr.hhplus.be.server.adapter.storage.jpa.EventLogJpaRepository;
 import kr.hhplus.be.server.domain.entity.EventLog;
 import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,7 +32,13 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @ExtendWith(MockitoExtension.class)
-@DisplayName("EventLogJpaRepository 단위 테스트")
+/**
+ * EventLogJpaRepository 비즈니스 시나리오 테스트
+ * 
+ * Why: 이벤트 로그 데이터 저장소의 비즈니스 로직과 데이터 무결성 보장 검증
+ * How: 이벤트 발생 및 추적 시나리오를 반영한 JPA 저장소 테스트로 구성
+ */
+@DisplayName("이벤트 로그 데이터 저장소 비즈니스 시나리오")
 class EventLogJpaRepositoryTest {
 
     @Mock
@@ -47,233 +54,207 @@ class EventLogJpaRepositoryTest {
         eventLogJpaRepository = new EventLogJpaRepository(entityManager);
     }
 
-    @Nested
-    @DisplayName("이벤트 로그 저장 테스트")
-    class SaveTests {
+    @Test
+    @DisplayName("새로운 비즈니스 이벤트 로그를 성공적으로 저장한다")
+    void save_NewEventLog_Success() {
+        // given - 새로운 주문 생성 이벤트 발생
+        EventLog newEventLog = TestBuilder.EventLogBuilder.pendingEvent()
+                .eventType(EventType.ORDER_CREATED)
+                .payload("{\"키\":\"ord_123\", \"주문금액\":50000}")
+                .build();
 
-        @Test
-        @DisplayName("성공케이스: 새로운 이벤트 로그 저장")
-        void save_NewEventLog_Success() {
-            // given
-            EventLog eventLog = EventLog.builder()
-                    .eventType(EventType.ORDER_CREATED)
-                    .status(EventStatus.PENDING)
-                    .payload("test payload")
-                    .createdAt(LocalDateTime.now())
-                    .build();
+        doNothing().when(entityManager).persist(newEventLog);
 
-            doNothing().when(entityManager).persist(eventLog);
+        // when
+        EventLog savedEventLog = eventLogJpaRepository.save(newEventLog);
 
-            // when
-            EventLog savedEventLog = eventLogJpaRepository.save(eventLog);
-
-            // then
-            assertThat(savedEventLog).isEqualTo(eventLog);
-            verify(entityManager, times(1)).persist(eventLog);
-            verify(entityManager, never()).merge(any());
-        }
-
-        @Test
-        @DisplayName("성공케이스: 기존 이벤트 로그 업데이트")
-        void save_ExistingEventLog_Success() {
-            // given
-            EventLog eventLog = EventLog.builder()
-                    .id(1L)
-                    .eventType(EventType.PAYMENT_COMPLETED)
-                    .status(EventStatus.PUBLISHED)
-                    .payload("updated payload")
-                    .build();
-
-            when(entityManager.merge(eventLog)).thenReturn(eventLog);
-
-            // when
-            EventLog savedEventLog = eventLogJpaRepository.save(eventLog);
-
-            // then
-            assertThat(savedEventLog).isEqualTo(eventLog);
-            verify(entityManager, times(1)).merge(eventLog);
-            verify(entityManager, never()).persist(any());
-        }
-
-        @ParameterizedTest
-        @EnumSource(EventType.class)
-        @DisplayName("성공케이스: 다양한 이벤트 타입으로 저장")
-        void save_WithDifferentEventTypes(EventType eventType) {
-            // given
-            EventLog eventLog = EventLog.builder()
-                    .eventType(eventType)
-                    .status(EventStatus.PENDING)
-                    .payload("test")
-                    .build();
-
-            doNothing().when(entityManager).persist(eventLog);
-
-            // when
-            EventLog savedEventLog = eventLogJpaRepository.save(eventLog);
-
-            // then
-            assertThat(savedEventLog.getEventType()).isEqualTo(eventType);
-            verify(entityManager, times(1)).persist(eventLog);
-        }
+        // then
+        assertThat(savedEventLog).isEqualTo(newEventLog);
+        verify(entityManager, times(1)).persist(newEventLog);
+        verify(entityManager, never()).merge(any());
     }
 
-    @Nested
-    @DisplayName("상태별 조회 테스트")
-    class FindByStatusTests {
+    @Test
+    @DisplayName("기존 이벤트 로그의 상태를 성공적으로 업데이트한다")
+    void save_ExistingEventLog_Success() {
+        // given - 결제 완료 이벤트의 발행 완료 처리
+        EventLog completedEventLog = TestBuilder.EventLogBuilder.publishedEvent()
+                .id(1L)
+                .eventType(EventType.PAYMENT_COMPLETED)
+                .payload("{\"paymentId\":1, \"amount\":50000}")
+                .build();
 
-        @ParameterizedTest
-        @EnumSource(EventStatus.class)
-        @DisplayName("성공케이스: 상태별 이벤트 로그 조회")
-        void findByStatus_Success(EventStatus status) {
-            // given
-            List<EventLog> expectedEventLogs = Arrays.asList(
-                    EventLog.builder().id(1L).status(status).eventType(EventType.ORDER_CREATED).build(),
-                    EventLog.builder().id(2L).status(status).eventType(EventType.PAYMENT_COMPLETED).build()
-            );
+        when(entityManager.merge(completedEventLog)).thenReturn(completedEventLog);
 
-            when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
-            when(eventLogQuery.setParameter("status", status)).thenReturn(eventLogQuery);
-            when(eventLogQuery.getResultList()).thenReturn(expectedEventLogs);
+        // when
+        EventLog savedEventLog = eventLogJpaRepository.save(completedEventLog);
 
-            // when
-            List<EventLog> eventLogs = eventLogJpaRepository.findByStatus(status);
-
-            // then
-            assertThat(eventLogs).hasSize(2);
-            assertThat(eventLogs).allMatch(log -> log.getStatus() == status);
-            verify(entityManager).createQuery("SELECT e FROM EventLog e WHERE e.status = :status", EventLog.class);
-        }
-
-        @Test
-        @DisplayName("성공케이스: 해당 상태의 이벤트 로그가 없는 경우")
-        void findByStatus_EmptyResult() {
-            // given
-            EventStatus status = EventStatus.PENDING;
-
-            when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
-            when(eventLogQuery.setParameter("status", status)).thenReturn(eventLogQuery);
-            when(eventLogQuery.getResultList()).thenReturn(Arrays.asList());
-
-            // when
-            List<EventLog> eventLogs = eventLogJpaRepository.findByStatus(status);
-
-            // then
-            assertThat(eventLogs).isEmpty();
-        }
+        // then
+        assertThat(savedEventLog).isEqualTo(completedEventLog);
+        verify(entityManager, times(1)).merge(completedEventLog);
+        verify(entityManager, never()).persist(any());
     }
 
-    @Nested
-    @DisplayName("이벤트 타입별 조회 테스트")
-    class FindByEventTypeTests {
+    @ParameterizedTest
+    @EnumSource(EventType.class)
+    @DisplayName("모든 비즈니스 이벤트 타입에 대해 로그 저장이 성공한다")
+    void save_WithDifferentEventTypes(EventType eventType) {
+        // given - 다양한 비즈니스 이벤트 발생
+        EventLog businessEventLog = TestBuilder.EventLogBuilder.pendingEvent()
+                .eventType(eventType)
+                .payload("{\"eventData\":\"test_" + eventType.name() + "\"}")
+                .build();
 
-        @ParameterizedTest
-        @EnumSource(EventType.class)
-        @DisplayName("성공케이스: 이벤트 타입별 로그 조회")
-        void findByEventType_Success(EventType eventType) {
-            // given
-            List<EventLog> expectedEventLogs = Arrays.asList(
-                    EventLog.builder().id(1L).eventType(eventType).status(EventStatus.PENDING).build(),
-                    EventLog.builder().id(2L).eventType(eventType).status(EventStatus.PUBLISHED).build()
-            );
+        doNothing().when(entityManager).persist(businessEventLog);
 
-            when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
-            when(eventLogQuery.setParameter("eventType", eventType)).thenReturn(eventLogQuery);
-            when(eventLogQuery.getResultList()).thenReturn(expectedEventLogs);
+        // when
+        EventLog savedEventLog = eventLogJpaRepository.save(businessEventLog);
 
-            // when
-            List<EventLog> eventLogs = eventLogJpaRepository.findByEventType(eventType);
-
-            // then
-            assertThat(eventLogs).hasSize(2);
-            assertThat(eventLogs).allMatch(log -> log.getEventType() == eventType);
-            verify(entityManager).createQuery("SELECT e FROM EventLog e WHERE e.eventType = :eventType", EventLog.class);
-        }
-
-        @Test
-        @DisplayName("성공케이스: 해당 이벤트 타입의 로그가 없는 경우")
-        void findByEventType_EmptyResult() {
-            // given
-            EventType eventType = EventType.ORDER_CREATED;
-
-            when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
-            when(eventLogQuery.setParameter("eventType", eventType)).thenReturn(eventLogQuery);
-            when(eventLogQuery.getResultList()).thenReturn(Arrays.asList());
-
-            // when
-            List<EventLog> eventLogs = eventLogJpaRepository.findByEventType(eventType);
-
-            // then
-            assertThat(eventLogs).isEmpty();
-        }
+        // then
+        assertThat(savedEventLog.getEventType()).isEqualTo(eventType);
+        verify(entityManager, times(1)).persist(businessEventLog);
     }
 
-    @Nested
-    @DisplayName("예외 상황 테스트")
-    class ExceptionTests {
+    @ParameterizedTest
+    @EnumSource(EventStatus.class)
+    @DisplayName("이벤트 로그 상태별 조회가 성공한다")
+    void findByStatus_Success(EventStatus status) {
+        // given - 특정 상태의 비즈니스 이벤트 로그들
+        List<EventLog> expectedEventLogs = Arrays.asList(
+                TestBuilder.EventLogBuilder.defaultEvent().id(1L).status(status).eventType(EventType.ORDER_CREATED).build(),
+                TestBuilder.EventLogBuilder.defaultEvent().id(2L).status(status).eventType(EventType.PAYMENT_COMPLETED).build()
+        );
 
-        @Test
-        @DisplayName("실패케이스: persist 중 예외 발생")
-        void save_PersistException() {
-            // given
-            EventLog eventLog = EventLog.builder()
-                    .eventType(EventType.ORDER_CREATED)
-                    .status(EventStatus.PENDING)
-                    .build();
+        when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
+        when(eventLogQuery.setParameter("status", status)).thenReturn(eventLogQuery);
+        when(eventLogQuery.getResultList()).thenReturn(expectedEventLogs);
 
-            doThrow(new RuntimeException("DB 연결 실패")).when(entityManager).persist(eventLog);
+        // when
+        List<EventLog> eventLogs = eventLogJpaRepository.findByStatus(status);
 
-            // when & then
-            assertThatThrownBy(() -> eventLogJpaRepository.save(eventLog))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("DB 연결 실패");
-        }
+        // then
+        assertThat(eventLogs).hasSize(2);
+        assertThat(eventLogs).allMatch(log -> log.getStatus() == status);
+        verify(entityManager).createQuery("SELECT e FROM EventLog e WHERE e.status = :status", EventLog.class);
+    }
 
-        @Test
-        @DisplayName("실패케이스: merge 중 예외 발생")
-        void save_MergeException() {
-            // given
-            EventLog eventLog = EventLog.builder()
-                    .id(1L)
-                    .eventType(EventType.ORDER_CREATED)
-                    .status(EventStatus.PENDING)
-                    .build();
+    @Test
+    @DisplayName("해당 상태의 이벤트 로그가 없을 때 빈 목록을 반환한다")
+    void findByStatus_EmptyResult() {
+        // given - 아직 처리되지 않은 이벤트가 없는 상황
+        EventStatus noPendingStatus = EventStatus.PENDING;
 
-            when(entityManager.merge(eventLog)).thenThrow(new RuntimeException("트랜잭션 오류"));
+        when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
+        when(eventLogQuery.setParameter("status", noPendingStatus)).thenReturn(eventLogQuery);
+        when(eventLogQuery.getResultList()).thenReturn(Arrays.asList());
 
-            // when & then
-            assertThatThrownBy(() -> eventLogJpaRepository.save(eventLog))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("트랜잭션 오류");
-        }
+        // when
+        List<EventLog> eventLogs = eventLogJpaRepository.findByStatus(noPendingStatus);
 
-        @Test
-        @DisplayName("실패케이스: 상태별 조회 중 예외 발생")
-        void findByStatus_QueryException() {
-            // given
-            EventStatus status = EventStatus.PENDING;
+        // then
+        assertThat(eventLogs).isEmpty();
+    }
 
-            when(entityManager.createQuery(anyString(), eq(EventLog.class)))
-                    .thenThrow(new RuntimeException("쿼리 실행 오류"));
+    @ParameterizedTest
+    @EnumSource(EventType.class)
+    @DisplayName("비즈니스 이벤트 타입별 로그 조회가 성공한다")
+    void findByEventType_Success(EventType eventType) {
+        // given - 특정 비즈니스 이벤트 타입의 로그들
+        List<EventLog> expectedEventLogs = Arrays.asList(
+                TestBuilder.EventLogBuilder.pendingEvent().id(1L).eventType(eventType).build(),
+                TestBuilder.EventLogBuilder.publishedEvent().id(2L).eventType(eventType).build()
+        );
 
-            // when & then
-            assertThatThrownBy(() -> eventLogJpaRepository.findByStatus(status))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("쿼리 실행 오류");
-        }
+        when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
+        when(eventLogQuery.setParameter("eventType", eventType)).thenReturn(eventLogQuery);
+        when(eventLogQuery.getResultList()).thenReturn(expectedEventLogs);
 
-        @Test
-        @DisplayName("실패케이스: 이벤트 타입별 조회 중 예외 발생")
-        void findByEventType_QueryException() {
-            // given
-            EventType eventType = EventType.ORDER_CREATED;
+        // when
+        List<EventLog> eventLogs = eventLogJpaRepository.findByEventType(eventType);
 
-            when(entityManager.createQuery(anyString(), eq(EventLog.class)))
-                    .thenThrow(new RuntimeException("데이터베이스 연결 오류"));
+        // then
+        assertThat(eventLogs).hasSize(2);
+        assertThat(eventLogs).allMatch(log -> log.getEventType() == eventType);
+        verify(entityManager).createQuery("SELECT e FROM EventLog e WHERE e.eventType = :eventType", EventLog.class);
+    }
 
-            // when & then
-            assertThatThrownBy(() -> eventLogJpaRepository.findByEventType(eventType))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("데이터베이스 연결 오류");
-        }
+    @Test
+    @DisplayName("해당 이벤트 타입의 로그가 없을 때 빈 목록을 반환한다")
+    void findByEventType_EmptyResult() {
+        // given - 주문 생성 이벤트가 아직 발생하지 않은 상황
+        EventType noOrderEventType = EventType.ORDER_CREATED;
+
+        when(entityManager.createQuery(anyString(), eq(EventLog.class))).thenReturn(eventLogQuery);
+        when(eventLogQuery.setParameter("eventType", noOrderEventType)).thenReturn(eventLogQuery);
+        when(eventLogQuery.getResultList()).thenReturn(Arrays.asList());
+
+        // when
+        List<EventLog> eventLogs = eventLogJpaRepository.findByEventType(noOrderEventType);
+
+        // then
+        assertThat(eventLogs).isEmpty();
+    }
+
+    @Test
+    @DisplayName("이벤트 로그 저장 중 데이터베이스 오류 시 예외가 전파된다")
+    void save_PersistException() {
+        // given - 데이터베이스 연결 오류 상황
+        EventLog businessEventLog = TestBuilder.EventLogBuilder.pendingEvent()
+                .eventType(EventType.ORDER_CREATED)
+                .build();
+
+        doThrow(new RuntimeException("DB 연결 실패")).when(entityManager).persist(businessEventLog);
+
+        // when & then
+        assertThatThrownBy(() -> eventLogJpaRepository.save(businessEventLog))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("DB 연결 실패");
+    }
+
+    @Test
+    @DisplayName("이벤트 로그 업데이트 중 트랜잭션 오류 시 예외가 전파된다")
+    void save_MergeException() {
+        // given - 트랜잭션 충돌 상황
+        EventLog existingEventLog = TestBuilder.EventLogBuilder.pendingEvent()
+                .id(1L)
+                .eventType(EventType.ORDER_CREATED)
+                .build();
+
+        when(entityManager.merge(existingEventLog)).thenThrow(new RuntimeException("트랜잭션 오류"));
+
+        // when & then
+        assertThatThrownBy(() -> eventLogJpaRepository.save(existingEventLog))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("트랜잭션 오류");
+    }
+
+    @Test
+    @DisplayName("이벤트 로그 상태별 조회 중 쿼리 오류 시 예외가 전파된다")
+    void findByStatus_QueryException() {
+        // given - 데이터베이스 쿼리 오류 상황
+        EventStatus targetStatus = EventStatus.PENDING;
+
+        when(entityManager.createQuery(anyString(), eq(EventLog.class)))
+                .thenThrow(new RuntimeException("쿼리 실행 오류"));
+
+        // when & then
+        assertThatThrownBy(() -> eventLogJpaRepository.findByStatus(targetStatus))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("쿼리 실행 오류");
+    }
+
+    @Test
+    @DisplayName("이벤트 로그 타입별 조회 중 데이터베이스 오류 시 예외가 전파된다")
+    void findByEventType_QueryException() {
+        // given - 데이터베이스 연결 두절 상황
+        EventType targetEventType = EventType.ORDER_CREATED;
+
+        when(entityManager.createQuery(anyString(), eq(EventLog.class)))
+                .thenThrow(new RuntimeException("데이터베이스 연결 오류"));
+
+        // when & then
+        assertThatThrownBy(() -> eventLogJpaRepository.findByEventType(targetEventType))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("데이터베이스 연결 오류");
     }
 }

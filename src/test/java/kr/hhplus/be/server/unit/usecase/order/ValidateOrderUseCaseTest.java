@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-@DisplayName("ValidateOrderUseCase 단위 테스트")
+/**
+ * ValidateOrderUseCase 비즈니스 시나리오 테스트
+ * 
+ * Why: 주문 검증 유스케이스의 비즈니스 규칙과 보안 요구사항 충족 검증
+ * How: 주문 검증 시나리오를 반영한 단위 테스트로 구성
+ */
+@DisplayName("주문 검증 유스케이스 비즈니스 시나리오")
 class ValidateOrderUseCaseTest {
 
     @Mock
@@ -33,36 +40,32 @@ class ValidateOrderUseCaseTest {
     
     private ValidateOrderUseCase validateOrderUseCase;
     
-    private User testUser;
-    private Order testOrder;
-    
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         validateOrderUseCase = new ValidateOrderUseCase(orderRepositoryPort, paymentRepositoryPort);
-        
-        testUser = User.builder()
-            .id(1L)
-            .name("Test User")
-            .build();
-            
-        testOrder = Order.builder()
-            .id(1L)
-            .userId(testUser.getId())
-            .status(OrderStatus.PENDING)
-            .totalAmount(new BigDecimal("50000"))
-            .build();
     }
 
     @Test
-    @DisplayName("성공 - 유효한 주문 검증")
+    @DisplayName("유효한 주문에 대한 검증이 성공한다")
     void execute_ValidOrder_Success() {
-        // given
+        // given - 결제 대기 상태의 유효한 주문
         Long orderId = 1L;
         Long userId = 1L;
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(testOrder));
+        User customer = TestBuilder.UserBuilder.defaultUser()
+                .id(userId)
+                .name("테스트고객")
+                .build();
+        Order pendingOrder = TestBuilder.OrderBuilder.defaultOrder()
+                .id(orderId)
+                .userId(userId)
+                .status(OrderStatus.PENDING)
+                .totalAmount(new BigDecimal("50000"))
+                .build();
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(customer));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(pendingOrder));
         
         // when
         Order result = validateOrderUseCase.execute(orderId, userId);
@@ -75,60 +78,75 @@ class ValidateOrderUseCaseTest {
     }
     
     @Test
-    @DisplayName("실패 - 주문을 찾을 수 없음")
+    @DisplayName("존재하지 않는 주문에 대한 검증 시 예외가 발생한다")
     void execute_OrderNotFound_ThrowsException() {
-        // given
-        Long orderId = 999L;
+        // given - 존재하지 않는 주문 ID로 검증 시도
+        Long nonExistentOrderId = 999L;
         Long userId = 1L;
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.empty());
+        User customer = TestBuilder.UserBuilder.defaultUser()
+                .id(userId)
+                .build();
+        
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(customer));
+        when(orderRepositoryPort.findById(nonExistentOrderId)).thenReturn(Optional.empty());
         
         // when & then
-        assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
+        assertThatThrownBy(() -> validateOrderUseCase.execute(nonExistentOrderId, userId))
             .isInstanceOf(OrderException.NotFound.class);
     }
     
     @Test
-    @DisplayName("실패 - 주문 소유자가 다름")
+    @DisplayName("다른 사용자의 주문에 대한 검증 시 권한 예외가 발생한다")
     void execute_OrderOwnerMismatch_ThrowsException() {
-        // given
+        // given - 사용자 A가 사용자 B의 주문에 접근 시도
         Long orderId = 1L;
-        Long userId = 1L;
+        Long requestingUserId = 1L;
+        Long orderOwnerUserId = 2L;
         
-        User otherUser = User.builder().id(2L).name("Other User").build();
-        Order otherUserOrder = Order.builder()
-            .id(1L)
-            .userId(otherUser.getId())
-            .status(OrderStatus.PENDING)
-            .totalAmount(new BigDecimal("50000"))
-            .build();
+        User requestingUser = TestBuilder.UserBuilder.defaultUser()
+                .id(requestingUserId)
+                .name("요청사용자")
+                .build();
+        Order otherUserOrder = TestBuilder.OrderBuilder.defaultOrder()
+                .id(orderId)
+                .userId(orderOwnerUserId)
+                .status(OrderStatus.PENDING)
+                .totalAmount(new BigDecimal("50000"))
+                .build();
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
+        when(userRepositoryPort.findById(requestingUserId)).thenReturn(Optional.of(requestingUser));
         when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(otherUserOrder));
         
         // when & then
-        assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))
+        assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, requestingUserId))
             .isInstanceOf(OrderException.Unauthorized.class);
     }
     
     @Test
-    @DisplayName("실패 - 이미 결제된 주문")
+    @DisplayName("이미 결제 완료된 주문에 대한 중복 결제 시도 시 예외가 발생한다")
     void execute_AlreadyPaidOrder_ThrowsException() {
-        // given
+        // given - 이미 결제 완료된 주문에 대한 중복 결제 시도
         Long orderId = 1L;
         Long userId = 1L;
         
-        Order paidOrder = Order.builder()
-            .id(1L)
-            .userId(testUser.getId())
-            .status(OrderStatus.COMPLETED)
-            .totalAmount(new BigDecimal("50000"))
-            .build();
+        User customer = TestBuilder.UserBuilder.defaultUser()
+                .id(userId)
+                .build();
+        Order completedOrder = TestBuilder.OrderBuilder.defaultOrder()
+                .id(orderId)
+                .userId(userId)
+                .status(OrderStatus.COMPLETED)
+                .totalAmount(new BigDecimal("50000"))
+                .build();
+        Payment existingPayment = TestBuilder.PaymentBuilder.defaultPayment()
+                .orderId(orderId)
+                .userId(userId)
+                .build();
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(testUser));
-        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(paidOrder));
-        when(paymentRepositoryPort.findByOrderId(orderId)).thenReturn(List.of(mock(Payment.class)));
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(customer));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(completedOrder));
+        when(paymentRepositoryPort.findByOrderId(orderId)).thenReturn(List.of(existingPayment));
         
         // when & then
         assertThatThrownBy(() -> validateOrderUseCase.execute(orderId, userId))

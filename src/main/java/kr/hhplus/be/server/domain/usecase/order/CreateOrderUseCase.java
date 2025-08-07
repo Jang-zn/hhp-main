@@ -49,7 +49,6 @@ public class CreateOrderUseCase {
             // 상품별 재고 예약 및 주문 아이템 생성
             List<OrderItem> orderItems = productQuantities.stream()
                     .map(productQuantity -> {
-                        productQuantity.validate();
                         Long productId = productQuantity.getProductId();
                         Integer quantity = productQuantity.getQuantity();
                         
@@ -118,8 +117,6 @@ public class CreateOrderUseCase {
             throw new OrderException.EmptyItems();
         }
         
-        // 수량 검증 (DTO 내부 validate 메서드 사용)
-        productQuantities.forEach(ProductQuantityDto::validate);
     }
     
     private void invalidateUserRelatedCache(Long userId) {

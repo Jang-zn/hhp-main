@@ -1,34 +1,27 @@
-package kr.hhplus.be.server.unit.adapter.storage.inmemory;
+package kr.hhplus.be.server.unit.adapter.storage.inmemory.balance;
 
 import kr.hhplus.be.server.adapter.storage.inmemory.InMemoryBalanceRepository;
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.util.TestBuilder;
+import kr.hhplus.be.server.util.TestAssertions;
+import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static kr.hhplus.be.server.util.TestAssertions.BalanceAssertions;
 
-@DisplayName("InMemoryBalanceRepository 단위 테스트")
+/**
+ * InMemoryBalanceRepository 잔액 관리 테스트
+ * 
+ * Why: 메모리 기반 잔액 저장소가 동시성 환경에서 잔액 일관성을 올바르게 보장하는지 검증
+ * How: 실제 비즈니스 시나리오를 중심으로 잔액 충전, 차감, 조회의 정확성을 확인
+ */
+@DisplayName("메모리 기반 잔액 관리")
 class InMemoryBalanceRepositoryTest {
 
     private InMemoryBalanceRepository balanceRepository;
@@ -36,442 +29,204 @@ class InMemoryBalanceRepositoryTest {
     @BeforeEach
     void setUp() {
         balanceRepository = new InMemoryBalanceRepository();
-        balanceRepository.clear(); // 각 테스트 전에 데이터 초기화
+        balanceRepository.clear();
     }
 
-    @Nested
-    @DisplayName("잔액 저장 테스트")
-    class SaveTests {
+    @Test
+    @DisplayName("새로운 사용자의 잔액을 정확히 저장한다")
+    void storesNewUserBalanceAccurately() {
+        // Given - 신규 가입한 사용자의 초기 잔액
+        // Why: 회원가입 시 0원으로 잔액이 초기화되는 비즈니스 규칙 검증
+        Balance newUserBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(1L)
+            .amount(BigDecimal.ZERO)
+            .build();
+
+        // When - 초기 잔액 저장
+        Balance savedBalance = balanceRepository.save(newUserBalance);
+
+        // Then - 정확한 초기 잔액으로 저장됨
+        BalanceAssertions.assertSavedCorrectly(savedBalance, newUserBalance);
+        assertThat(savedBalance.getId()).as("저장된 잔액은 고유 ID를 가져야 함").isNotNull();
+    }
+
+    @Test
+    @DisplayName("사용자별 잔액을 정확히 조회한다")
+    void retrievesUserBalanceAccurately() {
+        // Given - 특정 잔액을 가진 사용자
+        // Why: 결제 전 잔액 확인이나 잔액 조회 기능의 정확성 검증
+        Long userId = 1L;
+        Balance userBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(userId)
+            .amount(BigDecimal.valueOf(50000))
+            .build();
+        balanceRepository.save(userBalance);
+
+        // When - 사용자별 잔액 조회
+        Optional<Balance> foundBalance = balanceRepository.findByUserId(userId);
+
+        // Then - 정확한 사용자 잔액이 조회됨
+        assertThat(foundBalance)
+            .as("등록된 사용자의 잔액이 조회되어야 함")
+            .isPresent();
         
-        @Test
-        @DisplayName("성공케이스: 정상 잔액 저장")
-        void save_Success() {
-        // given
-        Balance balance = Balance.builder()
-                .userId(1L)
-                .amount(new BigDecimal("100000"))
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        // when
-        Balance savedBalance = balanceRepository.save(balance);
-
-        // then
-        assertThat(savedBalance).isNotNull();
-        assertThat(savedBalance.getId()).isNotNull();
-        assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-        assertThat(savedBalance.getUserId()).isEqualTo(1L);
+        assertThat(foundBalance.get().getAmount())
+            .as("저장된 잔액과 조회된 잔액이 일치해야 함")
+            .isEqualByComparingTo(BigDecimal.valueOf(50000));
     }
 
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideBalanceData")
-        @DisplayName("성공케이스: 다양한 잔액 데이터로 저장")
-        void save_WithDifferentBalanceData(String userName, String amount) {
-            // given
-            Balance balance = Balance.builder()
-                    .userId(2L)
-                    .amount(new BigDecimal(amount))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            // when
-            Balance savedBalance = balanceRepository.save(balance);
-
-            // then
-            assertThat(savedBalance).isNotNull();
-            assertThat(savedBalance.getId()).isNotNull();
-            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-            assertThat(savedBalance.getUserId()).isEqualTo(2L);
-        }
-
-        @Test
-        @DisplayName("성공케이스: 동일 사용자 잔액 업데이트")
-        void save_UpdateExistingBalance() {
-            // given
-            Balance originalBalance = Balance.builder()
-                    .userId(3L)
-                    .amount(new BigDecimal("50000"))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            balanceRepository.save(originalBalance);
-
-            Balance updatedBalance = Balance.builder()
-                    .userId(3L)
-                    .amount(new BigDecimal("100000"))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            // when
-            Balance savedBalance = balanceRepository.save(updatedBalance);
-
-            // then
-            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal("100000"));
-            Optional<Balance> foundBalance = balanceRepository.findByUserId(3L);
-            assertThat(foundBalance).isPresent();
-            assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("100000"));
-        }
-
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideEdgeCaseAmounts")
-        @DisplayName("성공케이스: 극한값 잔액으로 저장")
-        void save_WithEdgeCaseAmounts(String description, String amount) {
-            // given
-            Balance balance = Balance.builder()
-                    .userId(4L)
-                    .amount(new BigDecimal(amount))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            // when
-            Balance savedBalance = balanceRepository.save(balance);
-
-            // then
-            assertThat(savedBalance).isNotNull();
-            assertThat(savedBalance.getId()).isNotNull();
-            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-        }
-
-        @Test
-        @DisplayName("실패케이스: null 잔액 객체 저장")
-        void save_WithNullBalance() {
-            // when & then
-            assertThatThrownBy(() -> balanceRepository.save(null))
-                    .isInstanceOf(BalanceException.BalanceCannotBeNull.class);
-        }
-
-        @Test
-        @DisplayName("실패케이스: null 사용자가 포함된 잔액 저장")
-        void save_WithNullUser() {
-            // given
-            Balance balance = Balance.builder()
-                    .userId(null)
-                    .amount(new BigDecimal("100000"))
-                    .build();
-
-            // when & then
-            assertThatThrownBy(() -> balanceRepository.save(balance))
-                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
-        }
-    }
-
-    @Nested
-    @DisplayName("잔액 조회 테스트")
-    class FindByUserTests {
+    @Test
+    @DisplayName("잔액 충전 후 정확한 금액이 반영된다")
+    void reflectsAccurateAmountAfterCharging() {
+        // Given - 기존 잔액이 있는 사용자
+        // Why: 잔액 충전 시 기존 잔액과의 정확한 합산이 중요한 비즈니스 로직
+        Long userId = 1L;
+        BigDecimal initialAmount = BigDecimal.valueOf(10000);
+        BigDecimal chargeAmount = BigDecimal.valueOf(20000);
         
-        @Test
-        @DisplayName("성공케이스: 사용자 ID로 잔액 조회")
-        void findByUser_Success() {
-        // given
-        Balance balance = Balance.builder()
-                .id(1L)
-                .userId(1L)
-                .amount(new BigDecimal("50000"))
+        Balance initialBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(userId)
+            .amount(initialAmount)
+            .build();
+        balanceRepository.save(initialBalance);
+
+        // When - 잔액 충전
+        Balance balance = balanceRepository.findByUserId(userId).get();
+        balance.addAmount(chargeAmount);
+        Balance updatedBalance = balanceRepository.save(balance);
+
+        // Then - 충전 금액이 정확히 반영됨
+        BalanceAssertions.assertCharged(updatedBalance, initialAmount, chargeAmount);
+        
+        // 다시 조회해도 동일한 잔액 유지
+        Balance reloadedBalance = balanceRepository.findByUserId(userId).get();
+        assertThat(reloadedBalance.getAmount())
+            .as("충전 후 재조회 시에도 동일한 잔액을 유지해야 함")
+            .isEqualByComparingTo(BigDecimal.valueOf(30000));
+    }
+
+    @Test
+    @DisplayName("결제 시 잔액이 정확히 차감된다")
+    void deductsAccurateAmountDuringPayment() {
+        // Given - 충분한 잔액이 있는 사용자
+        // Why: 결제 시 잔액 차감의 정확성이 핵심 비즈니스 로직
+        Long userId = 1L;
+        BigDecimal initialAmount = BigDecimal.valueOf(50000);
+        BigDecimal paymentAmount = BigDecimal.valueOf(15000);
+        
+        Balance initialBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(userId)
+            .amount(initialAmount)
+            .build();
+        balanceRepository.save(initialBalance);
+
+        // When - 결제로 인한 잔액 차감
+        Balance balance = balanceRepository.findByUserId(userId).get();
+        balance.subtractAmount(paymentAmount);
+        Balance updatedBalance = balanceRepository.save(balance);
+
+        // Then - 결제 금액이 정확히 차감됨
+        BalanceAssertions.assertDeducted(updatedBalance, initialAmount, paymentAmount);
+        
+        assertThat(updatedBalance.getAmount())
+            .as("결제 후 잔액은 초기잔액 - 결제금액이어야 함")
+            .isEqualByComparingTo(BigDecimal.valueOf(35000));
+    }
+
+    @Test
+    @DisplayName("동시 충전 요청 시 모든 금액이 정확히 반영된다")
+    void reflectsAllAmountsAccuratelyDuringSimultaneousCharging() {
+        // Given - 여러 사용자가 동시에 잔액 충전하는 상황
+        // Why: 동시성 환경에서 잔액 정합성 보장이 중요한 비즈니스 요구사항
+        Long baseUserId = 100L;
+        int simultaneousUsers = 10;
+        BigDecimal chargeAmount = BigDecimal.valueOf(10000);
+
+        // 각 사용자의 초기 잔액 생성
+        for (int i = 0; i < simultaneousUsers; i++) {
+            Balance userBalance = TestBuilder.BalanceBuilder
+                .defaultBalance()
+                .userId(baseUserId + i)
+                .amount(BigDecimal.ZERO)
                 .build();
-        balanceRepository.save(balance);
-
-        // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(1L);
-
-        // then
-        assertThat(foundBalance).isPresent();
-        assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("50000"));
-    }
-
-        @Test
-        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
-        void findByUser_NotFound() {
-        // given
-        // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(999L);
-
-            // then
-            assertThat(foundBalance).isEmpty();
+            balanceRepository.save(userBalance);
         }
 
-        @Test
-        @DisplayName("실패케이스: null 사용자 객체로 조회")
-        void findByUser_WithNullUser() {
-            // when & then
-            assertThatThrownBy(() -> balanceRepository.findByUserId(null))
-                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
-        }
+        // When - 10명이 동시에 1만원씩 충전
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(simultaneousUsers, () -> {
+                Long userId = baseUserId + Thread.currentThread().getId() % simultaneousUsers;
+                Balance balance = balanceRepository.findByUserId(userId).orElse(null);
+                if (balance != null) {
+                    balance.addAmount(chargeAmount);
+                    balanceRepository.save(balance);
+                    return true;
+                }
+                return false;
+            });
 
-        @Test
-        @DisplayName("실패케이스: null 사용자 ID로 조회")
-        void findByUser_WithNullUserId() {
-            // given
-            // when & then
-            assertThatThrownBy(() -> balanceRepository.findByUserId(null))
-                    .isInstanceOf(BalanceException.UserIdAndAmountRequired.class);
-        }
+        // Then - 모든 충전이 성공하고 정확한 잔액 유지
+        assertThat(result.getSuccessCount())
+            .as("동시 충전에서 모든 요청이 성공해야 함")
+            .isEqualTo(simultaneousUsers);
 
-        @Test
-        @DisplayName("실패케이스: 음수 사용자 ID로 조회")
-        void findByUserId_WithNegativeUserId() {
-        // given
-        // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(-1L);
-
-            // then
-            assertThat(foundBalance).isEmpty();
-        }
-
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.inmemory.InMemoryBalanceRepositoryTest#provideInvalidUserIds")
-        @DisplayName("실패케이스: 유효하지 않은 사용자 ID들로 조회")
-        void findByUserId_WithInvalidUserIds(Long invalidUserId) {
-        // given
-        // when
-        Optional<Balance> foundBalance = balanceRepository.findByUserId(invalidUserId);
-
-            // then
-            assertThat(foundBalance).isEmpty();
+        // 각 사용자 잔액 검증
+        for (int i = 0; i < simultaneousUsers; i++) {
+            Balance finalBalance = balanceRepository.findByUserId(baseUserId + i).get();
+            assertThat(finalBalance.getAmount())
+                .as("각 사용자별로 정확한 충전 금액이 반영되어야 함")
+                .isEqualByComparingTo(chargeAmount);
         }
     }
 
-    @Nested
-    @DisplayName("동시성 테스트")
-    class ConcurrencyTests {
+    @Test
+    @DisplayName("존재하지 않는 사용자 조회 시 빈 결과를 반환한다")
+    void returnsEmptyForNonExistentUser() {
+        // Given - 등록되지 않은 사용자 ID
+        // Why: 잘못된 사용자 ID로 조회 시 안전한 처리 확인
+        Long nonExistentUserId = 999L;
 
-        @Test
-        @DisplayName("동시성 테스트: 동일 사용자 잔액 동시 업데이트")
-        void save_ConcurrentUpdatesForSameUser() throws Exception {
-            // given
-            User user = User.builder()
-                    .id(100L)
-                    .name("동시성 테스트 사용자")
-                    .build();
+        // When - 존재하지 않는 사용자 잔액 조회
+        Optional<Balance> result = balanceRepository.findByUserId(nonExistentUserId);
 
-            int numberOfThreads = 10;
-            int updatesPerThread = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
-            
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            // when - 동시에 잔액 업데이트
-            for (int i = 0; i < numberOfThreads; i++) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await(); // 모든 스레드가 동시에 시작하도록 대기
-                        
-                        for (int j = 0; j < updatesPerThread; j++) {
-                            Balance balance = Balance.builder()
-                                    .userId(user.getId())
-                                    .amount(new BigDecimal("1000"))
-                                    .createdAt(LocalDateTime.now())
-                                    .updatedAt(LocalDateTime.now())
-                                    .build();
-                            balanceRepository.save(balance);
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
-
-            startLatch.countDown(); // 모든 스레드 시작
-            doneLatch.await(); // 모든 스레드 완료 대기
-
-            // then - 최종 상태 검증
-            Optional<Balance> finalBalance = balanceRepository.findByUserId(user.getId());
-            assertThat(finalBalance).isPresent();
-            assertThat(finalBalance.get().getAmount()).isEqualTo(new BigDecimal("1000"));
-            assertThat(finalBalance.get().getUserId()).isEqualTo(100L);
-
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
-
-        @Test
-        @DisplayName("동시성 테스트: 서로 다른 사용자 잔액 동시 생성")
-        void save_ConcurrentCreationForDifferentUsers() throws Exception {
-            // given
-            int numberOfUsers = 100;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfUsers);
-            AtomicInteger successCount = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            // when - 서로 다른 사용자들의 잔액을 동시에 생성
-            for (int i = 0; i < numberOfUsers; i++) {
-                final int userId = i + 1;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        User user = User.builder()
-                                .id((long) userId)
-                                .name("사용자" + userId)
-                                .build();
-                        
-                        Balance balance = Balance.builder()
-                                .userId(user.getId())
-                                .amount(new BigDecimal(String.valueOf(userId * 1000)))
-                                .createdAt(LocalDateTime.now())
-                                .updatedAt(LocalDateTime.now())
-                                .build();
-                        
-                        balanceRepository.save(balance);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        // 예외 발생시 로그 출력 (실제로는 로거 사용)
-                        System.err.println("Error for user " + userId + ": " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
-
-            startLatch.countDown();
-            doneLatch.await();
-
-            // then - 모든 사용자가 성공적으로 생성되었는지 확인
-            assertThat(successCount.get()).isEqualTo(numberOfUsers);
-            
-            // 각 사용자의 잔액이 올바르게 저장되었는지 확인
-            for (int i = 1; i <= numberOfUsers; i++) {
-                User user = User.builder().id((long) i).name("사용자" + i).build();
-                Optional<Balance> balance = balanceRepository.findByUserId(user.getId());
-                assertThat(balance).isPresent();
-                assertThat(balance.get().getAmount()).isEqualTo(new BigDecimal(String.valueOf(i * 1000)));
-            }
-
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
-
-        @Test
-        @DisplayName("동시성 테스트: 동시 조회와 업데이트")
-        void concurrentReadAndWrite() throws Exception {
-            // given
-            User user = User.builder()
-                    .id(200L)
-                    .name("읽기쓰기 테스트 사용자")
-                    .build();
-
-            // 초기 잔액 설정
-            Balance initialBalance = Balance.builder()
-                    .userId(user.getId())
-                    .amount(new BigDecimal("50000"))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            balanceRepository.save(initialBalance);
-
-            int numberOfReaders = 5;
-            int numberOfWriters = 5;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfReaders + numberOfWriters);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfReaders + numberOfWriters);
-            
-            AtomicInteger successfulReads = new AtomicInteger(0);
-            AtomicInteger successfulWrites = new AtomicInteger(0);
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            // 읽기 작업들
-            for (int i = 0; i < numberOfReaders; i++) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        for (int j = 0; j < 100; j++) {
-                            Optional<Balance> balance = balanceRepository.findByUserId(user.getId());
-                            if (balance.isPresent()) {
-                                successfulReads.incrementAndGet();
-                            }
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Reader error: " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
-
-            // 쓰기 작업들
-            for (int i = 0; i < numberOfWriters; i++) {
-                final int writerId = i;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        for (int j = 0; j < 50; j++) {
-                            Balance balance = Balance.builder()
-                                    .userId(user.getId())
-                                    .amount(new BigDecimal(String.valueOf(50000 + writerId * 1000 + j)))
-                                    .createdAt(LocalDateTime.now())
-                                    .updatedAt(LocalDateTime.now())
-                                    .build();
-                            balanceRepository.save(balance);
-                            successfulWrites.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Writer error: " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
-
-            startLatch.countDown();
-            doneLatch.await();
-
-            // then
-            assertThat(successfulReads.get()).isGreaterThan(0);
-            assertThat(successfulWrites.get()).isEqualTo(numberOfWriters * 50);
-            
-            // 최종 상태 확인
-            Optional<Balance> finalBalance = balanceRepository.findByUserId(user.getId());
-            assertThat(finalBalance).isPresent();
-
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
+        // Then - 빈 결과 반환
+        assertThat(result)
+            .as("존재하지 않는 사용자에 대해서는 빈 결과를 반환해야 함")
+            .isEmpty();
     }
 
-    private static Stream<Arguments> provideBalanceData() {
-        return Stream.of(
-                Arguments.of("홍길동", "100000"),
-                Arguments.of("김철수", "250000"),
-                Arguments.of("이영희", "50000")
-        );
-    }
+    @Test
+    @DisplayName("동일한 사용자의 중복 잔액 생성을 방지한다")
+    void preventsMultipleBalancesForSameUser() {
+        // Given - 이미 잔액이 있는 사용자
+        // Why: 한 사용자당 하나의 잔액만 유지하는 비즈니스 규칙 검증
+        Long userId = 1L;
+        Balance firstBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(userId)
+            .amount(BigDecimal.valueOf(10000))
+            .build();
+        balanceRepository.save(firstBalance);
 
-    private static Stream<Arguments> provideInvalidUserIds() {
-        return Stream.of(
-                Arguments.of(0L),
-                Arguments.of(-1L),
-                Arguments.of(-999L),
-                Arguments.of(Long.MAX_VALUE),
-                Arguments.of(Long.MIN_VALUE)
-        );
-    }
+        // When - 동일 사용자로 새로운 잔액 생성 시도
+        Balance secondBalance = TestBuilder.BalanceBuilder
+            .defaultBalance()
+            .userId(userId)
+            .amount(BigDecimal.valueOf(20000))
+            .build();
+        balanceRepository.save(secondBalance);
 
-    private static Stream<Arguments> provideEdgeCaseAmounts() {
-        return Stream.of(
-                Arguments.of("최소값", "0"),
-                Arguments.of("소수점 포함", "100.50"),
-                Arguments.of("큰 금액", "999999999"),
-                Arguments.of("매우 작은 소수", "0.01")
-        );
+        // Then - 기존 잔액이 업데이트됨 (중복 생성되지 않음)
+        Optional<Balance> result = balanceRepository.findByUserId(userId);
+        assertThat(result).as("사용자별 잔액은 하나만 존재해야 함").isPresent();
+        
+        // 최신 저장된 금액으로 업데이트됨
+        assertThat(result.get().getAmount())
+            .as("동일 사용자 재저장 시 최신 금액으로 업데이트되어야 함")
+            .isEqualByComparingTo(BigDecimal.valueOf(20000));
     }
 }

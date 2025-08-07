@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.*;
@@ -13,21 +14,35 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "coupon_history")
+@Table(name = "coupon_history",
+       indexes = {
+           @Index(name = "idx_coupon_history_user_id", columnList = "userId"),
+           @Index(name = "idx_coupon_history_coupon_id", columnList = "couponId"),
+           @Index(name = "idx_coupon_history_status", columnList = "status"),
+           @Index(name = "idx_coupon_history_user_status", columnList = "userId, status"),
+           @Index(name = "idx_coupon_history_user_coupon", columnList = "userId, couponId")
+       })
 public class CouponHistory extends BaseEntity {
 
+    @NotNull
+    @Positive
     private Long userId;
 
+    @NotNull
+    @Positive
     private Long couponId;
 
+    @NotNull
     private LocalDateTime issuedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private CouponHistoryStatus status;
 
     private LocalDateTime usedAt;
 
+    @Positive
     private Long usedOrderId;
 
     /**

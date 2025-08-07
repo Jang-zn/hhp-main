@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.domain.dto;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,7 +19,12 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class ProductQuantityDto {
     
+    @NotNull
+    @Positive
     private Long productId;
+    
+    @NotNull
+    @Positive
     private Integer quantity;
     
     /**
@@ -48,15 +55,4 @@ public class ProductQuantityDto {
                 ));
     }
     
-    /**
-     * 검증 메서드
-     */
-    public void validate() {
-        if (productId == null || productId <= 0) {
-            throw new IllegalArgumentException("상품 ID는 양수여야 합니다");
-        }
-        if (quantity == null || quantity <= 0) {
-            throw new IllegalArgumentException("수량은 양수여야 합니다");
-        }
-    }
 }
