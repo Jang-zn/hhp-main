@@ -1,12 +1,11 @@
 package kr.hhplus.be.server.unit.controller;
 
-import kr.hhplus.be.server.TestConstants;
 import kr.hhplus.be.server.api.controller.CouponController;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
@@ -15,7 +14,6 @@ import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -30,7 +28,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("CouponController 단위 테스트")
+/**
+ * CouponController 비즈니스 시나리오 테스트
+ * 
+ * Why: 쿠폰 컨트롤러의 API 엔드포인트가 비즈니스 요구사항을 올바르게 처리하는지 검증
+ * How: 고객의 쿠폰 발급 및 조회 시나리오를 반영한 컨트롤러 레이어 테스트로 구성
+ */
+@DisplayName("쿠폰 컨트롤러 API 비즈니스 시나리오")
 class CouponControllerTest {
 
     @Mock
@@ -44,293 +48,265 @@ class CouponControllerTest {
     
     private CouponController couponController;
     
-    private User testUser;
-    private Coupon testCoupon;
-    private CouponHistory testCouponHistory;
-    
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         couponController = new CouponController(issueCouponFacade, getCouponListFacade, couponRepositoryPort);
-        
-        testUser = User.builder()
-            .id(1L)
-            .name(TestConstants.TEST_USER_NAME)
-            .build();
-            
-        testCoupon = Coupon.builder()
-            .id(1L)
-            .code(TestConstants.TEST_COUPON_CODE)
-            .discountRate(TestConstants.DEFAULT_DISCOUNT_RATE)
-            .endDate(LocalDateTime.now().plusDays(30))
-            .status(CouponStatus.ACTIVE)
-            .build();
-            
-        testCouponHistory = CouponHistory.builder()
-            .id(1L)
-            .userId(testUser.getId())
-            .couponId(testCoupon.getId())
-            .status(CouponHistoryStatus.ISSUED)
-            .issuedAt(LocalDateTime.now())
-            .build();
     }
 
-    @Nested
-    @DisplayName("쿠폰 발급")
-    class IssueCoupon {
+    @Test
+    @DisplayName("고객이 이벤트 쿠폰을 성공적으로 발급받는다")
+    void issueCoupon_Success() {
+        // given - 고객이 이벤트 페이지에서 쿠폰을 발급받는 상황
+        CouponRequest couponRequest = new CouponRequest(1L, 1L);
+        CouponHistory issuedHistory = TestBuilder.CouponHistoryBuilder.issuedCouponHistory()
+                .id(1L)
+                .userId(1L)
+                .couponId(1L)
+                .build();
+        Coupon activeCoupon = TestBuilder.CouponBuilder.activeCoupon()
+                .id(1L)
+                .code("이벤트-쿠폰-001")
+                .discountRate(new BigDecimal("10.0"))
+                .endDate(LocalDateTime.now().plusDays(30))
+                .build();
         
-        @Test
-        @DisplayName("성공 - 정상 쿠폰 발급")
-        void issueCoupon_Success() {
-            // given
-            CouponRequest request = new CouponRequest(1L, 1L);
-            when(issueCouponFacade.issueCoupon(1L, 1L)).thenReturn(testCouponHistory);
-            when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(testCoupon));
-            
-            // when
-            CouponResponse result = couponController.issueCoupon(request);
-            
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result.couponHistoryId()).isEqualTo(1L);
-            assertThat(result.couponId()).isEqualTo(1L);
-            assertThat(result.code()).isEqualTo("TEST-COUPON-001");  // testCoupon의 실제 코드
-            assertThat(result.discountRate()).isEqualTo(new BigDecimal("10.0"));
-            assertThat(result.couponStatus()).isEqualTo(CouponStatus.ACTIVE);
-            assertThat(result.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
-            assertThat(result.usable()).isTrue();
-            
-            verify(issueCouponFacade).issueCoupon(1L, 1L);
-        }
+        when(issueCouponFacade.issueCoupon(1L, 1L)).thenReturn(issuedHistory);
+        when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(activeCoupon));
         
-        @Test
-        @DisplayName("실패 - null 요청")
-        void issueCoupon_NullRequest() {
-            // given
-            CouponRequest nullRequest = null;
-            
-            // when & then
-            assertThatThrownBy(() -> couponController.issueCoupon(nullRequest))
-                .isInstanceOf(CommonException.InvalidRequest.class);
-                
-            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
-        }
+        // when
+        CouponResponse result = couponController.issueCoupon(couponRequest);
         
-        @Test
-        @DisplayName("실패 - 사용자 ID 누락")
-        void issueCoupon_MissingUserId() {
-            // given
-            CouponRequest request = new CouponRequest();
-            request.setCouponId(1L);
-            // userId는 null
-            // when & then
-            assertThatThrownBy(() -> couponController.issueCoupon(request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("유효하지 않은 사용자 ID입니다.");
-                
-            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
-        }
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.couponHistoryId()).isEqualTo(1L);
+        assertThat(result.couponId()).isEqualTo(1L);
+        assertThat(result.code()).isEqualTo("이벤트-쿠폰-001");
+        assertThat(result.discountRate()).isEqualTo(new BigDecimal("10.0"));
+        assertThat(result.couponStatus()).isEqualTo(CouponStatus.ACTIVE);
+        assertThat(result.historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
+        assertThat(result.usable()).isTrue();
+        verify(issueCouponFacade).issueCoupon(1L, 1L);
+    }
+    
+    @Test
+    @DisplayName("잘못된 요청 형식으로 쿠폰 발급 시 예외가 발생한다")
+    void issueCoupon_NullRequest() {
+        // given - 잘못된 API 요청
+        CouponRequest invalidRequest = null;
         
-        @Test
-        @DisplayName("실패 - 쿠폰 ID 누락")
-        void issueCoupon_MissingCouponId() {
-            // given
-            CouponRequest request = new CouponRequest();
-            request.setUserId(1L);
-            // couponId는 null
-          
-            // when & then
-            assertThatThrownBy(() -> couponController.issueCoupon(request))
-                .isInstanceOf(CouponException.UserIdAndCouponIdRequired.class);
-                
-            verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
-        }
+        // when & then
+        assertThatThrownBy(() -> couponController.issueCoupon(invalidRequest))
+            .isInstanceOf(CommonException.InvalidRequest.class);
+        verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
+    }
+    
+    @Test
+    @DisplayName("사용자 ID 누락 시 쿠폰 발급에 실패한다")
+    void issueCoupon_MissingUserId() {
+        // given - 사용자 ID가 누락된 쿠폰 발급 요청
+        CouponRequest request = new CouponRequest();
+        request.setCouponId(1L);
+        // userId는 null
         
-        @Test
-        @DisplayName("실패 - UseCase 실행 중 예외 발생")
-        void issueCoupon_UseCaseException() {
-            // given
-            CouponRequest request = new CouponRequest(1L, 1L);
-            when(issueCouponFacade.issueCoupon(1L, 1L))
-                .thenThrow(new CouponException.NotFound());
-            
-            // when & then
-            assertThatThrownBy(() -> couponController.issueCoupon(request))
-                .isInstanceOf(CouponException.NotFound.class);
-                
-            verify(issueCouponFacade).issueCoupon(1L, 1L);
-        }
+        // when & then
+        assertThatThrownBy(() -> couponController.issueCoupon(request))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("유효하지 않은 사용자 ID입니다.");
+        verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
+    }
+    
+    @Test
+    @DisplayName("쿠폰 ID 누락 시 쿠폰 발급에 실패한다")
+    void issueCoupon_MissingCouponId() {
+        // given - 쿠폰 ID가 누락된 쿠폰 발급 요청
+        CouponRequest request = new CouponRequest();
+        request.setUserId(1L);
+        // couponId는 null
+      
+        // when & then
+        assertThatThrownBy(() -> couponController.issueCoupon(request))
+            .isInstanceOf(CouponException.UserIdAndCouponIdRequired.class);
+        verify(issueCouponFacade, never()).issueCoupon(anyLong(), anyLong());
+    }
+    
+    @Test
+    @DisplayName("존재하지 않는 쿠폰을 발급 시도할 때 예외가 발생한다")
+    void issueCoupon_CouponNotFound() {
+        // given - 존재하지 않는 쿠폰에 대한 발급 요청
+        CouponRequest request = new CouponRequest(1L, 999L);
+        when(issueCouponFacade.issueCoupon(1L, 999L))
+            .thenThrow(new CouponException.NotFound());
+        
+        // when & then
+        assertThatThrownBy(() -> couponController.issueCoupon(request))
+            .isInstanceOf(CouponException.NotFound.class);
+        verify(issueCouponFacade).issueCoupon(1L, 999L);
     }
 
-    @Nested
-    @DisplayName("보유 쿠폰 조회")
-    class GetCoupons {
+    @Test
+    @DisplayName("고객이 보유한 쿠폰 목록을 성공적으로 조회한다")
+    void getCoupons_Success() {
+        // given - 고객이 마이페이지에서 보유 쿠폰을 확인하는 상황
+        Long customerId = 1L;
+        CouponRequest pageRequest = new CouponRequest();
+        pageRequest.setLimit(10);
+        pageRequest.setOffset(0);
         
-        @Test
-        @DisplayName("성공 - 정상 쿠폰 목록 조회")
-        void getCoupons_Success() {
-            // given
-            Long userId = 1L;
-            CouponRequest request = new CouponRequest();
-            request.setLimit(10);
-            request.setOffset(0);
-            
-            CouponHistory history2 = CouponHistory.builder()
+        CouponHistory issuedHistory = TestBuilder.CouponHistoryBuilder.issuedCouponHistory()
+                .id(1L)
+                .userId(customerId)
+                .couponId(1L)
+                .build();
+        CouponHistory usedHistory = TestBuilder.CouponHistoryBuilder.usedCouponHistory()
                 .id(2L)
-                .userId(testUser.getId())
-                .couponId(testCoupon.getId())
-                .status(CouponHistoryStatus.USED)
-                .issuedAt(LocalDateTime.now().minusDays(1))
+                .userId(customerId)
+                .couponId(1L)
                 .usedAt(LocalDateTime.now())
                 .build();
-                
-            when(getCouponListFacade.getCouponList(userId, 10, 0))
-                .thenReturn(List.of(testCouponHistory, history2));
-            when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(testCoupon));
-            when(couponRepositoryPort.findById(2L)).thenReturn(Optional.of(testCoupon));
-            
-            // when
-            List<CouponResponse> result = couponController.getCoupons(userId, request);
-            
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(2);
-            
-            assertThat(result.get(0).couponHistoryId()).isEqualTo(1L);
-            assertThat(result.get(0).historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
-            assertThat(result.get(0).usable()).isTrue();
-            
-            assertThat(result.get(1).couponHistoryId()).isEqualTo(2L);
-            assertThat(result.get(1).historyStatus()).isEqualTo(CouponHistoryStatus.USED);
-            assertThat(result.get(1).usable()).isFalse();
-            
-            verify(getCouponListFacade).getCouponList(userId, 10, 0);
-        }
-        
-        @Test
-        @DisplayName("성공 - 빈 쿠폰 목록")
-        void getCoupons_EmptyList() {
-            // given
-            Long userId = 1L;
-            CouponRequest request = new CouponRequest();
-            request.setLimit(10);
-            request.setOffset(0);
-            when(getCouponListFacade.getCouponList(userId, 10, 0)).thenReturn(List.of());
-            
-            // when
-            List<CouponResponse> result = couponController.getCoupons(userId, request);
-            
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(0);
-            
-            verify(getCouponListFacade).getCouponList(userId, 10, 0);
-        }
-        
-        @Test
-        @DisplayName("실패 - null 사용자 ID")
-        void getCoupons_NullUserId() {
-            // given
-            Long nullUserId = null;
-            CouponRequest request = new CouponRequest();
-            request.setLimit(10);
-            request.setOffset(0);
-            
-            // when & then
-            assertThatThrownBy(() -> couponController.getCoupons(nullUserId, request))
-                .isInstanceOf(UserException.UserIdCannotBeNull.class);
-                
-            verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
-        }
-        
-        @Test
-        @DisplayName("실패 - null 요청")
-        void getCoupons_NullRequest() {
-            // given
-            Long userId = 1L;
-            CouponRequest nullRequest = null;
-            
-            // when & then
-            assertThatThrownBy(() -> couponController.getCoupons(userId, nullRequest))
-                .isInstanceOf(CommonException.InvalidRequest.class);
-                
-            verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
-        }
-        
-        @Test
-        @DisplayName("실패 - UseCase 실행 중 예외 발생")
-        void getCoupons_UseCaseException() {
-            // given
-            Long userId = 1L;
-            CouponRequest request = new CouponRequest();
-            request.setLimit(10);
-            request.setOffset(0);
-            when(getCouponListFacade.getCouponList(userId, 10, 0))
-                .thenThrow(new RuntimeException("Database connection error"));
-            
-            // when & then
-            assertThatThrownBy(() -> couponController.getCoupons(userId, request))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Database connection error");
-                
-            verify(getCouponListFacade).getCouponList(userId, 10, 0);
-        }
-        
-        @Test
-        @DisplayName("부분 성공 - 일부 쿠폰 조회 실패 시 나머지는 정상 반환")
-        void getCoupons_PartialSuccess_WhenSomeCouplonsNotFound() {
-            // given
-            Long userId = 1L;
-            CouponRequest request = new CouponRequest();
-            request.setLimit(10);
-            request.setOffset(0);
-            
-            // 두 번째 쿠폰은 존재하지 않는 경우를 시뮬레이션
-            CouponHistory history2 = CouponHistory.builder()
-                .id(2L)
-                .userId(testUser.getId())
-                .couponId(999L) // 존재하지 않는 쿠폰 ID
-                .status(CouponHistoryStatus.ISSUED)
-                .issuedAt(LocalDateTime.now().minusDays(1))
+        Coupon customerCoupon = TestBuilder.CouponBuilder.activeCoupon()
+                .id(1L)
+                .code("이벤트-쿠폰")
                 .build();
-                
-            // 세 번째 쿠폰은 정상
-            CouponHistory history3 = CouponHistory.builder()
+            
+        when(getCouponListFacade.getCouponList(customerId, 10, 0))
+            .thenReturn(List.of(issuedHistory, usedHistory));
+        when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(customerCoupon));
+        
+        // when
+        List<CouponResponse> result = couponController.getCoupons(customerId, pageRequest);
+        
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(2);
+        
+        assertThat(result.get(0).couponHistoryId()).isEqualTo(1L);
+        assertThat(result.get(0).historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
+        assertThat(result.get(0).usable()).isTrue();
+        
+        assertThat(result.get(1).couponHistoryId()).isEqualTo(2L);
+        assertThat(result.get(1).historyStatus()).isEqualTo(CouponHistoryStatus.USED);
+        assertThat(result.get(1).usable()).isFalse();
+        
+        verify(getCouponListFacade).getCouponList(customerId, 10, 0);
+    }
+    
+    @Test
+    @DisplayName("쿠폰을 보유하지 않은 신규 고객에게 빈 목록을 반환한다")
+    void getCoupons_EmptyList() {
+        // given - 아직 쿠폰을 발급받지 않은 신규 고객
+        Long newCustomerId = 1L;
+        CouponRequest pageRequest = new CouponRequest();
+        pageRequest.setLimit(10);
+        pageRequest.setOffset(0);
+        when(getCouponListFacade.getCouponList(newCustomerId, 10, 0)).thenReturn(List.of());
+        
+        // when
+        List<CouponResponse> result = couponController.getCoupons(newCustomerId, pageRequest);
+        
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(0);
+        verify(getCouponListFacade).getCouponList(newCustomerId, 10, 0);
+    }
+    
+    @Test
+    @DisplayName("잘못된 사용자 ID로 쿠폰 목록 조회 시 예외가 발생한다")
+    void getCoupons_NullUserId() {
+        // given - 잘못된 사용자 ID로 쿠폰 목록 조회 요청
+        Long nullUserId = null;
+        CouponRequest pageRequest = new CouponRequest();
+        pageRequest.setLimit(10);
+        pageRequest.setOffset(0);
+        
+        // when & then
+        assertThatThrownBy(() -> couponController.getCoupons(nullUserId, pageRequest))
+            .isInstanceOf(UserException.UserIdCannotBeNull.class);
+        verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
+    }
+    
+    @Test
+    @DisplayName("잘못된 요청 형식으로 쿠폰 목록 조회 시 예외가 발생한다")
+    void getCoupons_NullRequest() {
+        // given - 잘못된 API 요청 형식
+        Long customerId = 1L;
+        CouponRequest invalidRequest = null;
+        
+        // when & then
+        assertThatThrownBy(() -> couponController.getCoupons(customerId, invalidRequest))
+            .isInstanceOf(CommonException.InvalidRequest.class);
+        verify(getCouponListFacade, never()).getCouponList(anyLong(), anyInt(), anyInt());
+    }
+    
+    @Test
+    @DisplayName("쿠폰 목록 조회 중 데이터베이스 오류 시 예외가 전파된다")
+    void getCoupons_DatabaseError() {
+        // given - 데이터베이스 연결 오류 상황
+        Long customerId = 1L;
+        CouponRequest pageRequest = new CouponRequest();
+        pageRequest.setLimit(10);
+        pageRequest.setOffset(0);
+        when(getCouponListFacade.getCouponList(customerId, 10, 0))
+            .thenThrow(new RuntimeException("Database connection error"));
+        
+        // when & then
+        assertThatThrownBy(() -> couponController.getCoupons(customerId, pageRequest))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessage("Database connection error");
+        verify(getCouponListFacade).getCouponList(customerId, 10, 0);
+    }
+    
+    @Test
+    @DisplayName("일부 쿠폰 조회 실패 시에도 정상 쿠폰들은 반환한다")
+    void getCoupons_PartialSuccess_WhenSomeCouponsNotFound() {
+        // given - 일부 쿠폰이 삭제되거나 데이터 불일치가 있는 상황
+        Long customerId = 1L;
+        CouponRequest pageRequest = new CouponRequest();
+        pageRequest.setLimit(10);
+        pageRequest.setOffset(0);
+        
+        CouponHistory validHistory = TestBuilder.CouponHistoryBuilder.issuedCouponHistory()
+                .id(1L)
+                .userId(customerId)
+                .couponId(1L)
+                .build();
+        CouponHistory invalidHistory = TestBuilder.CouponHistoryBuilder.issuedCouponHistory()
+                .id(2L)
+                .userId(customerId)
+                .couponId(999L) // 존재하지 않는 쿠폰 ID
+                .build();
+        CouponHistory anotherValidHistory = TestBuilder.CouponHistoryBuilder.usedCouponHistory()
                 .id(3L)
-                .userId(testUser.getId())
-                .couponId(testCoupon.getId())
-                .status(CouponHistoryStatus.USED)
-                .issuedAt(LocalDateTime.now().minusDays(2))
+                .userId(customerId)
+                .couponId(1L)
                 .usedAt(LocalDateTime.now().minusDays(1))
                 .build();
-                
-            when(getCouponListFacade.getCouponList(userId, 10, 0))
-                .thenReturn(List.of(testCouponHistory, history2, history3));
+        Coupon existingCoupon = TestBuilder.CouponBuilder.activeCoupon()
+                .id(1L)
+                .build();
             
-            // 첫 번째와 세 번째 쿠폰은 정상, 두 번째는 없음
-            when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(testCoupon));
-            when(couponRepositoryPort.findById(999L)).thenReturn(Optional.empty()); // 존재하지 않는 쿠폰
-            
-            // when
-            List<CouponResponse> result = couponController.getCoupons(userId, request);
-            
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(2); // 3개 중 2개만 성공적으로 반환
-            
-            // 첫 번째 쿠폰 검증
-            assertThat(result.get(0).couponHistoryId()).isEqualTo(1L);
-            assertThat(result.get(0).historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
-            assertThat(result.get(0).usable()).isTrue();
-            
-            // 세 번째 쿠폰 검증 (두 번째는 제외됨)
-            assertThat(result.get(1).couponHistoryId()).isEqualTo(3L);
-            assertThat(result.get(1).historyStatus()).isEqualTo(CouponHistoryStatus.USED);
-            assertThat(result.get(1).usable()).isFalse();
-            
-            verify(getCouponListFacade).getCouponList(userId, 10, 0);
-            verify(couponRepositoryPort, times(2)).findById(1L); // 첫 번째와 세 번째를 위해 2번 호출
-            verify(couponRepositoryPort).findById(999L); // 두 번째를 위해 1번 호출
-        }
+        when(getCouponListFacade.getCouponList(customerId, 10, 0))
+            .thenReturn(List.of(validHistory, invalidHistory, anotherValidHistory));
+        when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(existingCoupon));
+        when(couponRepositoryPort.findById(999L)).thenReturn(Optional.empty()); // 존재하지 않는 쿠폰
+        
+        // when
+        List<CouponResponse> result = couponController.getCoupons(customerId, pageRequest);
+        
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(2); // 3개 중 2개만 성공적으로 반환
+        
+        assertThat(result.get(0).couponHistoryId()).isEqualTo(1L);
+        assertThat(result.get(0).historyStatus()).isEqualTo(CouponHistoryStatus.ISSUED);
+        assertThat(result.get(0).usable()).isTrue();
+        
+        assertThat(result.get(1).couponHistoryId()).isEqualTo(3L);
+        assertThat(result.get(1).historyStatus()).isEqualTo(CouponHistoryStatus.USED);
+        assertThat(result.get(1).usable()).isFalse();
+        
+        verify(getCouponListFacade).getCouponList(customerId, 10, 0);
+        verify(couponRepositoryPort, times(2)).findById(1L);
+        verify(couponRepositoryPort).findById(999L);
     }
 }

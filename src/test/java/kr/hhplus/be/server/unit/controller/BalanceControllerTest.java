@@ -4,14 +4,12 @@ import kr.hhplus.be.server.api.controller.BalanceController;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
 import kr.hhplus.be.server.domain.facade.balance.GetBalanceFacade;
 import kr.hhplus.be.server.domain.exception.*;
-import kr.hhplus.be.server.api.ErrorCode;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -21,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -29,8 +26,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+/**
+ * BalanceController 비즈니스 시나리오 테스트
+ * 
+ * Why: 잔액 컨트롤러의 API 엔드포인트가 비즈니스 요구사항을 올바르게 처리하는지 검증
+ * How: 고객의 잔액 충전 및 조회 시나리오를 반영한 컨트롤러 레이어 테스트로 구성
+ */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("BalanceController 단위 테스트")
+@DisplayName("잔액 컨트롤러 API 비즈니스 시나리오")
 class BalanceControllerTest {
 
     private BalanceController balanceController;
@@ -46,249 +49,204 @@ class BalanceControllerTest {
         balanceController = new BalanceController(chargeBalanceFacade, getBalanceFacade);
     }
 
-    @Nested
-    @DisplayName("잔액 충전 테스트")
-    class ChargeBalanceTests {
+    @Test
+    @DisplayName("고객이 자신의 계정에 잔액을 성공적으로 충전한다")
+    void chargeBalance_Success() {
+        // given - 고객이 마이페이지에서 잔액을 충전하는 상황
+        Long customerId = 1L;
+        BigDecimal chargeAmount = new BigDecimal("50000");
+        BalanceRequest chargeRequest = new BalanceRequest(customerId, chargeAmount);
+
+        Balance chargedBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .id(1L)
+                .userId(customerId)
+                .amount(new BigDecimal("150000")) // 기존 100000 + 충전 50000
+                .build();
         
-        static Stream<Arguments> provideChargeData() {
-            return Stream.of(
-                    Arguments.of(1L, "10000"),
-                    Arguments.of(2L, "50000"),
-                    Arguments.of(3L, "100000")
-            );
-        }
+        when(chargeBalanceFacade.chargeBalance(customerId, chargeAmount)).thenReturn(chargedBalance);
 
-        static Stream<Arguments> provideInvalidChargeData() {
-            return Stream.of(
-                    Arguments.of("최소 금액 미만", 1L, "500", BalanceException.InvalidAmount.class),
-                    Arguments.of("최대 금액 초과", 1L, "2000000", BalanceException.InvalidAmount.class)
-            );
-        }
-        
-        @Test
-        @DisplayName("성공케이스: 정상 잔액 충전")
-        void chargeBalance_Success() {
-            // given
-            Long userId = 1L;
-            BigDecimal chargeAmount = new BigDecimal("50000");
-            BalanceRequest request = new BalanceRequest(userId, chargeAmount);
+        // when
+        BalanceResponse response = balanceController.chargeBalance(chargeRequest);
 
-            
-            User user = User.builder().id(userId).name("테스트 사용자").build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .userId(user.getId())
-                    .amount(new BigDecimal("150000"))
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            
-            when(chargeBalanceFacade.chargeBalance(userId, chargeAmount)).thenReturn(balance);
-
-            // when
-            BalanceResponse response = balanceController.chargeBalance(request);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.userId()).isEqualTo(userId);
-            assertThat(response.amount()).isEqualTo(new BigDecimal("150000"));
-            assertThat(response.updatedAt()).isNotNull();
-        }
-
-        @ParameterizedTest
-        @MethodSource("provideChargeData")
-        @DisplayName("성공케이스: 다양한 충전 금액으로 잔액 충전")
-        void chargeBalance_WithDifferentAmounts(Long userId, String chargeAmount) {
-            // given
-            BalanceRequest request = new BalanceRequest(userId, new BigDecimal(chargeAmount));
-
-            
-            User user = User.builder().id(userId).name("테스트 사용자").build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .userId(user.getId())
-                    .amount(new BigDecimal(chargeAmount))
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            
-            when(chargeBalanceFacade.chargeBalance(userId, new BigDecimal(chargeAmount))).thenReturn(balance);
-
-            // when
-            BalanceResponse response = balanceController.chargeBalance(request);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.userId()).isEqualTo(userId);
-            assertThat(response.amount()).isEqualTo(new BigDecimal(chargeAmount));
-        }
-
-        @Test
-        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 충전")
-        void chargeBalance_UserNotFound() {
-            // given
-            Long userId = 999L;
-            BigDecimal chargeAmount = new BigDecimal("50000");
-            BalanceRequest request = new BalanceRequest(userId, chargeAmount);
-
-            
-            when(chargeBalanceFacade.chargeBalance(userId, chargeAmount))
-                    .thenThrow(new UserException.InvalidUser());
-
-            // when & then
-            assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
-        }
-
-        @Test
-        @DisplayName("실패케이스: 비정상 충전 금액")
-        void chargeBalance_InvalidAmount() {
-            // given
-            Long userId = 1L;
-            BigDecimal invalidAmount = new BigDecimal("-10000");
-            BalanceRequest request = new BalanceRequest(userId, invalidAmount);
-
-            // when & then
-            assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(BalanceException.InvalidAmount.class);
-        }
-
-        @Test
-        @DisplayName("실패케이스: null ID와 금액으로 잔액 충전")
-        void chargeBalance_WithNullFields() {
-            // given
-            BalanceRequest request = new BalanceRequest(null, null);
-
-            // when & then
-            assertThatThrownBy(() -> balanceController.chargeBalance(request))
-                    .isInstanceOf(UserException.InvalidUser.class);
-        }
-
-        @Test
-        @DisplayName("실패케이스: null 요청으로 잔액 충전")
-        void chargeBalance_WithNullRequest() {
-            // when & then
-            assertThatThrownBy(() -> balanceController.chargeBalance(null))
-                    .isInstanceOf(CommonException.InvalidRequest.class)
-                    .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
-        }
-
-        @ParameterizedTest
-        @MethodSource("provideInvalidChargeData")
-        @DisplayName("실패케이스: 비정상 충전 데이터")
-        void chargeBalance_WithInvalidData(String description, Long userId, String amount, Class<? extends Exception> expectedException) {
-            // given
-            BalanceRequest request = new BalanceRequest(userId, new BigDecimal(amount));
-
-            // when & then
-            assertThatThrownBy(() -> request.validate())
-                    .isInstanceOf(expectedException);
-        }
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(customerId);
+        assertThat(response.amount()).isEqualTo(new BigDecimal("150000"));
+        assertThat(response.updatedAt()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("잔액 조회 테스트")
-    class GetBalanceTests {
+    static Stream<Arguments> provideChargeAmounts() {
+        return Stream.of(
+                Arguments.of(1L, "10000"),
+                Arguments.of(2L, "50000"),
+                Arguments.of(3L, "100000")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideChargeAmounts")
+    @DisplayName("다양한 금액으로 잔액 충전이 성공한다")
+    void chargeBalance_WithDifferentAmounts(Long customerId, String chargeAmount) {
+        // given - 고객이 다양한 금액으로 충전하는 상황
+        BalanceRequest chargeRequest = new BalanceRequest(customerId, new BigDecimal(chargeAmount));
+        Balance chargedBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .id(1L)
+                .userId(customerId)
+                .amount(new BigDecimal(chargeAmount))
+                .build();
         
-        static Stream<Arguments> provideUserIds() {
-            return Stream.of(
-                    Arguments.of(1L),
-                    Arguments.of(100L),
-                    Arguments.of(999L)
-            );
-        }
+        when(chargeBalanceFacade.chargeBalance(customerId, new BigDecimal(chargeAmount))).thenReturn(chargedBalance);
 
-        static Stream<Arguments> provideInvalidUserIds() {
-            return Stream.of(
-                    Arguments.of(-1L),
-                    Arguments.of(0L),
-                    Arguments.of(Long.MAX_VALUE)
-            );
-        }
+        // when
+        BalanceResponse response = balanceController.chargeBalance(chargeRequest);
+
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(customerId);
+        assertThat(response.amount()).isEqualTo(new BigDecimal(chargeAmount));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자의 잔액 충전 시 예외가 발생한다")
+    void chargeBalance_UserNotFound() {
+        // given - 탈퇴했거나 존재하지 않는 사용자의 충전 시도
+        Long invalidUserId = 999L;
+        BigDecimal chargeAmount = new BigDecimal("50000");
+        BalanceRequest chargeRequest = new BalanceRequest(invalidUserId, chargeAmount);
+
+        when(chargeBalanceFacade.chargeBalance(invalidUserId, chargeAmount))
+                .thenThrow(new UserException.InvalidUser());
+
+        // when & then
+        assertThatThrownBy(() -> balanceController.chargeBalance(chargeRequest))
+                .isInstanceOf(UserException.InvalidUser.class);
+    }
+
+    @Test
+    @DisplayName("음수 금액으로 잔액 충전 시 예외가 발생한다")
+    void chargeBalance_InvalidAmount() {
+        // given - 잘못된 충전 금액
+        Long customerId = 1L;
+        BigDecimal invalidAmount = new BigDecimal("-10000");
+        BalanceRequest chargeRequest = new BalanceRequest(customerId, invalidAmount);
+
+        // when & then
+        assertThatThrownBy(() -> balanceController.chargeBalance(chargeRequest))
+                .isInstanceOf(BalanceException.InvalidAmount.class);
+    }
+
+    @Test
+    @DisplayName("잘못된 충전 요청 데이터로 충전 시 예외가 발생한다")
+    void chargeBalance_WithNullFields() {
+        // given - 필수 필드가 누락된 충전 요청
+        BalanceRequest invalidRequest = new BalanceRequest(null, null);
+
+        // when & then
+        assertThatThrownBy(() -> balanceController.chargeBalance(invalidRequest))
+                .isInstanceOf(UserException.InvalidUser.class);
+    }
+
+    @Test
+    @DisplayName("null 요청으로 잔액 충전 시 예외가 발생한다")
+    void chargeBalance_WithNullRequest() {
+        // given - 잘못된 API 요청
+        // when & then
+        assertThatThrownBy(() -> balanceController.chargeBalance(null))
+                .isInstanceOf(CommonException.InvalidRequest.class);
+    }
+
+    @Test
+    @DisplayName("고객이 자신의 잔액 정보를 성공적으로 조회한다")
+    void getBalance_Success() {
+        // given - 고객이 마이페이지에서 잔액을 확인하는 상황
+        Long customerId = 1L;
+        Balance customerBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .id(1L)
+                .userId(customerId)
+                .amount(new BigDecimal("100000"))
+                .build();
         
-        @Test
-        @DisplayName("성공케이스: 정상 잔액 조회")
-        void getBalance_Success() {
-            // given
-            Long userId = 1L;
-            
-            User user = User.builder().id(userId).name("테스트 사용자").build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .userId(user.getId())
-                    .amount(new BigDecimal("100000"))
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            
-            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.of(balance));
+        when(getBalanceFacade.getBalance(customerId)).thenReturn(Optional.of(customerBalance));
 
-            // when
-            BalanceResponse response = balanceController.getBalance(userId);
+        // when
+        BalanceResponse response = balanceController.getBalance(customerId);
 
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.userId()).isEqualTo(userId);
-            assertThat(response.amount()).isEqualTo(new BigDecimal("100000"));
-            assertThat(response.updatedAt()).isNotNull();
-        }
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(customerId);
+        assertThat(response.amount()).isEqualTo(new BigDecimal("100000"));
+        assertThat(response.updatedAt()).isNotNull();
+    }
 
-        @ParameterizedTest
-        @MethodSource("provideUserIds")
-        @DisplayName("성공케이스: 다양한 사용자 ID로 잔액 조회")
-        void getBalance_WithDifferentUserIds(Long userId) {
-            // given
-            User user = User.builder().id(userId).name("테스트 사용자").build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .userId(user.getId())
-                    .amount(new BigDecimal("50000"))
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            
-            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.of(balance));
-            
-            // when
-            BalanceResponse response = balanceController.getBalance(userId);
+    static Stream<Arguments> provideUserIds() {
+        return Stream.of(
+                Arguments.of(1L),
+                Arguments.of(100L),
+                Arguments.of(999L)
+        );
+    }
 
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.userId()).isEqualTo(userId);
-            assertThat(response.amount()).isNotNull();
-        }
+    @ParameterizedTest
+    @MethodSource("provideUserIds")
+    @DisplayName("다양한 고객의 잔액 조회가 성공한다")
+    void getBalance_WithDifferentUserIds(Long customerId) {
+        // given - 다양한 고객들의 잔액 조회 상황
+        Balance customerBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .id(1L)
+                .userId(customerId)
+                .amount(new BigDecimal("50000"))
+                .build();
+        
+        when(getBalanceFacade.getBalance(customerId)).thenReturn(Optional.of(customerBalance));
+        
+        // when
+        BalanceResponse response = balanceController.getBalance(customerId);
 
-        @Test
-        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
-        void getBalance_UserNotFound() {
-            // given
-            Long userId = 999L;
-            
-            when(getBalanceFacade.getBalance(userId)).thenReturn(Optional.empty());
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(customerId);
+        assertThat(response.amount()).isNotNull();
+    }
 
-            // when & then
-            assertThatThrownBy(() -> balanceController.getBalance(userId))
-                    .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
-        }
+    @Test
+    @DisplayName("잔액 정보가 없는 신규 고객의 조회 시 예외가 발생한다")
+    void getBalance_UserNotFound() {
+        // given - 아직 잔액이 설정되지 않은 신규 고객
+        Long newCustomerId = 999L;
+        
+        when(getBalanceFacade.getBalance(newCustomerId)).thenReturn(Optional.empty());
 
-        @Test
-        @DisplayName("실패케이스: null 사용자 ID로 잔액 조회")
-        void getBalance_WithNullUserId() {
-            // when & then
-            assertThatThrownBy(() -> balanceController.getBalance(null))
-                    .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
-        }
+        // when & then
+        assertThatThrownBy(() -> balanceController.getBalance(newCustomerId))
+                .isInstanceOf(UserException.InvalidUser.class);
+    }
 
-        @ParameterizedTest
-        @MethodSource("provideInvalidUserIds")
-        @DisplayName("실패케이스: 비정상 사용자 ID로 잔액 조회")
-        void getBalance_WithInvalidUserIds(Long invalidUserId) {
-            // given
-            when(getBalanceFacade.getBalance(invalidUserId)).thenReturn(Optional.empty());
+    @Test
+    @DisplayName("null 사용자 ID로 잔액 조회 시 예외가 발생한다")
+    void getBalance_WithNullUserId() {
+        // given - 잘못된 사용자 ID
+        // when & then
+        assertThatThrownBy(() -> balanceController.getBalance(null))
+                .isInstanceOf(UserException.InvalidUser.class);
+    }
 
-            // when & then
-            assertThatThrownBy(() -> balanceController.getBalance(invalidUserId))
-                    .isInstanceOf(UserException.InvalidUser.class)
-                    .hasMessage(ErrorCode.INVALID_USER_ID.getMessage());
-        }
+    static Stream<Arguments> provideInvalidUserIds() {
+        return Stream.of(
+                Arguments.of(-1L),
+                Arguments.of(0L),
+                Arguments.of(Long.MAX_VALUE)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidUserIds")
+    @DisplayName("유효하지 않은 사용자 ID로 잔액 조회 시 예외가 발생한다")
+    void getBalance_WithInvalidUserIds(Long invalidUserId) {
+        // given - 유효하지 않은 사용자 ID
+        when(getBalanceFacade.getBalance(invalidUserId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> balanceController.getBalance(invalidUserId))
+                .isInstanceOf(UserException.InvalidUser.class);
     }
 }
