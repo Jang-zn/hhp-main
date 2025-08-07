@@ -36,6 +36,12 @@ springdoc:
     operations-sorter: alpha
   show-actuator: false
 
+# Retry 설정 (동시성 제어용)
+spring:
+  retry:
+    # 전역 재시도 활성화
+    enabled: true
+
 ---
 # JPA + MySQL 환경 (일반적인 모든 환경)
 spring.config.activate.on-profile: local, test, dev, prod
