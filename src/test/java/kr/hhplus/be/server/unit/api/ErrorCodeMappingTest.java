@@ -13,19 +13,33 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("ErrorCode와 Domain Exception 매핑 테스트")
+/**
+ * 비즈니스 예외와 API 응답 매핑 테스트
+ * 
+ * Why: 도메인 예외가 사용자에게 적절한 HTTP 상태 코드와 에러 메시지로 전달되는지 검증
+ * How: 각 비즈니스 도메인별 예외가 사용자 경험에 적합한 응답으로 변환되는지 확인
+ */
+@DisplayName("비즈니스 예외에서 API 응답으로의 변환")
 class ErrorCodeMappingTest {
 
-    @DisplayName("도메인 예외가 올바른 ErrorCode로 매핑된다")
+    @DisplayName("비즈니스 예외를 사용자에게 적절한 에러 코드로 변환한다")
     @ParameterizedTest
     @MethodSource("domainExceptionMappingProvider")
-    void 도메인_예외가_올바른_ErrorCode로_매핑된다(RuntimeException exception, ErrorCode expectedErrorCode) {
-        // When
+    void convertsBusinessExceptionsToAppropriateErrorCodes(RuntimeException exception, ErrorCode expectedErrorCode) {
+        // Given - 비즈니스 로직에서 발생한 도메인 예외
+        // Why: 비즈니스 오류를 사용자가 이해할 수 있는 에러 코드로 변환 필요
+        
+        // When - 도메인 예외를 API 에러코드로 변환
         ErrorCode actualErrorCode = ErrorCode.fromDomainException(exception);
         
-        // Then
-        assertThat(actualErrorCode).isEqualTo(expectedErrorCode);
-        assertThat(actualErrorCode.getCode()).isEqualTo(expectedErrorCode.getCode());
+        // Then - 도메인의 비즈니스 의미에 맞는 에러코드로 매핑됨
+        assertThat(actualErrorCode)
+            .as("도메인 예외는 비즈니스 의미에 맞는 에러코드로 변환되어야 함")
+            .isEqualTo(expectedErrorCode);
+        
+        assertThat(actualErrorCode.getCode())
+            .as("에러코드는 사용자 지원을 위한 고유 식별자를 가져야 함")
+            .isEqualTo(expectedErrorCode.getCode());
     }
 
     @DisplayName("ErrorCode로부터 적절한 HTTP 상태 코드가 반환된다")
