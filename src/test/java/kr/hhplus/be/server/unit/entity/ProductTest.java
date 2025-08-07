@@ -20,7 +20,7 @@ import static kr.hhplus.be.server.util.TestAssertions.ProductAssertions;
  * How: 실제 주문 플로우를 반영한 재고 예약 → 확정 → 취소의 상태 전이 과정을 테스트
  */
 @DisplayName("상품 재고 관리 비즈니스 로직")
-class ProductRefactoredTest {
+class ProductTest {
 
     @Test
     @DisplayName("고객 주문 시 재고를 안전하게 예약한다")
