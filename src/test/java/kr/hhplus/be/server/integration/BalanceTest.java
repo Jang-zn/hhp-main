@@ -25,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,6 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @Transactional
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("잔액 API 통합 시나리오")
 public class BalanceTest {
 
@@ -96,15 +98,16 @@ public class BalanceTest {
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-            .andExpect(jsonPath("$.data.userId").value(customerWithBalance.getId()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
             .andExpect(jsonPath("$.data.amount").value(60000.0));
     }
 
     @Test
     @DisplayName("잔액이 없는 고객이 첫 충전할 수 있다")
     void customerWithoutBalanceCanMakeFirstCharge() throws Exception {
-        // Given - 잔액 없는 고객이 30,000원 첫 충전
-        BalanceRequest request = createBalanceRequest(customerWithoutBalance.getId(), "30000");
+        // Given - 잔액 없는 고객이 30,000원 첫 충전  
+        User customer = createCustomerWithoutBalance("첫충전고객");
+        BalanceRequest request = createBalanceRequest(customer.getId(), "30000");
 
         // When & Then
         mockMvc.perform(post("/api/balance/charge")
@@ -112,7 +115,7 @@ public class BalanceTest {
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-            .andExpect(jsonPath("$.data.userId").value(customerWithoutBalance.getId()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
             .andExpect(jsonPath("$.data.amount").value(30000.0));
     }
 
@@ -136,7 +139,8 @@ public class BalanceTest {
     @DisplayName("유효하지 않은 충전 금액은 거부된다")
     void preventsChargeWithInvalidAmounts(String amount, String scenario) throws Exception {
         // Given
-        BalanceRequest request = createBalanceRequest(customerWithBalance.getId(), amount);
+        User customer = createCustomerWithBalance("무효금액테스트고객", "100000");
+        BalanceRequest request = createBalanceRequest(customer.getId(), amount);
 
         // When & Then
         mockMvc.perform(post("/api/balance/charge")
@@ -149,11 +153,14 @@ public class BalanceTest {
     @Test
     @DisplayName("고객이 자신의 현재 잔액을 조회할 수 있다")
     void customerCanViewCurrentBalance() throws Exception {
+        // Given
+        User customer = createCustomerWithBalance("잔액조회고객", "50000");
+        
         // When & Then
-        mockMvc.perform(get("/api/balance/{userId}", customerWithBalance.getId()))
+        mockMvc.perform(get("/api/balance/{userId}", customer.getId()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-            .andExpect(jsonPath("$.data.userId").value(customerWithBalance.getId()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
             .andExpect(jsonPath("$.data.amount").value(50000.0));
     }
 
@@ -169,8 +176,11 @@ public class BalanceTest {
     @Test
     @DisplayName("잔액이 없는 고객의 조회 요청은 적절한 응답을 받는다")
     void customerWithoutBalanceGetsAppropriateResponse() throws Exception {
+        // Given
+        User customer = createCustomerWithoutBalance("잔액없는고객");
+        
         // When & Then
-        mockMvc.perform(get("/api/balance/{userId}", customerWithoutBalance.getId()))
+        mockMvc.perform(get("/api/balance/{userId}", customer.getId()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()));
     }
