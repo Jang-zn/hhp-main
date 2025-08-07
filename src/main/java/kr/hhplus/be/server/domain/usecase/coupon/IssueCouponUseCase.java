@@ -69,8 +69,8 @@ public class IssueCouponUseCase {
             throw new CouponException.AlreadyIssued();
         }
         
-        // 재고 감소 (내부적으로 상태 업데이트됨)
-        coupon.decreaseStock(1);
+        // 쿠폰 발급 (내부적으로 상태 업데이트됨)
+        coupon.issue();
         Coupon savedCoupon = couponRepositoryPort.save(coupon);
         
         // 쿠폰 발급 이력 저장
