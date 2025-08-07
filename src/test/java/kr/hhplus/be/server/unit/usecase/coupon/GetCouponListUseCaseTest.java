@@ -9,6 +9,9 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.api.ErrorCode;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,7 @@ import org.mockito.MockitoAnnotations;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Collections;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,11 +32,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import kr.hhplus.be.server.domain.exception.*;
-import kr.hhplus.be.server.api.ErrorCode;
-import java.util.Collections;
-
-@DisplayName("GetCouponListUseCase 단위 테스트")
+/**
+ * GetCouponListUseCase 비즈니스 시나리오 테스트
+ * 
+ * Why: 사용자 쿠폰 목록 조회 유스케이스의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
+ * How: 쿠폰 목록 조회 시나리오를 반영한 단위 테스트로 구성
+ */
+@DisplayName("사용자 쿠폰 목록 조회 유스케이스 비즈니스 시나리오")
 class GetCouponListUseCaseTest {
 
     @Mock
@@ -53,52 +58,37 @@ class GetCouponListUseCaseTest {
         getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort, cachePort);
     }
 
+    // === 기본 쿠폰 목록 조회 시나리오 ===
+
     @Test
-    @DisplayName("보유 쿠폰 목록 조회 성공")
-    void getCouponList_Success() {
-        // given
+    @DisplayName("사용자의 보유 쿠폰 목록을 성공적으로 조회한다")
+    void canRetrieveUserCouponListSuccessfully() {
+        // Given
         Long userId = 1L;
         int limit = 10;
         int offset = 0;
         
-        User user = User.builder()
-                .id(userId)
-                .name("테스트 사용자")
-                .build();
-        
-        Coupon coupon1 = Coupon.builder()
+        Coupon coupon1 = TestBuilder.CouponBuilder.defaultCoupon()
                 .id(1L)
                 .code("DISCOUNT10")
                 .discountRate(new BigDecimal("0.10"))
-                .maxIssuance(100)
-                .issuedCount(50)
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(30))
-                .status(CouponStatus.ACTIVE)
                 .build();
         
-        Coupon coupon2 = Coupon.builder()
+        Coupon coupon2 = TestBuilder.CouponBuilder.defaultCoupon()
                 .id(2L)
                 .code("SUMMER25")
                 .discountRate(new BigDecimal("0.25"))
-                .maxIssuance(50)
-                .issuedCount(30)
-                .startDate(LocalDateTime.now().minusDays(5))
-                .endDate(LocalDateTime.now().plusDays(25))
-                .status(CouponStatus.ACTIVE)
                 .build();
 
         List<CouponHistory> couponHistories = List.of(
-                CouponHistory.builder()
+                TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                         .userId(userId)
                         .couponId(coupon1.getId())
-                        .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build(),
-                CouponHistory.builder()
+                TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                         .userId(userId)
                         .couponId(coupon2.getId())
-                        .issuedAt(LocalDateTime.now().minusDays(3))
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
@@ -106,10 +96,11 @@ class GetCouponListUseCaseTest {
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(couponHistories);
-        // when
+
+        // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then
+        // Then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getCouponId()).isEqualTo(coupon1.getId());
@@ -121,30 +112,19 @@ class GetCouponListUseCaseTest {
 
     @ParameterizedTest
     @MethodSource("providePaginationData")
-    @DisplayName("다양한 페이지네이션으로 쿠폰 목록 조회")
-    void getCouponList_WithDifferentPagination(Long userId, int limit, int offset) {
-        // given
-        User user = User.builder()
-                .id(userId)
-                .name("테스트 사용자")
-                .build();
-        
-        Coupon coupon = Coupon.builder()
+    @DisplayName("다양한 페이지네이션으로 쿠폰 목록을 조회할 수 있다")
+    void canRetrieveCouponListWithVariousPagination(Long userId, int limit, int offset) {
+        // Given
+        Coupon coupon = TestBuilder.CouponBuilder.defaultCoupon()
                 .id(3L)
                 .code("VIP30")
                 .discountRate(new BigDecimal("0.30"))
-                .maxIssuance(20)
-                .issuedCount(10)
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(10))
-                .status(CouponStatus.ACTIVE)
                 .build();
 
         List<CouponHistory> couponHistories = List.of(
-                CouponHistory.builder()
+                TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                         .userId(userId)
                         .couponId(coupon.getId())
-                        .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
@@ -153,65 +133,31 @@ class GetCouponListUseCaseTest {
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(couponHistories);
 
-        // when
+        // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then
+        // Then
         assertThat(result).isNotNull();
         assertThat(result).isNotEmpty();
         assertThat(result.get(0).getCouponId()).isEqualTo(coupon.getId());
     }
 
     @Test
-    @DisplayName("존재하지 않는 사용자 쿠폰 목록 조회 시 예외 발생")
-    void getCouponList_UserNotFound() {
-        // given
-        Long userId = 999L;
-        int limit = 10;
-        int offset = 0;
-        
-        when(userRepositoryPort.existsById(userId)).thenReturn(false);
-
-        // when & then
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(UserException.NotFound.class)
-                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
-    }
-
-    @Test
-    @DisplayName("null 사용자 ID로 쿠폰 목록 조회 시 예외 발생")
-    void getCouponList_WithNullUserId() {
-        // given
-        Long userId = null;
-        int limit = 10;
-        int offset = 0;
-
-        // when & then
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("쿠폰이 없는 사용자 목록 조회")
-    void getCouponList_EmptyCoupons() {
-        // given
+    @DisplayName("쿠폰이 없는 사용자는 빈 목록을 반환한다")
+    void returnsEmptyListForUserWithNoCoupons() {
+        // Given
         Long userId = 1L;
         int limit = 10;
         int offset = 0;
-        
-        User user = User.builder()
-                .id(userId)
-                .name("쿠폰 없는 사용자")
-                .build();
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
                 .thenReturn(Collections.emptyList());
 
-        // when
+        // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then
+        // Then
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
@@ -219,96 +165,122 @@ class GetCouponListUseCaseTest {
         verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
     }
 
+    // === 예외 처리 시나리오 ===
+
     @Test
-    @DisplayName("비정상적인 페이지네이션 파라미터 - 음수 limit")
-    void getCouponList_WithNegativeLimit() {
-        // given
-        Long userId = 1L;
-        int limit = -1;
+    @DisplayName("존재하지 않는 사용자 쿠폰 목록 조회 시 예외가 발생한다")
+    void throwsExceptionWhenUserNotFound() {
+        // Given
+        Long userId = 999L;
+        int limit = 10;
         int offset = 0;
         
-        User user = User.builder()
-                .id(userId)
-                .name("테스트 사용자")
-                .build();
-        
-        // when & then
+        when(userRepositoryPort.existsById(userId)).thenReturn(false);
+
+        // When & Then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Limit must be greater than 0");
+                .isInstanceOf(UserException.NotFound.class)
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test
-    @DisplayName("비정상적인 페이지네이션 파라미터 - 음수 offset")
-    void getCouponList_WithNegativeOffset() {
-        // given
-        Long userId = 1L;
+    @DisplayName("null 사용자 ID로 쿠폰 목록 조회 시 예외가 발생한다")
+    void throwsExceptionForNullUserId() {
+        // Given
+        Long userId = null;
         int limit = 10;
-        int offset = -1;
-        
-        User user = User.builder()
-                .id(userId)
-                .name("테스트 사용자")
-                .build();
-        
-        // when & then
+        int offset = 0;
+
+        // When & Then
         assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Offset must be non-negative");
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @ParameterizedTest
     @MethodSource("provideInvalidUserIds")
-    @DisplayName("다양한 비정상 사용자 ID로 쿠폰 목록 조회")
-    void getCouponList_WithInvalidUserIds(Long invalidUserId) {
-        // given
+    @DisplayName("다양한 비정상 사용자 ID로 쿠폰 목록 조회 시 적절한 예외가 발생한다")
+    void throwsExceptionForInvalidUserIds(Long invalidUserId) {
+        // Given
         int limit = 10;
         int offset = 0;
         
         if (invalidUserId != null) {
             when(userRepositoryPort.existsById(invalidUserId)).thenReturn(false);
             
-            // when & then
+            // When & Then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(UserException.NotFound.class)
                     .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         } else {
-            // when & then
+            // When & Then
             assertThatThrownBy(() -> getCouponListUseCase.execute(invalidUserId, limit, offset))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("User ID cannot be null");
         }
     }
 
+    // === 페이지네이션 관련 시나리오 ===
+
     @Test
-    @DisplayName("캐시 실패 시 DB에서 직접 조회")
-    void getCouponList_CacheFallback() {
-        // given
+    @DisplayName("음수 limit으로 쿠폰 목록 조회 시 예외가 발생한다")
+    void throwsExceptionForNegativeLimit() {
+        // Given
+        Long userId = 1L;
+        int limit = -1;
+        int offset = 0;
+        
+        // When & Then
+        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Limit must be greater than 0");
+    }
+
+    @Test
+    @DisplayName("음수 offset으로 쿠폰 목록 조회 시 예외가 발생한다")
+    void throwsExceptionForNegativeOffset() {
+        // Given
+        Long userId = 1L;
+        int limit = 10;
+        int offset = -1;
+        
+        // When & Then
+        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Offset must be non-negative");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidPaginationParams")
+    @DisplayName("다양한 비정상 페이지네이션 파라미터에 대해 예외가 발생한다")
+    void throwsExceptionForInvalidPaginationParams(String description, int limit, int offset) {
+        // Given
+        Long userId = 1L;
+        
+        // When & Then (validation happens before user lookup)
+        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // === 캐시 관련 시나리오 ===
+
+    @Test
+    @DisplayName("캐시 실패 시 DB에서 직접 조회한다")
+    void retrievesFromDatabaseOnCacheFailure() {
+        // Given
         Long userId = 1L;
         int limit = 10;
         int offset = 0;
         
-        User user = User.builder()
-                .id(userId)
-                .name("테스트 사용자")
-                .build();
-        
-        Coupon coupon = Coupon.builder()
+        Coupon coupon = TestBuilder.CouponBuilder.defaultCoupon()
                 .id(4L)
                 .code("FALLBACK")
                 .discountRate(new BigDecimal("0.20"))
-                .maxIssuance(100)
-                .issuedCount(50)
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(30))
-                .status(CouponStatus.ACTIVE)
                 .build();
 
         List<CouponHistory> couponHistories = List.of(
-                CouponHistory.builder()
+                TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                         .userId(userId)
                         .couponId(coupon.getId())
-                        .issuedAt(LocalDateTime.now())
                         .status(CouponHistoryStatus.ISSUED)
                         .build()
         );
@@ -319,10 +291,10 @@ class GetCouponListUseCaseTest {
         when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset))
                 .thenReturn(couponHistories);
 
-        // when
+        // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
 
-        // then
+        // Then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCouponId()).isEqualTo(coupon.getId());
@@ -330,35 +302,28 @@ class GetCouponListUseCaseTest {
         verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
     }
 
-    @ParameterizedTest
-    @MethodSource("provideInvalidPaginationParams")
-    @DisplayName("다양한 비정상 페이지네이션 파라미터")
-    void getCouponList_WithInvalidPagination(String description, int limit, int offset) {
-        // given
-        Long userId = 1L;
-        
-        // when & then (validation happens before user lookup)
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
+    // === 헬퍼 메서드 ===
 
-    private static Stream<Arguments> providePaginationData() {
+    static Stream<Arguments> providePaginationData() {
         return Stream.of(
                 Arguments.of(1L, 5, 0),
                 Arguments.of(2L, 10, 5),
-                Arguments.of(3L, 20, 0)
+                Arguments.of(3L, 20, 0),
+                Arguments.of(4L, 15, 10),
+                Arguments.of(5L, 25, 20)
         );
     }
 
-    private static Stream<Arguments> provideInvalidUserIds() {
+    static Stream<Arguments> provideInvalidUserIds() {
         return Stream.of(
                 Arguments.of((Long) null),
                 Arguments.of(999L),
-                Arguments.of(888L)
+                Arguments.of(888L),
+                Arguments.of(777L)
         );
     }
 
-    private static Stream<Arguments> provideInvalidPaginationParams() {
+    static Stream<Arguments> provideInvalidPaginationParams() {
         return Stream.of(
                 Arguments.of("음수 limit", -1, 0),
                 Arguments.of("음수 offset", 10, -1),
