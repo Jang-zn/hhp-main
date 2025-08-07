@@ -9,20 +9,14 @@ import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -180,22 +174,22 @@ class ChargeBalanceFacadeTest {
         when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(expectedBalance);
         
         // when & then
-        ConcurrencyTestHelper.ConcurrentResult result = ConcurrencyTestHelper.executeConcurrentTasks(
+        ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeInParallel(
             threadCount,
             () -> {
                 try {
                     chargeBalanceFacade.chargeBalance(userId, chargeAmount);
-                    return ConcurrencyTestHelper.TaskResult.success();
+                    return "SUCCESS";
                 } catch (CommonException.ConcurrencyConflict e) {
-                    return ConcurrencyTestHelper.TaskResult.failure("LOCK_FAILED");
+                    throw new RuntimeException("LOCK_FAILED");
                 } catch (Exception e) {
-                    return ConcurrencyTestHelper.TaskResult.failure("OTHER_ERROR");
+                    throw new RuntimeException("OTHER_ERROR");
                 }
             }
         );
         
         assertThat(result.getSuccessCount()).isEqualTo(1); // 하나만 성공
-        assertThat(result.getFailureCount("LOCK_FAILED")).isEqualTo(4); // 나머지는 락 실패
+        assertThat(result.getFailureCount()).isEqualTo(4); // 나머지는 락 실패
         
         verify(lockingPort, times(5)).acquireLock("balance-" + userId);
         verify(chargeBalanceUseCase, times(1)).execute(userId, chargeAmount);
@@ -226,22 +220,20 @@ class ChargeBalanceFacadeTest {
         when(chargeBalanceUseCase.execute(userId2, chargeAmount)).thenReturn(testBalance2);
         
         // when & then
-        ConcurrencyTestHelper.ConcurrentResult result = ConcurrencyTestHelper.executeConcurrentTasks(
+        ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
             List.of(
                 () -> {
                     try {
                         chargeBalanceFacade.chargeBalance(userId1, chargeAmount);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("USER1_FAILED");
+                        throw new RuntimeException("USER1_FAILED: " + e.getMessage());
                     }
                 },
                 () -> {
                     try {
                         chargeBalanceFacade.chargeBalance(userId2, chargeAmount);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("USER2_FAILED");
+                        throw new RuntimeException("USER2_FAILED: " + e.getMessage());
                     }
                 }
             )

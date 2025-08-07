@@ -19,7 +19,7 @@ public class TestBuilder {
      * Product 테스트 빌더 - 체이닝 패턴으로 더 fluent하게 구성
      */
     public static class ProductBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private String name = "테스트 상품";
         private BigDecimal price = BigDecimal.valueOf(10000);
         private int stock = 100;
@@ -35,6 +35,12 @@ public class TestBuilder {
 
         public static ProductBuilder partiallyReservedProduct() {
             return new ProductBuilder().stock(100).reservedStock(30);
+        }
+
+        public static ProductBuilder popularProduct() {
+            return new ProductBuilder()
+                .name("인기 상품")
+                .stock(50);
         }
 
         public ProductBuilder id(Long id) {
@@ -83,7 +89,7 @@ public class TestBuilder {
      * Coupon 테스트 빌더 - 개선된 메서드 체이닝
      */
     public static class CouponBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private String code = "TEST_COUPON";
         private BigDecimal discountRate = BigDecimal.valueOf(0.1);
         private Integer maxIssuance = 100;
@@ -106,7 +112,8 @@ public class TestBuilder {
         public static CouponBuilder notYetStartedCoupon() {
             return new CouponBuilder()
                 .startDate(LocalDateTime.now().plusDays(1))
-                .endDate(LocalDateTime.now().plusDays(7));
+                .endDate(LocalDateTime.now().plusDays(7))
+                .status(kr.hhplus.be.server.domain.enums.CouponStatus.INACTIVE);
         }
 
         public static CouponBuilder soldOutCoupon() {
@@ -123,6 +130,11 @@ public class TestBuilder {
         
         public static CouponBuilder overIssuedCoupon() {
             return new CouponBuilder().withQuantity(100, 150);
+        }
+
+        public static CouponBuilder activeCoupon() {
+            return new CouponBuilder()
+                .status(kr.hhplus.be.server.domain.enums.CouponStatus.ACTIVE);
         }
 
         public CouponBuilder id(Long id) {
@@ -179,9 +191,11 @@ public class TestBuilder {
      * Balance 테스트 빌더 - 간소화된 패턴
      */
     public static class BalanceBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private Long userId = 1L;
         private BigDecimal amount = BigDecimal.valueOf(100000);
+        private LocalDateTime createdAt = LocalDateTime.now();
+        private LocalDateTime updatedAt = LocalDateTime.now();
 
         public static BalanceBuilder defaultBalance() {
             return new BalanceBuilder();
@@ -210,12 +224,34 @@ public class TestBuilder {
             return this;
         }
 
+        public BalanceBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public BalanceBuilder updatedAt(LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
         public Balance build() {
-            return Balance.builder()
+            Balance balance = Balance.builder()
                 .id(id)
                 .userId(userId)
                 .amount(amount)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
                 .build();
+            
+            // 테스트용 setter를 사용하여 timestamp 설정
+            if (createdAt != null) {
+                balance.setCreatedAt(createdAt);
+            }
+            if (updatedAt != null) {
+                balance.setUpdatedAt(updatedAt);
+            }
+            
+            return balance;
         }
     }
 
@@ -223,7 +259,7 @@ public class TestBuilder {
      * User 테스트 빌더
      */
     public static class UserBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private String name = "테스트 사용자";
 
         public static UserBuilder defaultUser() {
@@ -252,13 +288,19 @@ public class TestBuilder {
      * Order 테스트 빌더
      */
     public static class OrderBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private Long userId = 1L;
         private BigDecimal totalAmount = BigDecimal.valueOf(50000);
         private kr.hhplus.be.server.domain.enums.OrderStatus status = kr.hhplus.be.server.domain.enums.OrderStatus.PENDING;
+        private LocalDateTime createdAt = LocalDateTime.now();
 
         public static OrderBuilder defaultOrder() {
             return new OrderBuilder();
+        }
+
+        public static OrderBuilder pendingOrder() {
+            return new OrderBuilder()
+                .status(kr.hhplus.be.server.domain.enums.OrderStatus.PENDING);
         }
 
         public static OrderBuilder paidOrder() {
@@ -286,12 +328,18 @@ public class TestBuilder {
             return this;
         }
 
+        public OrderBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
         public Order build() {
             return Order.builder()
                 .id(id)
                 .userId(userId)
                 .totalAmount(totalAmount)
                 .status(status)
+                .createdAt(createdAt)
                 .build();
         }
     }
@@ -300,7 +348,7 @@ public class TestBuilder {
      * CouponHistory 테스트 빌더
      */
     public static class CouponHistoryBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private Long userId = 1L;
         private Long couponId = 1L;
         private LocalDateTime issuedAt = LocalDateTime.now();
@@ -308,6 +356,11 @@ public class TestBuilder {
 
         public static CouponHistoryBuilder defaultCouponHistory() {
             return new CouponHistoryBuilder();
+        }
+
+        public static CouponHistoryBuilder issuedCouponHistory() {
+            return new CouponHistoryBuilder()
+                .status(kr.hhplus.be.server.domain.enums.CouponHistoryStatus.ISSUED);
         }
 
         public static CouponHistoryBuilder usedCouponHistory() {
@@ -340,6 +393,12 @@ public class TestBuilder {
             return this;
         }
 
+        public CouponHistoryBuilder usedAt(LocalDateTime usedAt) {
+            // usedAt은 CouponHistory 빌더에서 직접 설정할 수 없으므로 status만 변경
+            this.status = kr.hhplus.be.server.domain.enums.CouponHistoryStatus.USED;
+            return this;
+        }
+
         public CouponHistory build() {
             return CouponHistory.builder()
                 .id(id)
@@ -355,7 +414,7 @@ public class TestBuilder {
      * Payment 테스트 빌더
      */
     public static class PaymentBuilder {
-        private Long id = 1L;
+        private Long id = null;
         private Long orderId = 1L;
         private Long userId = 1L;
         private BigDecimal amount = BigDecimal.valueOf(100000);
@@ -374,6 +433,10 @@ public class TestBuilder {
         public static PaymentBuilder failedPayment() {
             return new PaymentBuilder()
                 .status(PaymentStatus.FAILED);
+        }
+
+        public static PaymentBuilder defaultPayment() {
+            return new PaymentBuilder();
         }
 
         public PaymentBuilder id(Long id) {
@@ -441,6 +504,66 @@ public class TestBuilder {
 
         public ProductQuantityDto build() {
             return new ProductQuantityDto(productId, quantity);
+        }
+    }
+
+    /**
+     * EventLog 테스트 빌더
+     */
+    public static class EventLogBuilder {
+        private Long id = null;
+        private kr.hhplus.be.server.domain.enums.EventType eventType = kr.hhplus.be.server.domain.enums.EventType.ORDER_CREATED;
+        private String payload = "{\"test\": \"data\"}";
+        private kr.hhplus.be.server.domain.enums.EventStatus status = kr.hhplus.be.server.domain.enums.EventStatus.PENDING;
+        private LocalDateTime createdAt = LocalDateTime.now();
+
+        public static EventLogBuilder defaultEvent() {
+            return new EventLogBuilder();
+        }
+
+        public static EventLogBuilder pendingEvent() {
+            return new EventLogBuilder()
+                .status(kr.hhplus.be.server.domain.enums.EventStatus.PENDING);
+        }
+
+        public static EventLogBuilder publishedEvent() {
+            return new EventLogBuilder()
+                .status(kr.hhplus.be.server.domain.enums.EventStatus.PUBLISHED);
+        }
+
+        public EventLogBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public EventLogBuilder eventType(kr.hhplus.be.server.domain.enums.EventType eventType) {
+            this.eventType = eventType;
+            return this;
+        }
+
+        public EventLogBuilder payload(String payload) {
+            this.payload = payload;
+            return this;
+        }
+
+        public EventLogBuilder status(kr.hhplus.be.server.domain.enums.EventStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public EventLogBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public EventLog build() {
+            return EventLog.builder()
+                .id(id)
+                .eventType(eventType)
+                .payload(payload)
+                .status(status)
+                .createdAt(createdAt)
+                .build();
         }
     }
 }

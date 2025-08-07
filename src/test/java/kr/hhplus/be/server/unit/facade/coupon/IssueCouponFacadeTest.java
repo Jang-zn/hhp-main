@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -130,33 +131,31 @@ class IssueCouponFacadeTest {
         when(issueCouponUseCase.execute(anyLong(), eq(couponId))).thenReturn(expectedHistory);
         
         // when & then
-        ConcurrencyTestHelper.ConcurrentResult result = ConcurrencyTestHelper.executeConcurrentTasks(
+        ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
             List.of(
                 () -> {
                     try {
                         issueCouponFacade.issueCoupon(userId1, couponId);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (CommonException.ConcurrencyConflict e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("LOCK_FAILED");
+                        throw new RuntimeException("LOCK_FAILED");
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("OTHER_ERROR");
+                        throw new RuntimeException("OTHER_ERROR");
                     }
                 },
                 () -> {
                     try {
                         issueCouponFacade.issueCoupon(userId2, couponId);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (CommonException.ConcurrencyConflict e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("LOCK_FAILED");
+                        throw new RuntimeException("LOCK_FAILED");
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("OTHER_ERROR");
+                        throw new RuntimeException("OTHER_ERROR");
                     }
                 }
             )
         );
         
         assertThat(result.getSuccessCount()).isEqualTo(1); // 하나만 성공
-        assertThat(result.getFailureCount("LOCK_FAILED")).isEqualTo(1); // 하나는 락 실패
+        assertThat(result.getFailureCount()).isEqualTo(1); // 하나는 락 실패
         
         verify(lockingPort, times(2)).acquireLock("coupon-" + couponId);
         verify(issueCouponUseCase, times(1)).execute(anyLong(), eq(couponId));
@@ -187,22 +186,20 @@ class IssueCouponFacadeTest {
         when(issueCouponUseCase.execute(userId2, couponId2)).thenReturn(expectedHistory2);
         
         // when & then
-        ConcurrencyTestHelper.ConcurrentResult result = ConcurrencyTestHelper.executeConcurrentTasks(
+        ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
             List.of(
                 () -> {
                     try {
                         issueCouponFacade.issueCoupon(userId1, couponId1);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("COUPON1_FAILED");
+                        throw new RuntimeException("COUPON1_FAILED: " + e.getMessage());
                     }
                 },
                 () -> {
                     try {
                         issueCouponFacade.issueCoupon(userId2, couponId2);
-                        return ConcurrencyTestHelper.TaskResult.success();
                     } catch (Exception e) {
-                        return ConcurrencyTestHelper.TaskResult.failure("COUPON2_FAILED");
+                        throw new RuntimeException("COUPON2_FAILED: " + e.getMessage());
                     }
                 }
             )
