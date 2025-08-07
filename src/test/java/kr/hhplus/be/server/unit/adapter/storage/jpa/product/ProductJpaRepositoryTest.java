@@ -90,6 +90,7 @@ class ProductJpaRepositoryTest {
                 .price(new BigDecimal("75000"))
                 .stock(50)
                 .build();
+        when(entityManager.merge(existingProduct)).thenReturn(existingProduct);
 
         // When
         Product updatedProduct = productJpaRepository.save(existingProduct);
@@ -97,6 +98,7 @@ class ProductJpaRepositoryTest {
         // Then - 업데이트 결과 확인
         assertThat(updatedProduct).isNotNull();
         assertThat(updatedProduct.getName()).isEqualTo("기존상품");
+        verify(entityManager).merge(existingProduct);
     }
 
     @ParameterizedTest
@@ -121,13 +123,11 @@ class ProductJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("null 상품 저장 시 예외 처리가 안전하게 수행된다")
-    void safelyHandlesNullProductSave() {
-        // When
-        Product result = productJpaRepository.save(null);
-        
-        // Then - 실제 구현은 try-catch로 처리하여 null 반환
-        assertThat(result).isNull();
+    @DisplayName("null 상품 저장 시 예외가 발생한다")
+    void throwsExceptionWhenSavingNullProduct() {
+        // When & Then
+        assertThatThrownBy(() -> productJpaRepository.save(null))
+            .isInstanceOf(NullPointerException.class);
     }
 
     // === 상품 조회 시나리오 ===
@@ -321,18 +321,19 @@ class ProductJpaRepositoryTest {
     // === 예외 처리 시나리오 ===
 
     @Test
-    @DisplayName("저장 시 예외가 발생해도 안전하게 처리된다")
-    void safelyHandlesSaveExceptions() {
+    @DisplayName("저장 시 예외가 발생하면 예외가 전파된다")
+    void propagatesSaveExceptions() {
         // Given - EntityManager 예외 상황 모의
         Product product = TestBuilder.ProductBuilder.defaultProduct().build();
         RuntimeException expectedException = new RuntimeException("상품 저장 실패");
         doThrow(expectedException).when(entityManager).persist(product);
 
-        // When - 실제로는 try-catch로 예외를 잡아 null 반환
-        Product result = productJpaRepository.save(product);
-        
-        // Then
-        assertThat(result).isNull();
+        // When & Then - 예외가 전파되어야 함
+        assertThatThrownBy(() -> productJpaRepository.save(product))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessage("상품 저장 실패");
+            
+        verify(entityManager).persist(product);
     }
 
     @Test

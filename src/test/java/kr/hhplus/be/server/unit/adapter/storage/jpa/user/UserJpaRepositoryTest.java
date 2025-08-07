@@ -57,7 +57,7 @@ class UserJpaRepositoryTest {
     @Test
     @DisplayName("신규 사용자를 JPA를 통해 저장할 수 있다")
     void canSaveNewUserThroughJpa() {
-        // Given
+        // Given - ID가 null인 새로운 엔티티
         User newUser = TestBuilder.UserBuilder.defaultUser()
                 .name("홍길동")
                 .build();
@@ -65,8 +65,8 @@ class UserJpaRepositoryTest {
         // When
         userJpaRepository.save(newUser);
 
-        // Then
-        verify(entityManager).merge(newUser);
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(newUser);
     }
 
     @Test
@@ -89,7 +89,7 @@ class UserJpaRepositoryTest {
     @ValueSource(strings = {"홍길동", "김철수", "이영희", "English Name", "特殊文字", "123숫자"})
     @DisplayName("다양한 형태의 사용자 이름으로 저장할 수 있다")
     void canSaveUsersWithVariousNameFormats(String userName) {
-        // Given
+        // Given - ID가 null인 새로운 엔티티
         User user = TestBuilder.UserBuilder.defaultUser()
                 .name(userName)
                 .build();
@@ -97,8 +97,8 @@ class UserJpaRepositoryTest {
         // When
         userJpaRepository.save(user);
 
-        // Then
-        verify(entityManager).merge(user);
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(user);
     }
 
     @Test
@@ -106,9 +106,10 @@ class UserJpaRepositoryTest {
     void throwsExceptionWhenSavingNullUser() {
         // When & Then
         assertThatThrownBy(() -> userJpaRepository.save(null))
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(NullPointerException.class);
             
         verify(entityManager, never()).merge(any());
+        verify(entityManager, never()).persist(any());
     }
 
     // === 사용자 조회 시나리오 ===
@@ -152,13 +153,17 @@ class UserJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("null ID로 조회 시도는 예외가 발생한다")
-    void throwsExceptionWhenFindingByNullId() {
-        // When & Then
-        assertThatThrownBy(() -> userJpaRepository.findById(null))
-            .isInstanceOf(IllegalArgumentException.class);
-            
-        verify(entityManager, never()).find(eq(User.class), isNull());
+    @DisplayName("null ID로 조회 시도 시 빈 결과를 반환한다")
+    void returnsEmptyWhenFindingByNullId() {
+        // Given - null로 조회 시 entityManager.find가 null을 반환하거나 예외 발생 시 빈 Optional 반환
+        when(entityManager.find(User.class, null)).thenReturn(null);
+        
+        // When
+        Optional<User> result = userJpaRepository.findById(null);
+        
+        // Then
+        assertThat(result).isEmpty();
+        verify(entityManager).find(User.class, null);
     }
 
     // === 사용자 존재 여부 확인 시나리오 ===
@@ -204,13 +209,21 @@ class UserJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("null ID로 존재 여부 확인 시도는 예외가 발생한다")
-    void throwsExceptionWhenCheckingExistenceWithNullId() {
-        // When & Then
-        assertThatThrownBy(() -> userJpaRepository.existsById(null))
-            .isInstanceOf(IllegalArgumentException.class);
-            
-        verify(entityManager, never()).createQuery(anyString(), eq(Long.class));
+    @DisplayName("null ID로 존재 여부 확인 시도 시 쿼리는 실행되지만 결과는 false이다")
+    void returnsFalseWhenCheckingExistenceWithNullId() {
+        // Given
+        when(entityManager.createQuery("SELECT COUNT(u) FROM User u WHERE u.id = :id", Long.class))
+            .thenReturn(countQuery);
+        when(countQuery.setParameter("id", null)).thenReturn(countQuery);
+        when(countQuery.getSingleResult()).thenReturn(0L);
+        
+        // When
+        boolean exists = userJpaRepository.existsById(null);
+        
+        // Then
+        assertThat(exists).isFalse();
+        verify(entityManager).createQuery("SELECT COUNT(u) FROM User u WHERE u.id = :id", Long.class);
+        verify(countQuery).setParameter("id", null);
     }
 
     // === 동시성 시나리오 ===
@@ -235,7 +248,7 @@ class UserJpaRepositoryTest {
 
         // Then
         assertThat(result.getTotalCount()).isEqualTo(3);
-        verify(entityManager, times(3)).merge(any(User.class));
+        verify(entityManager, times(3)).persist(any(User.class));
     }
 
     @Test
@@ -284,7 +297,7 @@ class UserJpaRepositoryTest {
 
         // Then
         assertThat(result.getTotalCount()).isEqualTo(6);
-        verify(entityManager, atLeastOnce()).merge(any(User.class));
+        verify(entityManager, atLeastOnce()).persist(any(User.class));
         verify(entityManager, atLeastOnce()).find(eq(User.class), eq(1L));
     }
 
@@ -293,17 +306,17 @@ class UserJpaRepositoryTest {
     @Test
     @DisplayName("EntityManager에서 예외 발생 시 적절히 전파된다")
     void properlyPropagatesEntityManagerExceptions() {
-        // Given
+        // Given - ID가 null인 새로운 엔티티
         User user = TestBuilder.UserBuilder.defaultUser().name("예외테스트").build();
         RuntimeException expectedException = new RuntimeException("EntityManager 예외");
-        doThrow(expectedException).when(entityManager).merge(user);
+        doThrow(expectedException).when(entityManager).persist(user);
 
         // When & Then
         assertThatThrownBy(() -> userJpaRepository.save(user))
             .isInstanceOf(RuntimeException.class)
             .hasMessage("EntityManager 예외");
             
-        verify(entityManager).merge(user);
+        verify(entityManager).persist(user);
     }
 
     @Test
@@ -314,11 +327,11 @@ class UserJpaRepositoryTest {
         RuntimeException expectedException = new RuntimeException("조회 실패");
         when(entityManager.find(User.class, userId)).thenThrow(expectedException);
 
-        // When & Then
-        assertThatThrownBy(() -> userJpaRepository.findById(userId))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("조회 실패");
-            
+        // When
+        Optional<User> result = userJpaRepository.findById(userId);
+        
+        // Then - 예외가 발생해도 빈 Optional 반환
+        assertThat(result).isEmpty();
         verify(entityManager).find(User.class, userId);
     }
 

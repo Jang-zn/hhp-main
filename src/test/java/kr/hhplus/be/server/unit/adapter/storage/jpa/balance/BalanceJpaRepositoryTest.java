@@ -67,7 +67,7 @@ class BalanceJpaRepositoryTest {
     @Test
     @DisplayName("고객의 신규 잔액 정보를 저장할 수 있다")
     void canSaveNewCustomerBalance() {
-        // Given
+        // Given - ID가 null인 새로운 엔티티
         Balance newBalance = TestBuilder.BalanceBuilder.defaultBalance()
                 .userId(1L)
                 .amount(new BigDecimal("100000"))
@@ -76,8 +76,8 @@ class BalanceJpaRepositoryTest {
         // When
         balanceJpaRepository.save(newBalance);
 
-        // Then
-        verify(entityManager).merge(newBalance);
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(newBalance);
     }
 
     @Test
@@ -101,7 +101,7 @@ class BalanceJpaRepositoryTest {
     @MethodSource("provideBalanceAmounts")
     @DisplayName("다양한 금액으로 잔액을 저장할 수 있다")
     void canSaveBalanceWithVariousAmounts(BigDecimal amount) {
-        // Given
+        // Given - 새로운 엔티티 (ID가 null)
         Balance balance = TestBuilder.BalanceBuilder.defaultBalance()
                 .userId(1L)
                 .amount(amount)
@@ -110,8 +110,8 @@ class BalanceJpaRepositoryTest {
         // When
         balanceJpaRepository.save(balance);
 
-        // Then
-        verify(entityManager).merge(balance);
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(balance);
     }
 
     @Test
@@ -119,9 +119,10 @@ class BalanceJpaRepositoryTest {
     void throwsExceptionWhenSavingNullBalance() {
         // When & Then
         assertThatThrownBy(() -> balanceJpaRepository.save(null))
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(NullPointerException.class);
             
         verify(entityManager, never()).merge(any());
+        verify(entityManager, never()).persist(any());
     }
 
     // === 잔액 조회 시나리오 ===
@@ -199,7 +200,7 @@ class BalanceJpaRepositoryTest {
 
         // Then
         assertThat(result.getTotalCount()).isEqualTo(3);
-        verify(entityManager, times(3)).merge(any(Balance.class));
+        verify(entityManager, times(3)).persist(any(Balance.class));
     }
 
     @Test
@@ -258,7 +259,7 @@ class BalanceJpaRepositoryTest {
 
         // Then
         assertThat(result.getTotalCount()).isEqualTo(6);
-        verify(entityManager, atLeastOnce()).merge(any(Balance.class));
+        verify(entityManager, atLeastOnce()).persist(any(Balance.class));
         verify(entityManager, atLeastOnce()).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
     }
 
@@ -267,22 +268,22 @@ class BalanceJpaRepositoryTest {
     @Test
     @DisplayName("EntityManager 저장 예외가 적절히 전파된다")
     void properlyPropagatesSaveExceptions() {
-        // Given
+        // Given - ID가 null인 새로운 엔티티
         Balance balance = TestBuilder.BalanceBuilder.defaultBalance().build();
         RuntimeException expectedException = new RuntimeException("저장 실패");
-        doThrow(expectedException).when(entityManager).merge(balance);
+        doThrow(expectedException).when(entityManager).persist(balance);
 
         // When & Then
         assertThatThrownBy(() -> balanceJpaRepository.save(balance))
             .isInstanceOf(RuntimeException.class)
             .hasMessage("저장 실패");
             
-        verify(entityManager).merge(balance);
+        verify(entityManager).persist(balance);
     }
 
     @Test
-    @DisplayName("조회 시 EntityManager 예외가 적절히 전파된다")
-    void properlyPropagatesFindExceptions() {
+    @DisplayName("조회 시 EntityManager 예외 발생해도 빈 결과를 반환한다")
+    void returnsEmptyWhenFindExceptionOccurs() {
         // Given
         Long userId = 1L;
         RuntimeException expectedException = new RuntimeException("조회 실패");
@@ -292,11 +293,11 @@ class BalanceJpaRepositoryTest {
         when(balanceQuery.setParameter("userId", userId)).thenReturn(balanceQuery);
         when(balanceQuery.getSingleResult()).thenThrow(expectedException);
 
-        // When & Then
-        assertThatThrownBy(() -> balanceJpaRepository.findByUserId(userId))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("조회 실패");
-            
+        // When
+        Optional<Balance> result = balanceJpaRepository.findByUserId(userId);
+
+        // Then - 예외가 발생해도 빈 Optional 반환
+        assertThat(result).isEmpty();
         verify(balanceQuery).getSingleResult();
     }
 

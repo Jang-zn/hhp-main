@@ -5,6 +5,7 @@ import kr.hhplus.be.server.adapter.storage.jpa.PaymentJpaRepository;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

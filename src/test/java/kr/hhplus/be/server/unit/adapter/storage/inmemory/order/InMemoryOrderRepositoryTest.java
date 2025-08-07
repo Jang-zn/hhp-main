@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class InMemoryOrderRepositoryTest {
 
     private InMemoryOrderRepository orderRepository;
+    private static final Long TEST_USER_ID = 1L;
 
     @BeforeEach
     void setUp() {
@@ -42,15 +43,10 @@ class InMemoryOrderRepositoryTest {
     @Test
     @DisplayName("새로운 주문을 정상적으로 저장할 수 있다")
     void canSaveNewOrder() {
-        // Given
-        User user = TestBuilder.UserBuilder.defaultUser()
-                .id(1L)
-                .name("테스트사용자")
-                .build();
-        
+        // Given - Order 저장소 테스트이므로 User 객체 불필요
         Order order = TestBuilder.OrderBuilder.defaultOrder()
                 .id(1L)
-                .userId(user.getId())
+                .userId(TEST_USER_ID)
                 .totalAmount(new BigDecimal("120000"))
                 .build();
 
@@ -59,7 +55,7 @@ class InMemoryOrderRepositoryTest {
 
         // Then
         assertThat(savedOrder).isNotNull();
-        assertThat(savedOrder.getUserId()).isEqualTo(user.getId());
+        assertThat(savedOrder.getUserId()).isEqualTo(TEST_USER_ID);
         assertThat(savedOrder.getTotalAmount()).isEqualTo(new BigDecimal("120000"));
     }
 
@@ -67,13 +63,11 @@ class InMemoryOrderRepositoryTest {
     @MethodSource("provideOrderData")
     @DisplayName("다양한 금액의 주문을 저장할 수 있다")
     void canSaveOrdersWithVariousAmounts(String userName, String totalAmount) {
-        // Given
-        User user = TestBuilder.UserBuilder.defaultUser()
-                .name(userName)
-                .build();
+        // Given - Order 저장소 테스트이므로 간단히 userId 직접 지정
+        Long testUserId = 1L;
         
         Order order = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(user.getId())
+                .userId(testUserId)
                 .totalAmount(new BigDecimal(totalAmount))
                 .build();
 
@@ -82,7 +76,7 @@ class InMemoryOrderRepositoryTest {
 
         // Then
         assertThat(savedOrder).isNotNull();
-        assertThat(savedOrder.getUserId()).isEqualTo(user.getId());
+        assertThat(savedOrder.getUserId()).isEqualTo(testUserId);
         assertThat(savedOrder.getTotalAmount()).isEqualTo(new BigDecimal(totalAmount));
     }
 
@@ -95,7 +89,7 @@ class InMemoryOrderRepositoryTest {
                 .build();
         
         Order order = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(user.getId())
+                .userId(TEST_USER_ID)
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
@@ -116,7 +110,7 @@ class InMemoryOrderRepositoryTest {
                 .build();
         
         Order order = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(user.getId())
+                .userId(TEST_USER_ID)
                 .totalAmount(new BigDecimal("999999999"))
                 .build();
 
@@ -139,7 +133,7 @@ class InMemoryOrderRepositoryTest {
                 .build();
         
         Order order = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(user.getId())
+                .userId(TEST_USER_ID)
                 .totalAmount(new BigDecimal("50000"))
                 .build();
         Order savedOrder = orderRepository.save(order);
@@ -149,7 +143,7 @@ class InMemoryOrderRepositoryTest {
 
         // Then
         assertThat(foundOrder).isPresent();
-        assertThat(foundOrder.get().getUserId()).isEqualTo(user.getId());
+        assertThat(foundOrder.get().getUserId()).isEqualTo(TEST_USER_ID);
         assertThat(foundOrder.get().getTotalAmount()).isEqualTo(new BigDecimal("50000"));
     }
 
@@ -195,7 +189,7 @@ class InMemoryOrderRepositoryTest {
                         .build();
                 
                 Order order = TestBuilder.OrderBuilder.defaultOrder()
-                        .userId(user.getId())
+                        .userId(TEST_USER_ID)
                         .totalAmount(new BigDecimal("10000"))
                         .build();
                 
@@ -221,7 +215,7 @@ class InMemoryOrderRepositoryTest {
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
             ConcurrencyTestHelper.executeInParallel(10, () -> {
                 Order order = TestBuilder.OrderBuilder.defaultOrder()
-                        .userId(user.getId())
+                        .userId(TEST_USER_ID)
                         .totalAmount(new BigDecimal("5000"))
                         .build();
                 
@@ -234,7 +228,7 @@ class InMemoryOrderRepositoryTest {
         assertThat(result.getSuccessCount()).isEqualTo(10);
         
         // 사용자의 주문이 저장되었는지 확인 (동시성으로 인한 일부 중복 가능성 고려)
-        List<Order> userOrders = orderRepository.findByUserId(user.getId());
+        List<Order> userOrders = orderRepository.findByUserId(TEST_USER_ID);
         assertThat(userOrders.size()).isGreaterThanOrEqualTo(1).isLessThanOrEqualTo(10);
     }
 
@@ -247,7 +241,7 @@ class InMemoryOrderRepositoryTest {
                 .build();
         
         Order initialOrder = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(user.getId())
+                .userId(TEST_USER_ID)
                 .totalAmount(new BigDecimal("100000"))
                 .build();
         Order savedOrder = orderRepository.save(initialOrder);
@@ -258,7 +252,7 @@ class InMemoryOrderRepositoryTest {
                 if (Math.random() < 0.5) {
                     // 새로운 주문 생성
                     Order newOrder = TestBuilder.OrderBuilder.defaultOrder()
-                            .userId(user.getId())
+                            .userId(TEST_USER_ID)
                             .totalAmount(new BigDecimal("50000"))
                             .build();
                     Order saved = orderRepository.save(newOrder);
@@ -275,7 +269,7 @@ class InMemoryOrderRepositoryTest {
         assertThat(result.getSuccessCount()).isGreaterThan(10);
         
         // 최종 상태 확인 - 사용자의 주문들이 올바르게 저장됨
-        List<Order> userOrders = orderRepository.findByUserId(user.getId());
+        List<Order> userOrders = orderRepository.findByUserId(TEST_USER_ID);
         assertThat(userOrders.size()).isGreaterThanOrEqualTo(1);
     }
 
