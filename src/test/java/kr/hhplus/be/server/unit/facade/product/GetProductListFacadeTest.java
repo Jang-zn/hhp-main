@@ -4,9 +4,9 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.facade.product.GetProductListFacade;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -19,7 +19,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("GetProductListFacade 단위 테스트")
+/**
+ * GetProductListFacade 비즈니스 시나리오 테스트
+ * 
+ * Why: 상품 목록 조회 파사드가 고객의 상품 브라우징 요구사항을 올바르게 처리하는지 검증
+ * How: 실제 고객의 상품 브라우징 시나리오를 반영한 파사드 레이어 테스트로 구성
+ */
+@DisplayName("상품 목록 조회 파사드 비즈니스 시나리오")
 class GetProductListFacadeTest {
 
     @Mock
