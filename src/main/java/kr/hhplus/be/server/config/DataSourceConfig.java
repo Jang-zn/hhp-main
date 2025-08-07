@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 
 import javax.sql.DataSource;
@@ -15,7 +16,9 @@ import javax.sql.DataSource;
  * LazyConnectionDataSourceProxy를 사용하여 DB 연결을 쿼리 실행 시점까지 지연시킵니다.
  * 이를 통해 트랜잭션 범위를 최소화하고 연결 풀 효율성을 높입니다.
  */
+
 @Configuration
+@Profile({"!integration-test", "!test", "!test_inmemory"}) // integration-test, test, test_inmemory 프로파일에서는 비활성화
 public class DataSourceConfig {
 
     /**

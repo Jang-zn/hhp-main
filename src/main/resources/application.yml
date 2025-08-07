@@ -21,6 +21,9 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate:
         format_sql: true
+  # Retry 설정 (동시성 제어용)
+  retry:
+    enabled: true
 
 # SpringDoc/Swagger 설정
 springdoc:
@@ -36,10 +39,6 @@ springdoc:
     operations-sorter: alpha
   show-actuator: false
 
-# Retry 설정 (동시성 제어용)
-  retry:
-    # 전역 재시도 활성화
-    enabled: true
 
 ---
 # JPA + MySQL 환경 (일반적인 모든 환경)
@@ -70,6 +69,9 @@ spring:
 spring.config.activate.on-profile: integration-test
 
 spring:
+  datasource:
+    # TestContainers가 자동으로 설정
+    type: com.zaxxer.hikari.HikariDataSource
   logging:
     level:
       org.hibernate.SQL: DEBUG
@@ -83,6 +85,32 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         use_sql_comments: true
+  retry:
+    enabled: false  # 통합 테스트에서는 재시도 비활성화
+
+---
+# H2 테스트 환경 (JPA Repository 테스트용)
+spring.config.activate.on-profile: test
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+  retry:
+    enabled: false  # 테스트에서는 재시도 비활성화
 
 ---
 spring.config.activate.on-profile: test_inmemory
