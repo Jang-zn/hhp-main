@@ -105,4 +105,10 @@ public class InMemoryCouponRepository implements CouponRepositoryPort {
                 .filter(coupon -> coupon.getStatus() == status)
                 .count();
     }
+
+    @Override
+    public Optional<Coupon> findByIdWithLock(Long id) {
+        // InMemory 환경에서는 별도의 락 구현 없이 일반 조회와 동일하게 처리
+        return findById(id);
+    }
 } 

@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
-import kr.hhplus.be.server.domain.entity.User;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,10 +24,7 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
         if (order == null) {
             throw new OrderException.OrderCannotBeNull();
         }
-        if (order.getUser() == null) {
-            throw new OrderException.OrderCannotBeNull();
-        }
-        if (order.getUser().getId() == null) {
+        if (order.getUserId() == null) {
             throw new OrderException.OrderCannotBeNull();
         }
         
@@ -54,37 +50,31 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
     }
 
     @Override
-    public List<Order> findByUser(kr.hhplus.be.server.domain.entity.User user) {
-        if (user == null) {
-            throw new OrderException.OrderCannotBeNull();
-        }
-        if (user.getId() == null) {
+    public List<Order> findByUserId(Long userId) {
+        if (userId == null) {
             throw new OrderException.OrderCannotBeNull();
         }
         
         return orders.values().stream()
                 .filter(order -> 
-                    order.getUser() != null && 
-                    order.getUser().getId().equals(user.getId()))
+                    order.getUserId() != null && 
+                    order.getUserId().equals(userId))
                 .toList();
     }
 
     @Override
-    public Optional<Order> findByIdAndUser(Long orderId, User user) {
+    public Optional<Order> findByIdAndUserId(Long orderId, Long userId) {
         if (orderId == null) {
             throw new OrderException.OrderIdCannotBeNull();
         }
-        if (user == null) {
-            throw new OrderException.OrderCannotBeNull();
-        }
-        if (user.getId() == null) {
+        if (userId == null) {
             throw new OrderException.OrderCannotBeNull();
         }
         
         return Optional.ofNullable(orders.get(orderId))
                 .filter(order -> 
-                    order.getUser() != null && 
-                    order.getUser().getId().equals(user.getId()));
+                    order.getUserId() != null && 
+                    order.getUserId().equals(userId));
     }
 
     @Override

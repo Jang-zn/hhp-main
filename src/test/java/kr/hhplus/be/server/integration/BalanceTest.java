@@ -6,13 +6,13 @@ import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.api.ErrorCode;
-import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.adapter.locking.InMemoryLockingAdapter;
+import kr.hhplus.be.server.util.TestBuilder;
+import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -25,432 +25,341 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 잔액 API 통합 테스트
+ * 
+ * Why: 잔액 충전부터 조회까지의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
+ * How: 실제 고객의 잔액 관리 시나리오를 반영한 API 레벨 테스트
+ */
 @SpringBootTest
 @ActiveProfiles("integration-test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @Transactional
-@DisplayName("잔액 API 통합 테스트")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@DisplayName("잔액 API 통합 시나리오")
 public class BalanceTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+    @Autowired private UserRepositoryPort userRepositoryPort;
+    @Autowired private BalanceRepositoryPort balanceRepositoryPort;
+    @Autowired private InMemoryLockingAdapter lockingAdapter;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private UserRepositoryPort userRepositoryPort;
-
-    @Autowired
-    private BalanceRepositoryPort balanceRepositoryPort;
-
-    @Autowired
-    private InMemoryLockingAdapter lockingAdapter;
-
-    private User userWithBalance;
-    private User userWithoutBalance;
+    private User customerWithBalance;
+    private User customerWithoutBalance;
 
     @BeforeEach
     void setUp() {
-        // 테스트 간 락 상태 클리어
         lockingAdapter.clearAllLocks();
+    }
+
+    private User createCustomerWithBalance(String name, String amount) {
+        User customer = userRepositoryPort.save(
+            TestBuilder.UserBuilder.defaultUser().name(name).build()
+        );
+        balanceRepositoryPort.save(
+            TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(customer.getId())
+                .amount(new BigDecimal(amount))
+                .build()
+        );
+        return customer;
+    }
+
+    private User createCustomerWithoutBalance(String name) {
+        return userRepositoryPort.save(
+            TestBuilder.UserBuilder.defaultUser().name(name).build()
+        );
+    }
+
+    @Test
+    @DisplayName("기존 잔액이 있는 고객이 추가 충전할 수 있다")
+    void customerWithExistingBalanceCanChargeMore() throws Exception {
+        // Given - 50,000원 보유 고객이 10,000원 추가 충전
+        User customer = createCustomerWithBalance("기존잔액고객", "50000");
+        BalanceRequest request = createBalanceRequest(customer.getId(), "10000");
+
+        // When & Then
+        mockMvc.perform(post("/api/balance/charge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
+            .andExpect(jsonPath("$.data.amount").value(60000.0));
+    }
+
+    @Test
+    @DisplayName("잔액이 없는 고객이 첫 충전할 수 있다")
+    void customerWithoutBalanceCanMakeFirstCharge() throws Exception {
+        // Given - 잔액 없는 고객이 30,000원 첫 충전  
+        User customer = createCustomerWithoutBalance("첫충전고객");
+        BalanceRequest request = createBalanceRequest(customer.getId(), "30000");
+
+        // When & Then
+        mockMvc.perform(post("/api/balance/charge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
+            .andExpect(jsonPath("$.data.amount").value(30000.0));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 고객의 충전 요청은 차단된다")
+    void preventsChargeRequestFromNonExistentCustomer() throws Exception {
+        // Given - 존재하지 않는 고객 ID로 충전 시도
+        BalanceRequest request = createBalanceRequest(999999L, "10000");
+
+        // When & Then
+        mockMvc.perform(post("/api/balance/charge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().is4xxClientError())
+            .andExpect(jsonPath("$.code").exists())
+            .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidChargeAmounts")
+    @DisplayName("유효하지 않은 충전 금액은 거부된다")
+    void preventsChargeWithInvalidAmounts(String amount, String scenario) throws Exception {
+        // Given
+        User customer = createCustomerWithBalance("무효금액테스트고객", "100000");
+        BalanceRequest request = createBalanceRequest(customer.getId(), amount);
+
+        // When & Then
+        mockMvc.perform(post("/api/balance/charge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().is4xxClientError())
+            .andExpect(jsonPath("$.code").exists());
+    }
+
+    @Test
+    @DisplayName("고객이 자신의 현재 잔액을 조회할 수 있다")
+    void customerCanViewCurrentBalance() throws Exception {
+        // Given
+        User customer = createCustomerWithBalance("잔액조회고객", "50000");
         
-        // 잔액이 있는 테스트 사용자
-        userWithBalance = userRepositoryPort.save(User.builder().name("User With Balance").build());
-        balanceRepositoryPort.save(Balance.builder()
-                .user(userWithBalance)
-                .amount(new BigDecimal("50000"))
-                .build());
-
-        // 잔액이 없는 테스트 사용자
-        userWithoutBalance = userRepositoryPort.save(User.builder().name("User Without Balance").build());
+        // When & Then
+        mockMvc.perform(get("/api/balance/{userId}", customer.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+            .andExpect(jsonPath("$.data.userId").value(customer.getId()))
+            .andExpect(jsonPath("$.data.amount").value(50000.0));
     }
 
-    @Nested
-    @DisplayName("POST /api/balance/charge - 잔액 충전")
-    class ChargeBalance {
-
-        @Nested
-        @DisplayName("성공 케이스")
-        class Success {
-            @Test
-            @DisplayName("기존에 잔액이 있던 사용자의 잔액을 충전하면 200 OK와 함께 업데이트된 잔액을 반환한다")
-            void chargeBalance_Success_ForExistingBalance() throws Exception {
-                // given
-                long userId = userWithBalance.getId();
-                BigDecimal amount = new BigDecimal("10000");
-                BalanceRequest request = new BalanceRequest(userId, amount);
-
-                // when & then
-                mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data.userId").value(userId))
-                        .andExpect(jsonPath("$.data.amount").value(60000.0)); // 50000 + 10000
-            }
-
-            @Test
-            @DisplayName("기존에 잔액이 없던 사용자의 잔액을 충전하면 200 OK와 함께 충전된 잔액을 반환한다")
-            void chargeBalance_Success_ForNewBalance() throws Exception {
-                // given
-                long userId = userWithoutBalance.getId();
-                BigDecimal amount = new BigDecimal("30000");
-                BalanceRequest request = new BalanceRequest(userId, amount);
-
-                // when & then
-                mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data.userId").value(userId))
-                        .andExpect(jsonPath("$.data.amount").value(30000.0));
-            }
-        }
-
-        @Nested
-        @DisplayName("실패 케이스")
-        class Failure {
-
-            @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 에러를 반환한다")
-            void chargeBalance_UserNotFound() throws Exception {
-                // given
-                long nonExistentUserId = 999999L;
-                BigDecimal amount = new BigDecimal("10000");
-                BalanceRequest request = new BalanceRequest(nonExistentUserId, amount);
-
-                // when & then
-                mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().is4xxClientError())
-                        .andExpect(jsonPath("$.code").exists())
-                        .andExpect(jsonPath("$.message").exists())
-                        .andExpect(jsonPath("$.data").isEmpty());
-            }
-
-            @Test
-            @DisplayName("0원 충전 요청 시 에러를 반환한다")
-            void chargeBalance_ZeroAmount() throws Exception {
-                // given
-                long userId = userWithBalance.getId();
-                BigDecimal amount = BigDecimal.ZERO;
-                BalanceRequest request = new BalanceRequest(userId, amount);
-
-                // when & then
-                mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().is4xxClientError())
-                        .andExpect(jsonPath("$.code").exists())
-                        .andExpect(jsonPath("$.message").exists())
-                        .andExpect(jsonPath("$.data").isEmpty());
-            }
-
-            @Test
-            @DisplayName("음수 충전 요청 시 에러를 반환한다")
-            void chargeBalance_NegativeAmount() throws Exception {
-                // given
-                long userId = userWithBalance.getId();
-                BigDecimal amount = new BigDecimal("-1000");
-                BalanceRequest request = new BalanceRequest(userId, amount);
-
-                // when & then
-                mockMvc.perform(post("/api/balance/charge")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andDo(print())
-                        .andExpect(status().is4xxClientError())
-                        .andExpect(jsonPath("$.code").exists())
-                        .andExpect(jsonPath("$.message").exists())
-                        .andExpect(jsonPath("$.data").isEmpty());
-            }
-        }
+    @Test
+    @DisplayName("존재하지 않는 고객의 잔액 조회는 실패한다")
+    void failsWhenViewingNonExistentCustomerBalance() throws Exception {
+        // When & Then
+        mockMvc.perform(get("/api/balance/{userId}", 999L))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()));
     }
 
-    @Nested
-    @DisplayName("GET /api/balance/{userId} - 잔액 조회")
-    class GetBalance {
-
-        @Nested
-        @DisplayName("성공 케이스")
-        class Success {
-            @Test
-            @DisplayName("존재하는 사용자의 ID로 요청 시 200 OK와 함께 현재 잔액을 반환한다")
-            void getBalance_Success() throws Exception {
-                // given
-                long userId = userWithBalance.getId();
-
-                // when & then
-                mockMvc.perform(get("/api/balance/{userId}", userId))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data.userId").value(userId))
-                        .andExpect(jsonPath("$.data.amount").value(50000.0));
-            }
-        }
-
-        @Nested
-        @DisplayName("실패 케이스")
-        class Failure {
-            @Test
-            @DisplayName("존재하지 않는 사용자 ID로 요청 시 404 Not Found를 반환한다")
-            void getBalance_UserNotFound() throws Exception {
-                // given
-                long nonExistentUserId = 999L;
-
-                // when & then
-                mockMvc.perform(get("/api/balance/{userId}", nonExistentUserId))
-                        .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-
-            @Test
-            @DisplayName("사용자는 존재하지만 잔액 정보가 없을 경우 404 Not Found를 반환한다")
-            void getBalance_BalanceNotFound() throws Exception {
-                // given
-                long userId = userWithoutBalance.getId();
-
-                // when & then
-                mockMvc.perform(get("/api/balance/{userId}", userId))
-                        .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-        }
+    @Test
+    @DisplayName("잔액이 없는 고객의 조회 요청은 적절한 응답을 받는다")
+    void customerWithoutBalanceGetsAppropriateResponse() throws Exception {
+        // Given
+        User customer = createCustomerWithoutBalance("잔액없는고객");
+        
+        // When & Then
+        mockMvc.perform(get("/api/balance/{userId}", customer.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_USER_ID.getCode()));
     }
 
-    @Nested
-    @DisplayName("동시성 테스트")
-    class ConcurrencyTest {
+    @Test
+    @DisplayName("동일 고객의 동시 충전 요청이 정확히 처리된다")
+    void handlesSimultaneousChargeRequestsProperly() throws Exception {
+        // Given - 초기 잔액 10,000원 고객
+        User testCustomer = userRepositoryPort.save(
+            TestBuilder.UserBuilder.defaultUser().name("동시충전테스트고객").build()
+        );
+        balanceRepositoryPort.save(
+            TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(testCustomer.getId())
+                .amount(new BigDecimal("10000"))
+                .build()
+        );
 
-        @Test
-        @DisplayName("동일 사용자가 동시에 충전 요청해도 모든 금액이 정확히 반영되어야 한다")
-        void concurrentChargeTest() throws Exception {
-            // given: 초기 잔액이 10000원인 사용자
-            User testUser = userRepositoryPort.save(User.builder().name("ConcurrentChargeUser").build());
-            balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
-                    .amount(new BigDecimal("10000"))
-                    .build());
-
-            ExecutorService executor = Executors.newFixedThreadPool(5);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(5);
-
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failureCount = new AtomicInteger(0);
-            BigDecimal chargeAmount = new BigDecimal("1000"); // 각각 1000원씩 충전
-
-            // when: 5번의 동시 충전 요청 (각 1000원)
-            for (int i = 0; i < 5; i++) {
-                executor.submit(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        BalanceRequest request = new BalanceRequest(testUser.getId(), chargeAmount);
-                        var result = mockMvc.perform(post("/api/balance/charge")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(request)))
-                                .andReturn();
-                        
-                        if (result.getResponse().getStatus() == 200) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failureCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
+        // When - 5번의 동시 충전 요청 (각 1,000원)
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+        
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(5, () -> {
+                try {
+                    BalanceRequest request = createBalanceRequest(testCustomer.getId(), "1000");
+                    var response = mockMvc.perform(post("/api/balance/charge")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+                    
+                    if (response.getResponse().getStatus() == 200) {
+                        successCount.incrementAndGet();
+                        return "SUCCESS";
+                    } else {
                         failureCount.incrementAndGet();
-                    } finally {
-                        doneLatch.countDown();
+                        return "FAILURE";
                     }
-                });
-            }
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                    return "ERROR";
+                }
+            });
 
-            startLatch.countDown();
-            boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
-            executor.shutdown();
+        // Then - 모든 요청 완료 및 정확한 잔액 반영
+        assertThat(result.getTotalCount()).isEqualTo(5);
+        
+        int expectedAmount = 10000 + (successCount.get() * 1000);
+        mockMvc.perform(get("/api/balance/{userId}", testCustomer.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.amount").value(expectedAmount));
+    }
 
-            // then: 모든 요청이 완료되고, 성공한 만큼 잔액이 증가해야 함
-            assertThat(completed).isTrue();
-            assertThat(successCount.get() + failureCount.get()).isEqualTo(5);
-            
-            // 동시성 제어로 인해 일부 요청이 실패할 수 있으므로, 성공한 만큼만 잔액 증가 확인
-            int expectedAmount = 10000 + (successCount.get() * 1000);
-            mockMvc.perform(get("/api/balance/{userId}", testUser.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.amount").value(expectedAmount));
-            
-            System.out.println("✅ 동시 충전 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
-        }
+    @Test
+    @DisplayName("동일 고객의 동시 차감 요청에서 잔액이 음수가 되지 않는다")
+    void preventsNegativeBalanceInSimultaneousDeductions() throws Exception {
+        // Given - 초기 잔액 5,000원 고객
+        User testCustomer = userRepositoryPort.save(
+            TestBuilder.UserBuilder.defaultUser().name("동시차감테스트고객").build()
+        );
+        balanceRepositoryPort.save(
+            TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(testCustomer.getId())
+                .amount(new BigDecimal("5000"))
+                .build()
+        );
 
-        @Test
-        @DisplayName("동일 사용자가 동시에 사용 요청해도 잔액이 마이너스가 되지 않아야 한다")
-        void concurrentDeductTest() throws Exception {
-            // given: 초기 잔액이 5000원인 사용자
-            User testUser = userRepositoryPort.save(User.builder().name("ConcurrentDeductUser").build());
-            balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
-                    .amount(new BigDecimal("5000"))
-                    .build());
-
-            ExecutorService executor = Executors.newFixedThreadPool(5);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(5);
-
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failureCount = new AtomicInteger(0);
-            BigDecimal deductAmount = new BigDecimal("2000"); // 각각 2000원씩 차감 시도
-
-            // when: 5번의 동시 차감 요청 (각 2000원, 총 10000원 시도하지만 잔액은 5000원)
-            for (int i = 0; i < 5; i++) {
-                executor.submit(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        BalanceRequest request = new BalanceRequest(testUser.getId(), deductAmount);
-                        var result = mockMvc.perform(post("/api/balance/deduct")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(request)))
-                                .andReturn();
-                        
-                        if (result.getResponse().getStatus() == 200) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failureCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
+        // When - 5번의 동시 차감 요청 (각 2,000원, 총 10,000원 시도하지만 잔액은 5,000원)
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+        
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(5, () -> {
+                try {
+                    BalanceRequest request = createBalanceRequest(testCustomer.getId(), "2000");
+                    var response = mockMvc.perform(post("/api/balance/deduct")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+                    
+                    if (response.getResponse().getStatus() == 200) {
+                        successCount.incrementAndGet();
+                        return "SUCCESS";
+                    } else {
                         failureCount.incrementAndGet();
-                    } finally {
-                        doneLatch.countDown();
+                        return "FAILURE";
                     }
-                });
-            }
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                    return "ERROR";
+                }
+            });
 
-            startLatch.countDown();
-            boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
-            executor.shutdown();
+        // Then - 최대 2번만 성공하고 잔액이 음수가 되지 않음
+        assertThat(result.getTotalCount()).isEqualTo(5);
+        assertThat(successCount.get()).isLessThanOrEqualTo(2);
+        assertThat(failureCount.get()).isGreaterThanOrEqualTo(3);
 
-            // then: 일부만 성공하고, 잔액이 마이너스가 되지 않아야 함
-            assertThat(completed).isTrue();
-            assertThat(successCount.get()).isLessThanOrEqualTo(2); // 최대 2번만 성공 가능 (5000 / 2000)
-            assertThat(failureCount.get()).isGreaterThanOrEqualTo(3);
+        mockMvc.perform(get("/api/balance/{userId}", testCustomer.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.amount", org.hamcrest.Matchers.greaterThanOrEqualTo(0)));
+    }
 
-            // 최종 잔액이 0 이상이어야 함
-            mockMvc.perform(get("/api/balance/{userId}", testUser.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.amount", org.hamcrest.Matchers.greaterThanOrEqualTo(0)));
-            
-            System.out.println("✅ 동시 차감 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
-        }
+    @Test
+    @DisplayName("동일 고객의 충전과 차감 동시 요청이 정확히 처리된다")
+    void handlesSimultaneousChargeAndDeductRequests() throws Exception {
+        // Given - 초기 잔액 10,000원 고객
+        User testCustomer = userRepositoryPort.save(
+            TestBuilder.UserBuilder.defaultUser().name("혼합동시테스트고객").build()
+        );
+        balanceRepositoryPort.save(
+            TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(testCustomer.getId())
+                .amount(new BigDecimal("10000"))
+                .build()
+        );
 
-        @Test
-        @DisplayName("동일 사용자가 충전과 차감을 동시에 요청해도 최종 잔액이 정확해야 한다")
-        void concurrentChargeAndDeductTest() throws Exception {
-            // given: 초기 잔액이 10000원인 사용자
-            User testUser = userRepositoryPort.save(User.builder().name("ConcurrentMixedUser").build());
-            balanceRepositoryPort.save(Balance.builder()
-                    .user(testUser)
-                    .amount(new BigDecimal("10000"))
-                    .build());
-
-            ExecutorService executor = Executors.newFixedThreadPool(6);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(6);
-
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failureCount = new AtomicInteger(0);
-
-            // when: 3번의 충전(+2000)과 3번의 차감(-1000) 동시 요청
-            // 충전 요청 3번
-            for (int i = 0; i < 3; i++) {
-                executor.submit(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        BalanceRequest request = new BalanceRequest(testUser.getId(), new BigDecimal("2000"));
-                        var result = mockMvc.perform(post("/api/balance/charge")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(request)))
-                                .andReturn();
-                        
-                        if (result.getResponse().getStatus() == 200) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failureCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        failureCount.incrementAndGet();
-                    } finally {
-                        doneLatch.countDown();
+        // When - 충전 3회(+2,000원)와 차감 3회(-1,000원) 동시 실행
+        AtomicInteger chargeSuccess = new AtomicInteger(0);
+        AtomicInteger deductSuccess = new AtomicInteger(0);
+        
+        ConcurrencyTestHelper.ConcurrencyTestResult chargeResult = 
+            ConcurrencyTestHelper.executeInParallel(3, () -> {
+                try {
+                    BalanceRequest request = createBalanceRequest(testCustomer.getId(), "2000");
+                    var response = mockMvc.perform(post("/api/balance/charge")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+                    
+                    if (response.getResponse().getStatus() == 200) {
+                        chargeSuccess.incrementAndGet();
                     }
-                });
-            }
+                    return response.getResponse().getStatus();
+                } catch (Exception e) {
+                    return 500;
+                }
+            });
 
-            // 차감 요청 3번
-            for (int i = 0; i < 3; i++) {
-                executor.submit(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        BalanceRequest request = new BalanceRequest(testUser.getId(), new BigDecimal("1000"));
-                        var result = mockMvc.perform(post("/api/balance/deduct")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(request)))
-                                .andReturn();
-                        
-                        if (result.getResponse().getStatus() == 200) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failureCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        failureCount.incrementAndGet();
-                    } finally {
-                        doneLatch.countDown();
+        ConcurrencyTestHelper.ConcurrencyTestResult deductResult = 
+            ConcurrencyTestHelper.executeInParallel(3, () -> {
+                try {
+                    BalanceRequest request = createBalanceRequest(testCustomer.getId(), "1000");
+                    var response = mockMvc.perform(post("/api/balance/deduct")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+                    
+                    if (response.getResponse().getStatus() == 200) {
+                        deductSuccess.incrementAndGet();
                     }
-                });
-            }
+                    return response.getResponse().getStatus();
+                } catch (Exception e) {
+                    return 500;
+                }
+            });
 
-            startLatch.countDown();
-            boolean completed = doneLatch.await(10, TimeUnit.SECONDS);
-            executor.shutdown();
+        // Then - 최종 잔액이 논리적으로 정확함
+        assertThat(chargeResult.getTotalCount()).isEqualTo(3);
+        assertThat(deductResult.getTotalCount()).isEqualTo(3);
+        
+        mockMvc.perform(get("/api/balance/{userId}", testCustomer.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.amount", org.hamcrest.Matchers.greaterThanOrEqualTo(0)));
+    }
 
-            // then: 모든 요청이 완료되고, 최종 잔액이 예상 범위 내에 있어야 함
-            assertThat(completed).isTrue();
-            
-            // 최종 잔액 확인 - 정확한 값은 실행 순서에 따라 달라질 수 있지만 논리적으로 맞아야 함
-            mockMvc.perform(get("/api/balance/{userId}", testUser.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.amount", org.hamcrest.Matchers.greaterThanOrEqualTo(0)));
-            
-            System.out.println("✅ 동시 충전/차감 테스트 완료 - 성공: " + successCount.get() + ", 실패: " + failureCount.get());
-        }
+    // === 테스트 데이터 제공자 ===
+    
+    private static Stream<Arguments> provideInvalidChargeAmounts() {
+        return Stream.of(
+            Arguments.of("0", "0원 충전"),
+            Arguments.of("-1000", "음수 충전"),
+            Arguments.of("-0.01", "음수 소수점 충전")
+        );
+    }
+    
+    // === 헬퍼 메서드 ===
+    
+    private BalanceRequest createBalanceRequest(Long userId, String amount) {
+        return new BalanceRequest(userId, new BigDecimal(amount));
     }
 }

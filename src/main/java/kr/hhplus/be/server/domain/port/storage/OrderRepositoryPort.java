@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface OrderRepositoryPort {
     Order save(Order order);
-    List<Order> findByUser(kr.hhplus.be.server.domain.entity.User user);
-    Optional<Order> findByIdAndUser(Long orderId, kr.hhplus.be.server.domain.entity.User user);
+    List<Order> findByUserId(Long userId);
+    Optional<Order> findByIdAndUserId(Long orderId, Long userId);
     Optional<Order> findById(Long orderId);
 } 

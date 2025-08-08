@@ -30,9 +30,9 @@ public class ValidateOrderUseCase {
                 });
 
         // 주문 소유권 검증
-        if (!order.getUser().getId().equals(userId)) {
+        if (!order.getUserId().equals(userId)) {
             log.warn("주문 소유권 불일치: orderId={}, userId={}, orderUserId={}", 
-                    orderId, userId, order.getUser().getId());
+                    orderId, userId, order.getUserId());
             throw new OrderException.Unauthorized();
         }
 

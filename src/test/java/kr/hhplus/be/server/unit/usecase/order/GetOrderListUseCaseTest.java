@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.unit.usecase;
+package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
@@ -8,9 +8,10 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
+import kr.hhplus.be.server.util.TestBuilder;
+import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,10 +21,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Collections;
 import java.util.ArrayList;
 import java.util.function.Supplier;
@@ -33,18 +31,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("GetOrderListUseCase 단위 테스트")
+/**
+ * GetOrderListUseCase 비즈니스 시나리오 테스트
+ * 
+ * Why: 주문 목록 조회의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
+ * How: 실제 고객의 주문 이력 조회 시나리오를 반영한 테스트로 구성
+ */
+@DisplayName("주문 목록 조회 비즈니스 시나리오")
 class GetOrderListUseCaseTest {
 
-    @Mock
-    private UserRepositoryPort userRepositoryPort;
+    @Mock private UserRepositoryPort userRepositoryPort;
+    @Mock private OrderRepositoryPort orderRepositoryPort;
+    @Mock private CachePort cachePort;
     
-    @Mock
-    private OrderRepositoryPort orderRepositoryPort;
-    
-    @Mock
-    private CachePort cachePort;
-
     private GetOrderListUseCase getOrderListUseCase;
 
     @BeforeEach
@@ -53,398 +52,219 @@ class GetOrderListUseCaseTest {
         getOrderListUseCase = new GetOrderListUseCase(userRepositoryPort, orderRepositoryPort, cachePort);
     }
 
-    @Nested
-    @DisplayName("주문 목록 조회 성공 테스트")
-    class SuccessTests {
+    @Test
+    @DisplayName("고객이 캐시에서 기존 주문 목록을 빠르게 조회할 수 있다")
+    void customerCanQuicklyViewOrderHistoryFromCache() {
+        // Given
+        User customer = TestBuilder.UserBuilder.defaultUser().id(1L).name("홍길동").build();
+        List<Order> cachedOrders = List.of(
+            TestBuilder.OrderBuilder.defaultOrder()
+                .id(1L).userId(customer.getId()).totalAmount(new BigDecimal("120000")).build(),
+            TestBuilder.OrderBuilder.defaultOrder()
+                .id(2L).userId(customer.getId()).totalAmount(new BigDecimal("80000")).build()
+        );
         
-        static Stream<Arguments> provideUserData() {
-            return Stream.of(
-                    Arguments.of(1L, "홍길동", 2),
-                    Arguments.of(2L, "김철수", 1),
-                    Arguments.of(3L, "이영희", 3),
-                    Arguments.of(4L, "박영수", 0)
-            );
+        when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
+        when(cachePort.get(eq("user_orders_" + customer.getId()), eq(List.class), any(Supplier.class)))
+            .thenReturn(cachedOrders);
+
+        // When
+        List<Order> result = getOrderListUseCase.execute(customer.getId());
+
+        // Then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
+        assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
+        
+        verify(orderRepositoryPort, never()).findByUserId(any(Long.class));
+    }
+
+    @Test
+    @DisplayName("캐시 장애 시 데이터베이스에서 주문 목록을 안정적으로 조회할 수 있다")
+    void fallbacksToDatabaseWhenCacheFails() {
+        // Given
+        User customer = TestBuilder.UserBuilder.defaultUser().id(1L).build();
+        List<Order> dbOrders = List.of(
+            TestBuilder.OrderBuilder.defaultOrder()
+                .id(1L).userId(customer.getId()).totalAmount(new BigDecimal("150000")).build()
+        );
+        
+        when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
+        when(cachePort.get(eq("user_orders_" + customer.getId()), eq(List.class), any(Supplier.class)))
+            .thenThrow(new RuntimeException("캐시 오류"));
+        when(orderRepositoryPort.findByUserId(customer.getId())).thenReturn(dbOrders);
+
+        // When
+        List<Order> result = getOrderListUseCase.execute(customer.getId());
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
+        
+        verify(orderRepositoryPort).findByUserId(customer.getId());
+    }
+
+    @Test
+    @DisplayName("주문 이력이 없는 신규 고객은 빈 목록을 조회할 수 있다")
+    void newCustomerReceivesEmptyOrderList() {
+        // Given
+        User newCustomer = TestBuilder.UserBuilder.defaultUser()
+            .id(1L).name("신규고객").build();
+        
+        when(userRepositoryPort.existsById(newCustomer.getId())).thenReturn(true);
+        when(cachePort.get(eq("user_orders_" + newCustomer.getId()), eq(List.class), any(Supplier.class)))
+            .thenReturn(Collections.emptyList());
+
+        // When
+        List<Order> result = getOrderListUseCase.execute(newCustomer.getId());
+
+        // Then
+        assertThat(result).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDiverseCustomerData")
+    @DisplayName("다양한 주문 이력을 보유한 고객들이 각자의 목록을 조회할 수 있다")
+    void diverseCustomersCanViewTheirOrderHistory(String customerName, int orderCount) {
+        // Given
+        User customer = TestBuilder.UserBuilder.defaultUser()
+            .id((long)customerName.hashCode()).name(customerName).build();
+        
+        List<Order> orders = new ArrayList<>();
+        for (int i = 1; i <= orderCount; i++) {
+            orders.add(TestBuilder.OrderBuilder.defaultOrder()
+                .id((long) i).userId(customer.getId())
+                .totalAmount(new BigDecimal("50000").multiply(BigDecimal.valueOf(i)))
+                .build());
         }
         
-        @Test
-        @DisplayName("성공케이스: 캐시에서 주문 목록 조회 성공")
-        void getOrderList_Success_FromCache() {
-            // given
-            Long userId = 1L;
-            
-            User user = User.builder()
-                    .id(userId)
-                    .name("테스트 사용자")
-                    .build();
-            
-            List<Order> cachedOrders = List.of(
-                    Order.builder()
-                            .id(1L)
-                            .user(user)
-                            .totalAmount(new BigDecimal("120000"))
-                            .build(),
-                    Order.builder()
-                            .id(2L)
-                            .user(user)
-                            .totalAmount(new BigDecimal("80000"))
-                            .build()
-            );
-            
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                    .thenReturn(cachedOrders);
+        when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
+        when(cachePort.get(eq("user_orders_" + customer.getId()), eq(List.class), any(Supplier.class)))
+            .thenReturn(orders);
 
-            // when
-            List<Order> result = getOrderListUseCase.execute(userId);
+        // When
+        List<Order> result = getOrderListUseCase.execute(customer.getId());
 
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(2);
-            assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
-            assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
-            
-            verify(userRepositoryPort).findById(userId);
-            verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
-            verify(orderRepositoryPort, never()).findByUser(any(User.class)); // 캐시에서 조회되므로 DB 호출 없음
-        }
-        
-        @Test
-        @DisplayName("성공케이스: 캐시 실패 시 DB에서 주문 목록 조회 성공")
-        void getOrderList_Success_FromDB_WhenCacheFails() {
-            // given
-            Long userId = 1L;
-            
-            User user = User.builder()
-                    .id(userId)
-                    .name("테스트 사용자")
-                    .build();
-            
-            List<Order> dbOrders = List.of(
-                    Order.builder()
-                            .id(1L)
-                            .user(user)
-                            .totalAmount(new BigDecimal("150000"))
-                            .build()
-            );
-            
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                    .thenThrow(new RuntimeException("캐시 오류"));
-            when(orderRepositoryPort.findByUser(user)).thenReturn(dbOrders);
-
-            // when
-            List<Order> result = getOrderListUseCase.execute(userId);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
-            
-            verify(userRepositoryPort).findById(userId);
-            verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
-            verify(orderRepositoryPort).findByUser(user); // 캐시 실패로 인한 DB 조회
-        }
-        
-        @Test
-        @DisplayName("성공케이스: 주문이 없는 사용자 조회")
-        void getOrderList_Success_EmptyOrders() {
-            // given
-            Long userId = 1L;
-            
-            User user = User.builder()
-                    .id(userId)
-                    .name("주문 없는 사용자")
-                    .build();
-            
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                    .thenReturn(Collections.emptyList());
-
-            // when
-            List<Order> result = getOrderListUseCase.execute(userId);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).isEmpty();
-            
-            verify(userRepositoryPort).findById(userId);
-            verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
-        }
-        
-        @ParameterizedTest
-        @MethodSource("provideUserData")
-        @DisplayName("성공케이스: 다양한 사용자의 주문 목록 조회")
-        void getOrderList_WithDifferentUsers(Long userId, String userName, int orderCount) {
-            // given
-            User user = User.builder()
-                    .id(userId)
-                    .name(userName)
-                    .build();
-            
-            List<Order> orders = new ArrayList<>();
-            for (int i = 1; i <= orderCount; i++) {
-                orders.add(Order.builder()
-                        .id((long) i)
-                        .user(user)
-                        .totalAmount(new BigDecimal("50000").multiply(BigDecimal.valueOf(i)))
-                        .build());
-            }
-            
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                    .thenReturn(orders);
-
-            // when
-            List<Order> result = getOrderListUseCase.execute(userId);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(orderCount);
-            if (orderCount > 0) {
-                assertThat(result.get(0).getUser().getName()).isEqualTo(userName);
-            }
-            
-            verify(userRepositoryPort).findById(userId);
-            verify(cachePort).get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class));
+        // Then
+        assertThat(result).hasSize(orderCount);
+        if (orderCount > 0) {
+            assertThat(result.get(0).getUserId()).isEqualTo(customer.getId());
         }
     }
-    
-    @Nested
-    @DisplayName("주문 목록 조회 실패 테스트")
-    class FailureTests {
-        
-        static Stream<Arguments> provideInvalidUserIds() {
-            return Stream.of(
-                    Arguments.of(null, "UserId cannot be null"),
-                    Arguments.of(-1L, "UserId must be positive"),
-                    Arguments.of(0L, "UserId must be positive"),
-                    Arguments.of(-999L, "UserId must be positive")
-            );
-        }
-        
-        @Test
-        @DisplayName("실패케이스: 존재하지 않는 사용자의 주문 목록 조회")
-        void getOrderList_UserNotFound() {
-            // given
-            Long userId = 999L;
-            
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
-            // when & then
-            assertThatThrownBy(() -> getOrderListUseCase.execute(userId))
-                    .isInstanceOf(UserException.NotFound.class)
-                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
-                    
-            verify(userRepositoryPort).findById(userId);
-            verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-            verify(orderRepositoryPort, never()).findByUser(any(User.class));
-        }
-        
-        @Test
-        @DisplayName("실패케이스: null 사용자 ID로 조회")
-        void getOrderList_WithNullUserId() {
-            // when & then
-            assertThatThrownBy(() -> getOrderListUseCase.execute(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("UserId cannot be null");
-                    
-            verify(userRepositoryPort, never()).findById(any());
-            verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-        }
-        
-        @Test
-        @DisplayName("실패케이스: 음수 사용자 ID로 조회")
-        void getOrderList_WithNegativeUserId() {
-            // given
-            Long userId = -1L;
+    @Test
+    @DisplayName("존재하지 않는 고객의 주문 조회 요청은 차단된다")
+    void preventsOrderViewingForNonExistentCustomer() {
+        // Given
+        Long nonExistentCustomerId = 999L;
+        when(userRepositoryPort.existsById(nonExistentCustomerId)).thenReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> getOrderListUseCase.execute(nonExistentCustomerId))
+            .isInstanceOf(UserException.NotFound.class)
+            .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
             
-            // when & then
-            assertThatThrownBy(() -> getOrderListUseCase.execute(userId))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("UserId must be positive");
-                    
-            verify(userRepositoryPort, never()).findById(any());
-            verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-        }
-        
-        @Test
-        @DisplayName("실패케이스: 0 사용자 ID로 조회")
-        void getOrderList_WithZeroUserId() {
-            // given
-            Long userId = 0L;
-            
-            // when & then
-            assertThatThrownBy(() -> getOrderListUseCase.execute(userId))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("UserId must be positive");
-                    
-            verify(userRepositoryPort, never()).findById(any());
-            verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-        }
-        
-        @ParameterizedTest
-        @MethodSource("provideInvalidUserIds")
-        @DisplayName("실패케이스: 다양한 비정상 사용자 ID 테스트")
-        void getOrderList_WithInvalidUserIds(Long invalidUserId, String expectedMessage) {
-            // when & then
-            assertThatThrownBy(() -> getOrderListUseCase.execute(invalidUserId))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(expectedMessage);
-                    
-            verify(userRepositoryPort, never()).findById(any());
-            verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
-        }
+        verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
+        verify(orderRepositoryPort, never()).findByUserId(any(Long.class));
     }
-    
-    @Nested
-    @DisplayName("동시성 테스트")
-    class ConcurrencyTests {
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidCustomerIds")
+    @DisplayName("유효하지 않은 고객 ID로는 주문 조회가 불가능하다")
+    void preventsOrderViewingWithInvalidCustomerId(Long invalidCustomerId, String expectedMessage) {
+        // When & Then
+        assertThatThrownBy(() -> getOrderListUseCase.execute(invalidCustomerId))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage(expectedMessage);
+            
+        verify(userRepositoryPort, never()).existsById(any());
+        verify(cachePort, never()).get(anyString(), any(Class.class), any(Supplier.class));
+    }
+
+    @Test
+    @DisplayName("서로 다른 고객들이 동시에 주문 목록을 조회할 수 있다")
+    void multipleDifferentCustomersCanViewOrdersSimultaneously() {
+        // Given
+        int numberOfCustomers = 10;
         
-        @Test
-        @DisplayName("동시성 테스트: 다수 사용자 동시 주문 목록 조회")
-        void getOrderList_ConcurrentAccessForDifferentUsers() throws InterruptedException {
-            // given
-            int numberOfUsers = 10;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfUsers);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfUsers);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger errorCount = new AtomicInteger(0);
-            
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            
-            // 다수 사용자 동시 조회
-            for (int i = 1; i <= numberOfUsers; i++) {
-                final Long userId = (long) i;
-                
-                User user = User.builder()
-                        .id(userId)
-                        .name("사용자" + userId)
-                        .build();
-                
-                List<Order> orders = List.of(
-                        Order.builder()
-                                .id(userId)
-                                .user(user)
-                                .totalAmount(new BigDecimal("100000"))
-                                .build()
-                );
-                
-                when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-                when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                        .thenReturn(orders);
-                
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await(); // 동시 시작 대기
-                        
-                        List<Order> result = getOrderListUseCase.execute(userId);
-                        
-                        assertThat(result).isNotNull();
-                        assertThat(result).hasSize(1);
-                        assertThat(result.get(0).getUser().getName()).isEqualTo("사용자" + userId);
-                        successCount.incrementAndGet();
-                        
-                    } catch (Exception e) {
-                        errorCount.incrementAndGet();
-                        System.err.println("주문 목록 조회 실패 - 사용자: " + userId + ", 오류: " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                
-                futures.add(future);
-            }
-            
-            // 동시 실행
-            startLatch.countDown();
-            doneLatch.await(10, TimeUnit.SECONDS);
-            
-            // 검증
-            assertThat(successCount.get()).isEqualTo(numberOfUsers);
-            assertThat(errorCount.get()).isEqualTo(0);
-            
-            // 리소스 정리
-            executor.shutdown();
-            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        }
-        
-        @Test
-        @DisplayName("동시성 테스트: 같은 사용자의 동시 주문 목록 조회")
-        void getOrderList_ConcurrentAccessForSameUser() throws InterruptedException {
-            // given
-            Long userId = 1L;
-            int numberOfRequests = 5;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfRequests);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfRequests);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger errorCount = new AtomicInteger(0);
-            
-            User user = User.builder()
-                    .id(userId)
-                    .name("테스트 사용자")
-                    .build();
-            
+        for (int i = 1; i <= numberOfCustomers; i++) {
+            Long customerId = (long) i;
             List<Order> orders = List.of(
-                    Order.builder()
-                            .id(1L)
-                            .user(user)
-                            .totalAmount(new BigDecimal("100000"))
-                            .build(),
-                    Order.builder()
-                            .id(2L)
-                            .user(user)
-                            .totalAmount(new BigDecimal("200000"))
-                            .build()
+                TestBuilder.OrderBuilder.defaultOrder()
+                    .id(customerId).userId(customerId)
+                    .totalAmount(new BigDecimal("100000"))
+                    .build()
             );
             
-            when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-            when(cachePort.get(eq("user_orders_" + userId), eq(List.class), any(Supplier.class)))
-                    .thenReturn(orders);
-            
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            
-            // 같은 사용자에 대한 동시 조회
-            for (int i = 0; i < numberOfRequests; i++) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        List<Order> result = getOrderListUseCase.execute(userId);
-                        
-                        assertThat(result).isNotNull();
-                        assertThat(result).hasSize(2);
-                        assertThat(result.get(0).getUser().getName()).isEqualTo("테스트 사용자");
-                        successCount.incrementAndGet();
-                        
-                    } catch (Exception e) {
-                        errorCount.incrementAndGet();
-                        System.err.println("주문 목록 조회 실패: " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                
-                futures.add(future);
-            }
-            
-            // 동시 실행
-            startLatch.countDown();
-            doneLatch.await(10, TimeUnit.SECONDS);
-            
-            // 검증: 모든 요청이 성공해야 함 (읽기 전용이므로)
-            assertThat(successCount.get()).isEqualTo(numberOfRequests);
-            assertThat(errorCount.get()).isEqualTo(0);
-            
-            // 리소스 정리
-            executor.shutdown();
-            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
+            when(userRepositoryPort.existsById(customerId)).thenReturn(true);
+            when(cachePort.get(eq("user_orders_" + customerId), eq(List.class), any(Supplier.class)))
+                .thenReturn(orders);
         }
+        
+        // When
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(numberOfCustomers, () -> {
+                Long customerId = (long)(System.nanoTime() % numberOfCustomers + 1);
+                List<Order> orders = getOrderListUseCase.execute(customerId);
+                
+                assertThat(orders).hasSize(1);
+                assertThat(orders.get(0).getUserId()).isEqualTo(customerId);
+                return orders;
+            });
+        
+        // Then
+        assertThat(result.getSuccessCount()).isEqualTo(numberOfCustomers);
+        assertThat(result.getFailureCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("동일 고객이 여러 번 동시에 주문 목록을 조회해도 안정적으로 처리된다")
+    void sameCustomerCanViewOrdersMultipleTimesConcurrently() {
+        // Given
+        User customer = TestBuilder.UserBuilder.defaultUser().id(1L).build();
+        List<Order> orders = List.of(
+            TestBuilder.OrderBuilder.defaultOrder()
+                .id(1L).userId(customer.getId()).totalAmount(new BigDecimal("100000")).build(),
+            TestBuilder.OrderBuilder.defaultOrder()
+                .id(2L).userId(customer.getId()).totalAmount(new BigDecimal("200000")).build()
+        );
+        
+        when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
+        when(cachePort.get(eq("user_orders_" + customer.getId()), eq(List.class), any(Supplier.class)))
+            .thenReturn(orders);
+        
+        // When
+        int numberOfRequests = 5;
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(numberOfRequests, () -> {
+                List<Order> customerOrders = getOrderListUseCase.execute(customer.getId());
+                
+                assertThat(customerOrders).hasSize(2);
+                assertThat(customerOrders.get(0).getUserId()).isEqualTo(customer.getId());
+                return customerOrders;
+            });
+        
+        // Then
+        assertThat(result.getSuccessCount()).isEqualTo(numberOfRequests);
+        assertThat(result.getFailureCount()).isEqualTo(0);
     }
     
-}
+    // === 테스트 데이터 제공자 ===
+    
+    private static Stream<Arguments> provideDiverseCustomerData() {
+        return Stream.of(
+            Arguments.of("홍길동", 2),
+            Arguments.of("김철수", 1),
+            Arguments.of("이영희", 3),
+            Arguments.of("박영수", 0)
+        );
+    }
+    
+    private static Stream<Arguments> provideInvalidCustomerIds() {
+        return Stream.of(
+            Arguments.of(null, "UserId cannot be null"),
+            Arguments.of(-1L, "UserId must be positive"),
+            Arguments.of(0L, "UserId must be positive"),
+            Arguments.of(-999L, "UserId must be positive")
+        );
+    }}

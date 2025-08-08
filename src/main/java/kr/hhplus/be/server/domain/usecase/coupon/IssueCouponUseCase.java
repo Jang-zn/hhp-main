@@ -11,6 +11,7 @@ import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -23,6 +24,18 @@ public class IssueCouponUseCase {
     private final CouponRepositoryPort couponRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
+    /**
+     * 쿠폰 발급을 처리합니다.
+     * 
+     * 동시성 제어:
+     * - 비관적 락으로 쿠폰 조회하여 동시 발급 방지
+     * - 트랜잭션 타임아웃 5초 설정으로 장시간 락 방지
+     * 
+     * @param userId 사용자 ID
+     * @param couponId 쿠폰 ID
+     * @return 생성된 쿠폰 발급 이력
+     */
+    @Transactional(timeout = 5)
     public CouponHistory execute(Long userId, Long couponId) {
         log.info("쿠폰 발급 요청: userId={}, couponId={}", userId, couponId);
         
@@ -36,8 +49,8 @@ public class IssueCouponUseCase {
                     return new UserException.NotFound();
                 });
         
-        // 쿠폰 조회
-        Coupon coupon = couponRepositoryPort.findById(couponId)
+        // 쿠폰 조회 (비관적 락으로 동시 발급 방지)
+        Coupon coupon = couponRepositoryPort.findByIdWithLock(couponId)
                 .orElseThrow(() -> {
                     log.warn("쿠폰 없음: couponId={}", couponId);
                     return new CouponException.NotFound();
@@ -64,19 +77,19 @@ public class IssueCouponUseCase {
         }
         
         // 중복 발급 검증
-        if (couponHistoryRepositoryPort.existsByUserAndCoupon(user, coupon)) {
+        if (couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)) {
             log.warn("중복 발급 시도: userId={}, couponId={}", userId, couponId);
             throw new CouponException.AlreadyIssued();
         }
         
-        // 재고 감소 (내부적으로 상태 업데이트됨)
-        coupon.decreaseStock(1);
+        // 쿠폰 발급 (내부적으로 상태 업데이트됨)
+        coupon.issue();
         Coupon savedCoupon = couponRepositoryPort.save(coupon);
         
         // 쿠폰 발급 이력 저장
         CouponHistory couponHistory = CouponHistory.builder()
-                .user(user)
-                .coupon(savedCoupon)
+                .userId(userId)
+                .couponId(couponId)
                 .issuedAt(LocalDateTime.now())
                 .status(CouponHistoryStatus.ISSUED)
                 .build();

@@ -24,6 +24,7 @@ public class PayOrderUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final BalanceRepositoryPort balanceRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final PaymentRepositoryPort paymentRepositoryPort;
     private final CouponRepositoryPort couponRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
@@ -70,9 +71,9 @@ public class PayOrderUseCase {
                     });
 
             // 주문 소유권 검증
-            if (!order.getUser().getId().equals(userId)) {
+            if (!order.getUserId().equals(userId)) {
                 log.warn("주문 소유권 불일치: orderId={}, userId={}, orderUserId={}", 
-                        orderId, userId, order.getUser().getId());
+                        orderId, userId, order.getUserId());
                 throw new OrderException.Unauthorized();
             }
 
@@ -97,7 +98,7 @@ public class PayOrderUseCase {
             }
 
             // 잔액 확인 및 차감
-            Balance balance = balanceRepositoryPort.findByUser(user)
+            Balance balance = balanceRepositoryPort.findByUserId(userId)
                     .orElseThrow(() -> {
                         log.warn("잔액 정보 없음: userId={}", userId);
                         return new BalanceException.NotFound();
@@ -117,8 +118,8 @@ public class PayOrderUseCase {
 
             // 결제 생성
             Payment payment = Payment.builder()
-                    .order(order)
-                    .user(user)
+                    .orderId(orderId)
+                    .userId(userId)
                     .amount(finalAmount)
                     .status(PaymentStatus.PAID)
                     .build();
@@ -158,77 +159,109 @@ public class PayOrderUseCase {
     
     /**
      * 예약된 재고를 확정합니다 (실제 재고 차감)
-     * 실패 시 이미 확정된 재고들을 복원합니다
+     * 동시성 제어와 데이터 일관성을 보장하며, 실패 시 롤백을 지원합니다.
      */
     private void confirmReservedStock(Order order) {
-        List<OrderItem> processedItems = new ArrayList<>();
+        log.debug("재고 확정 시작: orderId={}", order.getId());
+        
+        // 주문에 포함된 모든 OrderItem 조회
+        List<OrderItem> orderItems = orderItemRepositoryPort.findByOrderId(order.getId());
+        if (orderItems.isEmpty()) {
+            log.warn("주문에 포함된 상품이 없습니다: orderId={}", order.getId());
+            throw new OrderException.EmptyItems();
+        }
+        
+        List<Product> modifiedProducts = new ArrayList<>();
         
         try {
-            order.getItems().forEach(orderItem -> {
-                Product product = orderItem.getProduct();
+            // 각 OrderItem에 대해 재고 확정 처리
+            for (OrderItem orderItem : orderItems) {
+                Long productId = orderItem.getProductId();
                 int quantity = orderItem.getQuantity();
                 
-                // 예약된 재고를 실제 재고로 확정
-                product.confirmReservation(quantity);
-                productRepositoryPort.save(product);
-                processedItems.add(orderItem);
+                // 상품별 락 획득 (동시성 제어)
+                String stockLockKey = "stock-" + productId;
+                if (!lockingPort.acquireLock(stockLockKey)) {
+                    log.warn("상품 재고 락 획득 실패: productId={}", productId);
+                    throw new CommonException.ConcurrencyConflict();
+                }
                 
-                log.debug("재고 확정 완료: productId={}, quantity={}, remainingStock={}", 
-                        product.getId(), quantity, product.getStock());
-            });
+                try {
+                    // 상품 조회
+                    Product product = productRepositoryPort.findById(productId)
+                            .orElseThrow(() -> {
+                                log.error("상품을 찾을 수 없습니다: productId={}", productId);
+                                return new ProductException.NotFound();
+                            });
+                    
+                    // 예약된 재고 확정 (실제 재고 차감 + 예약 재고 감소)
+                    product.confirmReservation(quantity);
+                    
+                    // 상품 저장
+                    Product savedProduct = productRepositoryPort.save(product);
+                    modifiedProducts.add(savedProduct);
+                    
+                    log.debug("재고 확정 완료: productId={}, quantity={}, remainingStock={}, reservedStock={}", 
+                            productId, quantity, savedProduct.getStock(), savedProduct.getReservedStock());
+                            
+                } catch (Exception e) {
+                    log.error("상품 재고 확정 실패: productId={}, quantity={}", productId, quantity, e);
+                    throw e;
+                } finally {
+                    lockingPort.releaseLock(stockLockKey);
+                }
+            }
+            
+            log.info("모든 재고 확정 완료: orderId={}, itemCount={}", order.getId(), orderItems.size());
+            
         } catch (Exception e) {
-            log.error("재고 확정 중 오류 발생: orderId={}, 보상 처리 시작", order.getId(), e);
+            log.error("재고 확정 중 오류 발생, 롤백 시작: orderId={}", order.getId(), e);
             
-            // 보상 처리: 이미 처리된 아이템들의 재고를 복원
-            rollbackConfirmedStock(processedItems);
+            // 롤백: 이미 확정된 재고를 다시 예약 상태로 복원
+            rollbackConfirmedStock(modifiedProducts, orderItems);
             
-            // InvalidReservation 예외 처리 - 실제 재고 부족인 경우에만 OutOfStock으로 변환
-            if (e instanceof ProductException.InvalidReservation) {
-                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e;
-                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
-                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
-                    throw new ProductException.OutOfStock();
-                }
-                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
-                throw invalidReservationException;
-            }
-            
-            // cause가 InvalidReservation인 경우도 처리
-            if (e.getCause() instanceof ProductException.InvalidReservation) {
-                ProductException.InvalidReservation invalidReservationException = (ProductException.InvalidReservation) e.getCause();
-                // 실제 재고 부족 메시지인 경우에만 OutOfStock으로 변환
-                if (invalidReservationException.getMessage().contains("insufficient actual stock")) {
-                    throw new ProductException.OutOfStock();
-                }
-                // 예약 수량 초과인 경우 원래 예외를 다시 던짐
-                throw invalidReservationException;
-            }
-            
-            throw new RuntimeException("재고 확정 실패: " + e.getMessage(), e);
+            // 원본 예외를 다시 던져서 트랜잭션 롤백 유도
+            throw e;
         }
     }
     
     /**
-     * 확정된 재고를 다시 예약 상태로 되돌립니다 (보상 처리)
+     * 확정된 재고를 롤백합니다 (보상 처리)
      */
-    private void rollbackConfirmedStock(List<OrderItem> processedItems) {
-        processedItems.forEach(orderItem -> {
-            try {
-                Product product = orderItem.getProduct();
-                int quantity = orderItem.getQuantity();
+    private void rollbackConfirmedStock(List<Product> modifiedProducts, List<OrderItem> orderItems) {
+        log.warn("재고 확정 롤백 시작: 확정된 상품 수={}", modifiedProducts.size());
+        
+        try {
+            for (Product product : modifiedProducts) {
+                // 해당 상품의 OrderItem 찾기
+                OrderItem correspondingOrderItem = orderItems.stream()
+                        .filter(item -> item.getProductId().equals(product.getId()))
+                        .findFirst()
+                        .orElse(null);
                 
-                // 확정된 재고를 다시 예약 상태로 복원
-                product.restoreReservation(quantity);
-                productRepositoryPort.save(product);
-                
-                log.debug("재고 복원 완료: productId={}, quantity={}", 
-                        product.getId(), quantity);
-            } catch (Exception rollbackException) {
-                log.error("재고 복원 실패: productId={}, quantity={}", 
-                        orderItem.getProduct().getId(), orderItem.getQuantity(), rollbackException);
-                // 복원 실패는 로그만 남기고 계속 진행
+                if (correspondingOrderItem != null) {
+                    String rollbackLockKey = "rollback-stock-" + product.getId();
+                    if (lockingPort.acquireLock(rollbackLockKey)) {
+                        try {
+                            // 확정된 재고를 다시 예약 상태로 복원
+                            product.restoreReservation(correspondingOrderItem.getQuantity());
+                            productRepositoryPort.save(product);
+                            
+                            log.debug("재고 롤백 완료: productId={}, quantity={}", 
+                                    product.getId(), correspondingOrderItem.getQuantity());
+                        } finally {
+                            lockingPort.releaseLock(rollbackLockKey);
+                        }
+                    }
+                }
             }
-        });
+            
+            log.info("재고 확정 롤백 완료");
+            
+        } catch (Exception rollbackException) {
+            log.error("재고 롤백 중 오류 발생 - 수동 처리 필요", rollbackException);
+            // 롤백 실패는 별도 모니터링 및 수동 처리가 필요한 심각한 상황
+        }
     }
     
     private void invalidateRelatedCache(Long userId, Long orderId) {

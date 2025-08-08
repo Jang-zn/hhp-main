@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -44,15 +43,14 @@ public class GetBalanceUseCase {
             
             log.debug("캐시 미스, DB에서 조회: userId={}", userId);
             
-            // 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("사용자 없음: userId={}", userId);
-                        return new UserException.InvalidUser();
-                    });
+            // 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                log.warn("사용자 없음: userId={}", userId);
+                throw new UserException.InvalidUser();
+            }
             
             // 잔액 조회
-            Optional<Balance> balanceOpt = balanceRepositoryPort.findByUser(user);
+            Optional<Balance> balanceOpt = balanceRepositoryPort.findByUserId(userId);
             
             if (balanceOpt.isPresent()) {
                 Balance balance = balanceOpt.get();

@@ -3,8 +3,8 @@ package kr.hhplus.be.server.api.dto.response;
 import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 import java.math.BigDecimal;
-import java.util.Map;
 
 @Schema(description = "상품 응답")
 public record ProductResponse(
@@ -22,12 +22,12 @@ public record ProductResponse(
 ) implements DocumentedDto {
     
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "productId", new SchemaInfo("상품 ID", "1"),
-                "name", new SchemaInfo("상품명", "상품 A"),
-                "price", new SchemaInfo("상품 가격", "10000"),
-                "stock", new SchemaInfo("재고 수량", "100")
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("productId", "상품 ID", "1")
+                .field("name", "상품명", "상품 A")
+                .field("price", "상품 가격", "10000")
+                .field("stock", "재고 수량", "100")
+                .build();
     }
 } 

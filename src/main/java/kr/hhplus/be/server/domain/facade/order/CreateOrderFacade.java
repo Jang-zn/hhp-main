@@ -7,7 +7,8 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
+import java.util.List;
 
 @Component
 public class CreateOrderFacade {
@@ -21,7 +22,7 @@ public class CreateOrderFacade {
     }
 
     @Transactional
-    public Order createOrder(Long userId, Map<Long, Integer> productQuantities) {
+    public Order createOrder(Long userId, List<ProductQuantityDto> productQuantities) {
         String lockKey = "order-creation-" + userId;
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();

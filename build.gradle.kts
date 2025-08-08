@@ -35,6 +35,10 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
+	
+    // Spring Retry (낙관적 락 충돌 재시도)
+	implementation("org.springframework.retry:spring-retry")
+	implementation("org.springframework:spring-aspects")
 
     // Swagger/OpenAPI
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")

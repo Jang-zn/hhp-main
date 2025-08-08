@@ -3,9 +3,9 @@ package kr.hhplus.be.server.api.dto.response;
 import io.swagger.v3.oas.annotations.media.Schema;
 import kr.hhplus.be.server.api.docs.schema.DocumentedDto;
 
+import kr.hhplus.be.server.api.docs.schema.FieldDocumentation;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Schema(description = "결제 응답")
 public record PaymentResponse(
@@ -26,13 +26,13 @@ public record PaymentResponse(
 ) implements DocumentedDto {
     
     @Override
-    public Map<String, SchemaInfo> getFieldDocumentation() {
-        return Map.of(
-                "paymentId", new SchemaInfo("결제 ID", "1"),
-                "orderId", new SchemaInfo("주문 ID", "1"),
-                "status", new SchemaInfo("결제 상태", "COMPLETED"),
-                "finalAmount", new SchemaInfo("최종 결제 금액", "23000"),
-                "paidAt", new SchemaInfo("결제 완료 시간", "2024-01-01T12:05:00")
-        );
+    public FieldDocumentation getFieldDocumentation() {
+        return FieldDocumentation.builder()
+                .field("paymentId", "결제 ID", "1")
+                .field("orderId", "주문 ID", "1")
+                .field("status", "결제 상태", "COMPLETED")
+                .field("finalAmount", "최종 결제 금액", "23000")
+                .field("paidAt", "결제 완료 시간", "2024-01-01T12:05:00")
+                .build();
     }
 } 

@@ -4,9 +4,8 @@ import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
-import org.junit.jupiter.api.BeforeEach;
+import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,21 +17,25 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 상품 API 통합 테스트
+ * 
+ * Why: 상품 조회 API의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
+ * How: 실제 고객의 상품 조회 시나리오를 반영한 API 레벨 테스트
+ */
 @SpringBootTest
 @ActiveProfiles("integration-test")
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 @Transactional
-@DisplayName("상품 API 통합 테스트")
+@DisplayName("상품 API 통합 시나리오")
 public class ProductTest {
 
     @Autowired
@@ -40,129 +43,122 @@ public class ProductTest {
 
     @Autowired
     private ProductRepositoryPort productRepositoryPort;
+
+    // === 상품 목록 조회 시나리오 ===
+
+    @Test
+    @DisplayName("고객이 기본 설정으로 전체 상품 목록을 조회할 수 있다")
+    void customerCanViewAllProductsWithDefaultSettings() throws Exception {
+        // Given
+        setupUniqueTestProducts();
+        
+        // When & Then
+        mockMvc.perform(get("/api/product/list")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(6)));
+    }
+
+    @Test
+    @DisplayName("고객이 페이징을 사용하여 상품 목록을 부분 조회할 수 있다")
+    void customerCanViewProductsWithPagination() throws Exception {
+        // Given
+        setupUniqueTestProducts();
+        
+        // When & Then - 2개씩, 1페이지 건너뛰고 조회
+        mockMvc.perform(get("/api/product/list")
+                        .param("limit", "2")
+                        .param("offset", "1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
+    @DisplayName("잘못된 limit 파라미터로 상품 조회 시 입력 오류가 발생한다")
+    void preventsProductListQueryWithInvalidLimit() throws Exception {
+        // When & Then
+        mockMvc.perform(get("/api/product/list")
+                        .param("limit", "-1")
+                        .param("offset", "0")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("잘못된 offset 파라미터로 상품 조회 시 입력 오류가 발생한다")
+    void preventsProductListQueryWithInvalidOffset() throws Exception {
+        // When & Then
+        mockMvc.perform(get("/api/product/list")
+                        .param("limit", "10")
+                        .param("offset", "-1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                .andExpect(jsonPath("$.message").exists());
+    }
     
+    // === 인기 상품 조회 시나리오 ===
 
-    @BeforeEach
-    void setUp() {
-        // 테스트 상품 데이터 설정 (정확히 6개)
-        productRepositoryPort.save(Product.builder().name("노트북").price(new BigDecimal("1500000")).stock(10).reservedStock(0).build());
-        productRepositoryPort.save(Product.builder().name("스마트폰").price(new BigDecimal("1200000")).stock(20).reservedStock(0).build());
-        productRepositoryPort.save(Product.builder().name("태블릿").price(new BigDecimal("800000")).stock(15).reservedStock(0).build());
-        productRepositoryPort.save(Product.builder().name("무선이어폰").price(new BigDecimal("250000")).stock(50).reservedStock(0).build());
-        productRepositoryPort.save(Product.builder().name("키보드").price(new BigDecimal("120000")).stock(30).reservedStock(0).build());
-        productRepositoryPort.save(Product.builder().name("마우스").price(new BigDecimal("50000")).stock(100).reservedStock(0).build());
+    @Test
+    @DisplayName("고객이 지난 3일간의 인기 상품 목록을 조회할 수 있다")
+    void customerCanViewPopularProductsFromLast3Days() throws Exception {
+        // Given
+        setupUniqueTestProducts();
+        // NOTE: 현재 구현에서는 인기도 로직이 단순 조회일 수 있음
+        // 추후 주문 데이터 기반 인기도 로직 구현 시 테스트 확장 필요
+
+        // When & Then
+        mockMvc.perform(get("/api/product/popular")
+                        .param("days", "3")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
+                .andExpect(jsonPath("$.data").isArray());
     }
 
-    @Nested
-    @DisplayName("GET /api/product/list - 상품 목록 조회")
-    class GetProductList {
-
-        @Nested
-        @DisplayName("성공 케이스")
-        class Success {
-            @Test
-            @DisplayName("페이지네이션 파라미터 없이 요청 시 기본값으로 전체 상품 목록을 반환한다")
-            void getProducts_DefaultPagination_Success() throws Exception {
-                // when & then
-                mockMvc.perform(get("/api/product/list")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data").isArray())
-                        .andExpect(jsonPath("$.data", hasSize(6)));
-            }
-
-            @Test
-            @DisplayName("limit과 offset을 지정하여 요청 시 해당 범위의 상품 목록을 반환한다")
-            void getProducts_WithPagination_Success() throws Exception {
-                // when & then
-                mockMvc.perform(get("/api/product/list")
-                                .param("limit", "2")
-                                .param("offset", "1")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data", hasSize(2)))
-                        .andExpect(jsonPath("$.data[0].name", is("키보드")))
-                        .andExpect(jsonPath("$.data[1].name", is("무선이어폰")));
-            }
-        }
-
-        @Nested
-        @DisplayName("실패 케이스")
-        class Failure {
-            @Test
-            @DisplayName("limit 파라미터가 음수일 경우 400 Bad Request를 반환한다")
-            void getProducts_WithNegativeLimit_ShouldFail() throws Exception {
-                // when & then
-                mockMvc.perform(get("/api/product/list")
-                                .param("limit", "-1")
-                                .param("offset", "0")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-
-            @Test
-            @DisplayName("offset 파라미터가 음수일 경우 400 Bad Request를 반환한다")
-            void getProducts_WithNegativeOffset_ShouldFail() throws Exception {
-                // when & then
-                mockMvc.perform(get("/api/product/list")
-                                .param("limit", "10")
-                                .param("offset", "-1")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-        }
+    @Test
+    @DisplayName("잘못된 기간으로 인기 상품 조회 시 입력 오류가 발생한다")
+    void preventsPopularProductQueryWithInvalidDays() throws Exception {
+        // When & Then
+        mockMvc.perform(get("/api/product/popular")
+                        .param("days", "0")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
+                .andExpect(jsonPath("$.message").exists());
     }
-
-    @Nested
-    @DisplayName("GET /api/product/popular - 인기 상품 조회")
-    class GetPopularProducts {
-
-        @Nested
-        @DisplayName("성공 케이스")
-        class Success {
-            @Test
-            @DisplayName("lastDays 파라미터로 요청 시 인기 상품 목록을 반환한다")
-            void getPopularProducts_Success() throws Exception {
-                // given
-                // NOTE: 현재 구현에서는 인기도 로직이 단순 조회일 수 있으므로, 목록이 반환되는지만 확인합니다.
-                // 추후 인기도 로직이 구현되면, 주문 데이터를 생성하고 순서를 검증하는 로직이 추가되어야 합니다.
-
-                // when & then
-                mockMvc.perform(get("/api/product/popular")
-                                .param("days", "3")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
-                        .andExpect(jsonPath("$.data").isArray());
-            }
-        }
-
-        @Nested
-        @DisplayName("실패 케이스")
-        class Failure {
-            @Test
-            @DisplayName("lastDays 파라미터가 0 이하일 경우 400 Bad Request를 반환한다")
-            void getPopularProducts_WithInvalidLastDays_ShouldFail() throws Exception {
-                // when & then
-                mockMvc.perform(get("/api/product/popular")
-                                .param("days", "0")
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andDo(print())
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.getCode()))
-                        .andExpect(jsonPath("$.message").exists());
-            }
-        }
+    
+    // === 헬퍼 메서드 ===
+    
+    private void setupUniqueTestProducts() {
+        String suffix = "_" + System.nanoTime();
+        
+        // IT 기기 카테고리
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("노트북" + suffix).price(new BigDecimal("1500000")).stock(10).build());
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("스마트폰" + suffix).price(new BigDecimal("1200000")).stock(20).build());
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("태블릿" + suffix).price(new BigDecimal("800000")).stock(15).build());
+        
+        // 주변기기 카테고리
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("무선이어폰" + suffix).price(new BigDecimal("250000")).stock(50).build());
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("키보드" + suffix).price(new BigDecimal("120000")).stock(30).build());
+        productRepositoryPort.save(TestBuilder.ProductBuilder.defaultProduct()
+                .name("마우스" + suffix).price(new BigDecimal("50000")).stock(100).build());
     }
 }

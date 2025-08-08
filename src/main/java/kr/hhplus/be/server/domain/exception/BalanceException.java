@@ -33,6 +33,12 @@ public class BalanceException extends RuntimeException {
             super(ErrorCode.INSUFFICIENT_BALANCE.getCode(), ErrorCode.INSUFFICIENT_BALANCE.getMessage());
         }
     }
+    
+    public static class ConcurrencyConflict extends BalanceException {
+        public ConcurrencyConflict() {
+            super(ErrorCode.CONCURRENCY_ERROR.getCode(), ErrorCode.CONCURRENCY_ERROR.getMessage());
+        }
+    }
 
     public static class InvalidAmountRequired extends BalanceException {
         public InvalidAmountRequired() {

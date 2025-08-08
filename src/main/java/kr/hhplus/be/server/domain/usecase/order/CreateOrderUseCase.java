@@ -3,19 +3,21 @@ package kr.hhplus.be.server.domain.usecase.order;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.service.LockOrderManager;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -29,35 +31,60 @@ public class CreateOrderUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final CachePort cachePort;
+    private final LockOrderManager lockOrderManager;
 
-    public Order execute(Long userId, Map<Long, Integer> productQuantities) {
+    /**
+     * 주문을 생성하고 상품 재고를 예약합니다.
+     * 
+     * 동시성 제어:
+     * - LockOrderManager로 상품 ID 정렬하여 데드락 방지
+     * - 비관적 락으로 상품 조회하여 재고 경합 방지
+     * - 트랜잭션 타임아웃 10초 설정 (여러 상품 처리 고려)
+     * 
+     * @param userId 주문하는 사용자 ID
+     * @param productQuantities 주문할 상품과 수량 정보
+     * @return 생성된 주문 엔티티
+     */
+    @Transactional(timeout = 10)
+    public Order execute(Long userId, List<ProductQuantityDto> productQuantities) {
         log.debug("주문 생성 요청: userId={}, products={}", userId, productQuantities);
         
         try {
             // 파라미터 검증
             validateParameters(userId, productQuantities);
-            // 사용자 조회
-            User user = userRepositoryPort.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("존재하지 않는 사용자: userId={}", userId);
-                        return new UserException.NotFound();
-                    });
+            // 사용자 존재 확인
+            if (!userRepositoryPort.existsById(userId)) {
+                log.warn("존재하지 않는 사용자: userId={}", userId);
+                throw new UserException.NotFound();
+            }
 
+            // 데드락 방지를 위한 상품 ID 정렬
+            List<Long> productIds = productQuantities.stream()
+                    .map(ProductQuantityDto::getProductId)
+                    .collect(Collectors.toList());
+            List<Long> orderedProductIds = lockOrderManager.getOrderedLockIds(productIds);
+            
+            // 정렬된 순서로 비관적 락으로 상품 조회 (데드락 방지)
+            List<Product> products = productRepositoryPort.findByIdsWithLock(orderedProductIds);
+            Map<Long, Product> productMap = products.stream()
+                    .collect(Collectors.toMap(Product::getId, product -> product));
+            
             // 상품별 재고 예약 및 주문 아이템 생성
-            List<OrderItem> orderItems = productQuantities.entrySet().stream()
-                    .map(entry -> {
-                        Long productId = entry.getKey();
-                        Integer quantity = entry.getValue();
+            List<OrderItem> orderItems = productQuantities.stream()
+                    .map(productQuantity -> {
+                        Long productId = productQuantity.getProductId();
+                        Integer quantity = productQuantity.getQuantity();
                         
-                        Product product = productRepositoryPort.findById(productId)
-                                .orElseThrow(() -> {
-                                    log.warn("존재하지 않는 상품: productId={}", productId);
-                                    return new ProductException.NotFound();
-                                });
+                        Product product = productMap.get(productId);
+                        if (product == null) {
+                            log.warn("존재하지 않는 상품: productId={}", productId);
+                            throw new ProductException.NotFound();
+                        }
                         
-                        // 재고 예약 (기존 decreaseStock 대신 reserveStock 사용)
+                        // 재고 예약 (DB @Check 제약조건으로 추가 무결성 보장)
                         product.reserveStock(quantity);
                         productRepositoryPort.save(product);
                         
@@ -65,7 +92,7 @@ public class CreateOrderUseCase {
                                 productId, quantity, product.getStock() - product.getReservedStock());
                         
                         return OrderItem.builder()
-                                .product(product)
+                                .productId(productId)
                                 .quantity(quantity)
                                 .price(product.getPrice())
                                 .build();
@@ -78,14 +105,24 @@ public class CreateOrderUseCase {
 
             // 주문 생성
             Order order = Order.builder()
-                    .user(user)
+                    .userId(userId)
                     .totalAmount(totalAmount)
-                    .items(orderItems)
                     .build();
 
             Order savedOrder = orderRepositoryPort.save(order);
-            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}", 
-                    savedOrder.getId(), userId, totalAmount);
+            
+            // OrderItem들에 orderId 설정 후 배치 저장 (성능 최적화)
+            List<OrderItem> orderItemsWithOrderId = orderItems.stream()
+                    .map(item -> item.withOrderId(savedOrder.getId()))
+                    .collect(Collectors.toList());
+            
+            orderItemRepositoryPort.saveAll(orderItemsWithOrderId);
+            
+            log.debug("OrderItem 배치 저장 완료: orderId={}, itemCount={}", 
+                    savedOrder.getId(), orderItemsWithOrderId.size());
+            
+            log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
+                    savedOrder.getId(), userId, totalAmount, orderItems.size());
             
             // 캐시 무효화
             invalidateUserRelatedCache(userId);
@@ -98,7 +135,7 @@ public class CreateOrderUseCase {
         }
     }
 
-    private void validateParameters(Long userId, Map<Long, Integer> productQuantities) {
+    private void validateParameters(Long userId, List<ProductQuantityDto> productQuantities) {
         if (userId == null) {
             throw new IllegalArgumentException("UserId cannot be null");
         }
@@ -106,15 +143,6 @@ public class CreateOrderUseCase {
             throw new OrderException.EmptyItems();
         }
         
-        // 수량 검증
-        productQuantities.forEach((productId, quantity) -> {
-            if (productId == null || productId <= 0) {
-                throw new IllegalArgumentException("Invalid productId: " + productId);
-            }
-            if (quantity == null || quantity <= 0) {
-                throw new IllegalArgumentException("Quantity must be positive");
-            }
-        });
     }
     
     private void invalidateUserRelatedCache(Long userId) {

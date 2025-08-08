@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -14,14 +15,18 @@ import java.time.LocalDateTime;
 public class PopularProductStats {
 
     @Id
+    @NotBlank
     private String productId;
 
+    @PositiveOrZero
     private int salesCount;
 
+    @NotNull
     private LocalDateTime calculatedAt;
 
     @OneToOne
     @MapsId
     @JoinColumn(name = "product_id")
+    @NotNull
     private Product product;
 } 

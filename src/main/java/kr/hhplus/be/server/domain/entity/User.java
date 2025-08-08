@@ -1,11 +1,10 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -15,16 +14,8 @@ import java.util.List;
 @Table(name = "users")
 public class User extends BaseEntity {
 
+    @NotBlank
+    @Size(max = 255)
     private String name;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Balance balance;
-
-    @Builder.Default
-    @OneToMany(mappedBy = "user")
-    private List<Order> orders = new ArrayList<>();
-
-    @Builder.Default
-    @OneToMany(mappedBy = "user")
-    private List<CouponHistory> couponHistories = new ArrayList<>();
 } 

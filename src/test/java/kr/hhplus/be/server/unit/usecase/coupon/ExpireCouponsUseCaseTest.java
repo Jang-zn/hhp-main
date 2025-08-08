@@ -212,8 +212,8 @@ class ExpireCouponsUseCaseTest {
 
         return CouponHistory.builder()
                 .id(id)
-                .user(user)
-                .coupon(expiredCoupon)
+                .userId(user.getId())
+                .couponId(expiredCoupon.getId())
                 .issuedAt(LocalDateTime.now().minusDays(5))
                 .status(CouponHistoryStatus.ISSUED)
                 .build();

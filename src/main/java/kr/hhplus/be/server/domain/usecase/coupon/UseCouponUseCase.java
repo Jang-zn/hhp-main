@@ -70,9 +70,9 @@ public class UseCouponUseCase {
                     });
             
             // 소유권 검증
-            if (!couponHistory.getUser().getId().equals(user.getId())) {
+            if (!couponHistory.getUserId().equals(user.getId())) {
                 log.warn("쿠폰 소유권 없음: userId={}, couponHistoryId={}, ownerId={}", 
-                        user.getId(), couponHistoryId, couponHistory.getUser().getId());
+                        user.getId(), couponHistoryId, couponHistory.getUserId());
                 throw new CouponException.NotFound();
             }
             

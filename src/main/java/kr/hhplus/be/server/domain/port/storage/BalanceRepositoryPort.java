@@ -5,6 +5,6 @@ import kr.hhplus.be.server.domain.entity.Balance;
 import java.util.Optional;
 
 public interface BalanceRepositoryPort {
-    Optional<Balance> findByUser(kr.hhplus.be.server.domain.entity.User user);
+    Optional<Balance> findByUserId(Long userId);
     Balance save(Balance balance);
 } 

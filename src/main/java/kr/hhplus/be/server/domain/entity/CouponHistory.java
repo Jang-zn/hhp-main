@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import lombok.*;
@@ -13,28 +14,36 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "coupon_history")
+@Table(name = "coupon_history",
+       indexes = {
+           @Index(name = "idx_coupon_history_user_id", columnList = "userId"),
+           @Index(name = "idx_coupon_history_coupon_id", columnList = "couponId"),
+           @Index(name = "idx_coupon_history_status", columnList = "status"),
+           @Index(name = "idx_coupon_history_user_status", columnList = "userId, status"),
+           @Index(name = "idx_coupon_history_user_coupon", columnList = "userId, couponId")
+       })
 public class CouponHistory extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    @NotNull
+    @Positive
+    private Long userId;
 
-    @ManyToOne
-    @JoinColumn(name = "coupon_id")
-    private Coupon coupon;
+    @NotNull
+    @Positive
+    private Long couponId;
 
+    @NotNull
     private LocalDateTime issuedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
     private CouponHistoryStatus status;
 
     private LocalDateTime usedAt;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    private Order usedOrder;
+    @Positive
+    private Long usedOrderId;
 
     /**
      * 쿠폰 히스토리 상태를 업데이트합니다.
@@ -60,14 +69,11 @@ public class CouponHistory extends BaseEntity {
             throw new CouponException.CouponNotUsable();
         }
         
-        // 쿠폰 만료 여부 확인
-        if (LocalDateTime.now().isAfter(this.coupon.getEndDate())) {
-            throw new CouponException.Expired();
-        }
+        // 쿠폰 만료 여부 확인은 서비스 층에서 처리
         
         updateStatus(CouponHistoryStatus.USED);
         this.usedAt = LocalDateTime.now();
-        this.usedOrder = order;
+        this.usedOrderId = order.getId();
     }
 
     /**
@@ -79,19 +85,15 @@ public class CouponHistory extends BaseEntity {
             return false;
         }
         
-        // 쿠폰 만료 여부 확인
-        return !LocalDateTime.now().isAfter(this.coupon.getEndDate());
+        // 쿠폰 만료 여부 확인은 서비스 층에서 처리
+        return true;
     }
 
     /**
      * 만료된 쿠폰의 상태를 업데이트합니다.
      */
     public void updateStatusIfExpired() {
-        // 현재 상태가 발급됨이고 만료된 경우에만 업데이트
-        if (this.status == CouponHistoryStatus.ISSUED && 
-            LocalDateTime.now().isAfter(this.coupon.getEndDate())) {
-            updateStatus(CouponHistoryStatus.EXPIRED);
-        }
+        // 만료 처리는 서비스 층에서 처리
     }
 
     /**

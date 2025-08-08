@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.unit.facade.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
@@ -16,7 +17,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @DisplayName("GetOrderListFacade 단위 테스트")
@@ -47,24 +47,22 @@ class GetOrderListFacadeTest {
             .build();
             
         OrderItem orderItem = OrderItem.builder()
-            .product(product)
+            .productId(product.getId())
             .quantity(2)
             .build();
             
         Order order1 = Order.builder()
             .id(1L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.PENDING)
             .totalAmount(new BigDecimal("100000"))
-            .items(List.of(orderItem))
             .build();
             
         Order order2 = Order.builder()
             .id(2L)
-            .user(testUser)
+            .userId(testUser.getId())
             .status(OrderStatus.COMPLETED)
             .totalAmount(new BigDecimal("75000"))
-            .items(List.of(orderItem))
             .build();
             
         testOrders = List.of(order1, order2);
@@ -92,7 +90,7 @@ class GetOrderListFacadeTest {
             assertThat(result).hasSize(2);
             assertThat(result.get(0).getId()).isEqualTo(1L);
             assertThat(result.get(1).getId()).isEqualTo(2L);
-            assertThat(result.get(0).getUser().getId()).isEqualTo(userId);
+            assertThat(result.get(0).getUserId()).isEqualTo(userId);
             
             verify(getOrderListUseCase).execute(userId);
         }

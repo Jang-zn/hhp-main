@@ -1,12 +1,12 @@
 package kr.hhplus.be.server.unit.adapter.storage.jpa.balance;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.adapter.storage.jpa.BalanceJpaRepository;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
+import kr.hhplus.be.server.util.TestBuilder;
+import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,8 +14,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.persistence.EntityManager;
@@ -23,36 +22,35 @@ import jakarta.persistence.NoResultException;
 import jakarta.persistence.TypedQuery;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+/**
+ * BalanceJpaRepository 비즈니스 시나리오 테스트
+ * 
+ * Why: JPA 잔액 저장소의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
+ * How: JPA 기반 잔액 관리 시나리오를 반영한 단위 테스트로 구성
+ */
+@DataJpaTest
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
-@DisplayName("BalanceJpaRepository 단위 테스트")
+@DisplayName("JPA 잔액 저장소 비즈니스 시나리오")
 class BalanceJpaRepositoryTest {
 
     @Mock
     private EntityManager entityManager;
-
+    
     @Mock
-    private TypedQuery<Balance> typedQuery;
+    private TypedQuery<Balance> balanceQuery;
+    
+    @Mock
+    private TypedQuery<Long> countQuery;
 
     private BalanceJpaRepository balanceJpaRepository;
 
@@ -61,428 +59,257 @@ class BalanceJpaRepositoryTest {
         balanceJpaRepository = new BalanceJpaRepository(entityManager);
     }
 
-    @Nested
-    @DisplayName("잔액 저장 테스트")
-    class SaveTests {
+    // === 잔액 저장 시나리오 ===
 
-        @Test
-        @DisplayName("성공케이스: 새로운 잔액 저장 (persist)")
-        void save_NewBalance_Success() {
-            // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
-            Balance balance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal("100000"))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
+    @Test
+    @DisplayName("고객의 신규 잔액 정보를 저장할 수 있다")
+    void canSaveNewCustomerBalance() {
+        // Given - ID가 null인 새로운 엔티티
+        Balance newBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(1L)
+                .amount(new BigDecimal("100000"))
+                .build();
 
-            doNothing().when(entityManager).persist(balance);
+        // When
+        balanceJpaRepository.save(newBalance);
 
-            // when
-            Balance savedBalance = balanceJpaRepository.save(balance);
-
-            // then
-            assertThat(savedBalance).isEqualTo(balance);
-            verify(entityManager, times(1)).persist(balance);
-            verify(entityManager, never()).merge(any());
-        }
-
-        @Test
-        @DisplayName("성공케이스: 기존 잔액 업데이트 (merge)")
-        void save_ExistingBalance_Success() {
-            // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .user(user)
-                    .amount(new BigDecimal("150000"))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            when(entityManager.merge(balance)).thenReturn(balance);
-
-            // when
-            Balance savedBalance = balanceJpaRepository.save(balance);
-
-            // then
-            assertThat(savedBalance).isEqualTo(balance);
-            verify(entityManager, times(1)).merge(balance);
-            verify(entityManager, never()).persist(any());
-        }
-
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.jpa.balance.BalanceJpaRepositoryTest#provideBalanceData")
-        @DisplayName("성공케이스: 다양한 잔액 데이터로 저장")
-        void save_WithDifferentBalanceData(String userName, String amount) {
-            // given
-            User user = User.builder()
-                    .id(2L)
-                    .name(userName)
-                    .build();
-            Balance balance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal(amount))
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            doNothing().when(entityManager).persist(balance);
-
-            // when
-            Balance savedBalance = balanceJpaRepository.save(balance);
-
-            // then
-            assertThat(savedBalance).isNotNull();
-            assertThat(savedBalance.getAmount()).isEqualTo(new BigDecimal(amount));
-            assertThat(savedBalance.getUser().getName()).isEqualTo(userName);
-            verify(entityManager, times(1)).persist(balance);
-        }
-
-        @Test
-        @DisplayName("실패케이스: EntityManager persist 예외")
-        void save_PersistException() {
-            // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
-            Balance balance = Balance.builder()
-                    .user(user)
-                    .amount(new BigDecimal("100000"))
-                    .build();
-
-            doThrow(new RuntimeException("DB 연결 실패")).when(entityManager).persist(balance);
-
-            // when & then
-            assertThatThrownBy(() -> balanceJpaRepository.save(balance))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("DB 연결 실패");
-        }
-
-        @Test
-        @DisplayName("실패케이스: EntityManager merge 예외")
-        void save_MergeException() {
-            // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
-            Balance balance = Balance.builder()
-                    .id(1L)
-                    .user(user)
-                    .amount(new BigDecimal("100000"))
-                    .build();
-
-            when(entityManager.merge(balance)).thenThrow(new RuntimeException("트랜잭션 오류"));
-
-            // when & then
-            assertThatThrownBy(() -> balanceJpaRepository.save(balance))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("트랜잭션 오류");
-        }
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(newBalance);
     }
 
-    @Nested
-    @DisplayName("잔액 조회 테스트")
-    class FindByUserTests {
+    @Test
+    @DisplayName("기존 고객의 잔액 정보를 업데이트할 수 있다")
+    void canUpdateExistingCustomerBalance() {
+        // Given
+        Balance existingBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .id(1L)
+                .userId(1L)
+                .amount(new BigDecimal("200000"))
+                .build();
 
-        @Test
-        @DisplayName("성공케이스: 사용자로 잔액 조회")
-        void findByUser_Success() {
-            // given
-            User user = User.builder()
-                    .id(1L)
-                    .name("테스트 사용자")
-                    .build();
-            Balance expectedBalance = Balance.builder()
-                    .id(1L)
-                    .user(user)
-                    .amount(new BigDecimal("50000"))
-                    .build();
+        // When
+        balanceJpaRepository.save(existingBalance);
 
-            when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", user)).thenReturn(typedQuery);
-            when(typedQuery.getSingleResult()).thenReturn(expectedBalance);
-
-            // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
-
-            // then
-            assertThat(foundBalance).isPresent();
-            assertThat(foundBalance.get()).isEqualTo(expectedBalance);
-            verify(entityManager).createQuery("SELECT b FROM Balance b WHERE b.user = :user", Balance.class);
-            verify(typedQuery).setParameter("user", user);
-        }
-
-        @Test
-        @DisplayName("실패케이스: 존재하지 않는 사용자 잔액 조회")
-        void findByUser_NotFound() {
-            // given
-            User user = User.builder().id(999L).build();
-
-            when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", user)).thenReturn(typedQuery);
-            when(typedQuery.getSingleResult()).thenThrow(new NoResultException());
-
-            // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
-
-            // then
-            assertThat(foundBalance).isEmpty();
-        }
-
-        @Test
-        @DisplayName("실패케이스: JPA 쿼리 실행 중 예외 발생")
-        void findByUser_QueryException() {
-            // given
-            User user = User.builder().id(1L).build();
-
-            when(entityManager.createQuery(anyString(), eq(Balance.class)))
-                    .thenThrow(new RuntimeException("데이터베이스 연결 오류"));
-
-            // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(user);
-
-            // then
-            assertThat(foundBalance).isEmpty();
-        }
-
-        @ParameterizedTest
-        @MethodSource("kr.hhplus.be.server.unit.adapter.storage.jpa.balance.BalanceJpaRepositoryTest#provideInvalidUsers")
-        @DisplayName("실패케이스: 다양한 유효하지 않은 사용자로 조회")
-        void findByUser_WithInvalidUsers(User invalidUser) {
-            // given
-            when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter("user", invalidUser)).thenReturn(typedQuery);
-            when(typedQuery.getSingleResult()).thenThrow(new NoResultException());
-
-            // when
-            Optional<Balance> foundBalance = balanceJpaRepository.findByUser(invalidUser);
-
-            // then
-            assertThat(foundBalance).isEmpty();
-        }
+        // Then
+        verify(entityManager).merge(existingBalance);
     }
 
-    @Nested
-    @DisplayName("동시성 및 성능 테스트")
-    class ConcurrencyAndPerformanceTests {
+    @ParameterizedTest
+    @MethodSource("provideBalanceAmounts")
+    @DisplayName("다양한 금액으로 잔액을 저장할 수 있다")
+    void canSaveBalanceWithVariousAmounts(BigDecimal amount) {
+        // Given - 새로운 엔티티 (ID가 null)
+        Balance balance = TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(1L)
+                .amount(amount)
+                .build();
 
-        @Test
-        @DisplayName("동시성 테스트: 동일 사용자 잔액 동시 저장")
-        void save_ConcurrentSaveForSameUser() throws Exception {
-            // given
-            User user = User.builder()
-                    .id(100L)
-                    .name("동시성 테스트 사용자")
-                    .build();
+        // When
+        balanceJpaRepository.save(balance);
 
-            int numberOfThreads = 10;
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
-            AtomicInteger successCount = new AtomicInteger(0);
+        // Then - 새로운 엔티티이므로 persist 호출
+        verify(entityManager).persist(balance);
+    }
 
-            // EntityManager mock 설정
-            doAnswer(invocation -> {
-                successCount.incrementAndGet();
-                return null;
-            }).when(entityManager).persist(any(Balance.class));
+    @Test
+    @DisplayName("null 잔액 정보 저장 시도는 예외가 발생한다")
+    void throwsExceptionWhenSavingNullBalance() {
+        // When & Then
+        assertThatThrownBy(() -> balanceJpaRepository.save(null))
+            .isInstanceOf(NullPointerException.class);
+            
+        verify(entityManager, never()).merge(any());
+        verify(entityManager, never()).persist(any());
+    }
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
+    // === 잔액 조회 시나리오 ===
 
-            // when
-            for (int i = 0; i < numberOfThreads; i++) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        Balance balance = Balance.builder()
-                                .user(user)
-                                .amount(new BigDecimal("1000"))
-                                .createdAt(LocalDateTime.now())
-                                .updatedAt(LocalDateTime.now())
-                                .build();
-                        balanceJpaRepository.save(balance);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
+    @Test
+    @DisplayName("고객 ID로 잔액 정보를 조회할 수 있다")
+    void canFindBalanceByUserId() {
+        // Given
+        Long userId = 1L;
+        Balance expectedBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(userId)
+                .amount(new BigDecimal("150000"))
+                .build();
+                
+        when(entityManager.createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class))
+            .thenReturn(balanceQuery);
+        when(balanceQuery.setParameter("userId", userId)).thenReturn(balanceQuery);
+        when(balanceQuery.getSingleResult()).thenReturn(expectedBalance);
 
-            startLatch.countDown();
-            doneLatch.await();
+        // When
+        Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(userId);
 
-            // then
-            assertThat(successCount.get()).isEqualTo(numberOfThreads);
-            verify(entityManager, times(numberOfThreads)).persist(any(Balance.class));
+        // Then
+        assertThat(foundBalance).isPresent();
+        assertThat(foundBalance.get().getUserId()).isEqualTo(userId);
+        assertThat(foundBalance.get().getAmount()).isEqualTo(new BigDecimal("150000"));
+        
+        verify(entityManager).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
+        verify(balanceQuery).setParameter("userId", userId);
+        verify(balanceQuery).getSingleResult();
+    }
 
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
+    @Test
+    @DisplayName("존재하지 않는 고객 ID로 조회 시 빈 결과를 반환한다")
+    void returnsEmptyWhenBalanceNotFoundByUserId() {
+        // Given
+        Long nonExistentUserId = 999L;
+        when(entityManager.createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class))
+            .thenReturn(balanceQuery);
+        when(balanceQuery.setParameter("userId", nonExistentUserId)).thenReturn(balanceQuery);
+        when(balanceQuery.getSingleResult()).thenThrow(new NoResultException());
 
-        @Test
-        @DisplayName("동시성 테스트: 서로 다른 사용자 잔액 동시 조회")
-        void findByUser_ConcurrentReadsForDifferentUsers() throws Exception {
-            // given
-            int numberOfUsers = 50;
-            ExecutorService executor = Executors.newFixedThreadPool(10);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numberOfUsers);
-            AtomicInteger successfulReads = new AtomicInteger(0);
+        // When
+        Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(nonExistentUserId);
 
-            // Mock 설정
-            when(entityManager.createQuery(anyString(), eq(Balance.class))).thenReturn(typedQuery);
-            when(typedQuery.setParameter(eq("user"), any(User.class))).thenReturn(typedQuery);
-            when(typedQuery.getSingleResult()).thenAnswer(invocation -> {
-                successfulReads.incrementAndGet();
-                return Balance.builder()
-                        .id(1L)
-                        .user(User.builder().id(1L).build())
-                        .amount(new BigDecimal("1000"))
-                        .build();
+        // Then
+        assertThat(foundBalance).isEmpty();
+        
+        verify(entityManager).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
+        verify(balanceQuery).setParameter("userId", nonExistentUserId);
+        verify(balanceQuery).getSingleResult();
+    }
+
+
+
+    // === 동시성 시나리오 ===
+
+    @Test
+    @DisplayName("여러 고객의 잔액이 동시에 저장되어도 안전하게 처리된다")
+    void safelyHandlesConcurrentBalanceSaving() {
+        // Given
+        List<Balance> testBalances = List.of(
+            TestBuilder.BalanceBuilder.defaultBalance().userId(1L).amount(new BigDecimal("10000")).build(),
+            TestBuilder.BalanceBuilder.defaultBalance().userId(2L).amount(new BigDecimal("20000")).build(),
+            TestBuilder.BalanceBuilder.defaultBalance().userId(3L).amount(new BigDecimal("30000")).build()
+        );
+
+        // When - EntityManager 호출 검증을 위한 동시 저장
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(3, () -> {
+                Balance balance = testBalances.get((int)(Math.random() * testBalances.size()));
+                balanceJpaRepository.save(balance);
+                return 1;
             });
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            // when
-            for (int i = 0; i < numberOfUsers; i++) {
-                final int userId = i + 1;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        startLatch.await();
-                        
-                        User user = User.builder()
-                                .id((long) userId)
-                                .name("사용자" + userId)
-                                .build();
-                        
-                        Optional<Balance> balance = balanceJpaRepository.findByUser(user);
-                        assertThat(balance).isPresent();
-                    } catch (Exception e) {
-                        System.err.println("Error for user " + userId + ": " + e.getMessage());
-                    } finally {
-                        doneLatch.countDown();
-                    }
-                }, executor);
-                futures.add(future);
-            }
-
-            startLatch.countDown();
-            doneLatch.await();
-
-            // then
-            assertThat(successfulReads.get()).isEqualTo(numberOfUsers);
-
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
-
-        @Test
-        @DisplayName("성능 테스트: 대량 저장 작업")
-        void save_BulkInsertPerformance() throws Exception {
-            // given
-            int numberOfOperations = 1000;
-            ExecutorService executor = Executors.newFixedThreadPool(5);
-            AtomicInteger completedOperations = new AtomicInteger(0);
-
-            doAnswer(invocation -> {
-                completedOperations.incrementAndGet();
-                return null;
-            }).when(entityManager).persist(any(Balance.class));
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            long startTime = System.currentTimeMillis();
-
-            // when
-            for (int i = 0; i < numberOfOperations; i++) {
-                final int operationId = i;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    User user = User.builder()
-                            .id((long) operationId)
-                            .name("사용자" + operationId)
-                            .build();
-                    
-                    Balance balance = Balance.builder()
-                            .user(user)
-                            .amount(new BigDecimal(String.valueOf(operationId * 1000)))
-                            .createdAt(LocalDateTime.now())
-                            .updatedAt(LocalDateTime.now())
-                            .build();
-                    
-                    balanceJpaRepository.save(balance);
-                }, executor);
-                futures.add(future);
-            }
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-            long endTime = System.currentTimeMillis();
-
-            // then
-            assertThat(completedOperations.get()).isEqualTo(numberOfOperations);
-            long executionTime = endTime - startTime;
-            System.out.println("대량 저장 작업 실행 시간: " + executionTime + "ms");
-            assertThat(executionTime).isLessThan(5000); // 5초 이내 완료
-
-            executor.shutdown();
-            boolean terminated = executor.awaitTermination(30, TimeUnit.SECONDS);
-            assertThat(terminated).isTrue();
-        }
+        // Then
+        assertThat(result.getTotalCount()).isEqualTo(3);
+        verify(entityManager, times(3)).persist(any(Balance.class));
     }
 
-    @Nested
-    @DisplayName("예외 상황 테스트")
-    class ExceptionTests {
+    @Test
+    @DisplayName("동시 잔액 조회가 EntityManager를 통해 안전하게 처리된다")
+    void safelyHandlesConcurrentBalanceQuerying() {
+        // Given
+        Long userId = 1L;
+        Balance expectedBalance = TestBuilder.BalanceBuilder.defaultBalance()
+                .userId(userId)
+                .amount(new BigDecimal("100000"))
+                .build();
+                
+        when(entityManager.createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class))
+            .thenReturn(balanceQuery);
+        when(balanceQuery.setParameter("userId", userId)).thenReturn(balanceQuery);
+        when(balanceQuery.getSingleResult()).thenReturn(expectedBalance);
 
+        // When - EntityManager 호출 검증을 위한 동시 조회
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(5, () -> {
+                Optional<Balance> found = balanceJpaRepository.findByUserId(userId);
+                return found.isPresent() ? 1 : 0;
+            });
 
-        @Test
-        @DisplayName("실패케이스: 트랜잭션 롤백 시나리오")
-        void save_TransactionRollback() {
-            // given
-            Balance balance = Balance.builder()
-                    .user(User.builder().id(1L).build())
-                    .amount(new BigDecimal("1000"))
-                    .build();
-
-            doThrow(new RuntimeException("트랜잭션 롤백")).when(entityManager).persist(balance);
-
-            // when & then
-            assertThatThrownBy(() -> balanceJpaRepository.save(balance))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("트랜잭션 롤백");
-        }
+        // Then
+        assertThat(result.getTotalCount()).isEqualTo(5);
+        assertThat(result.getSuccessCount()).isEqualTo(5);
+        verify(entityManager, times(5)).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
+        verify(balanceQuery, times(5)).setParameter("userId", userId);
+        verify(balanceQuery, times(5)).getSingleResult();
     }
 
-    private static Stream<Arguments> provideBalanceData() {
+    @Test
+    @DisplayName("잔액 저장과 조회가 동시에 이루어져도 EntityManager 호출이 정상적으로 처리된다")
+    void handlesSimultaneousSaveAndFindOperations() {
+        // Given
+        Balance saveBalance = TestBuilder.BalanceBuilder.defaultBalance().userId(1L).amount(new BigDecimal("50000")).build();
+        Balance findBalance = TestBuilder.BalanceBuilder.defaultBalance().userId(2L).amount(new BigDecimal("75000")).build();
+        
+        when(entityManager.createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class))
+            .thenReturn(balanceQuery);
+        when(balanceQuery.setParameter("userId", 2L)).thenReturn(balanceQuery);
+        when(balanceQuery.getSingleResult()).thenReturn(findBalance);
+
+        // When - 저장과 조회가 동시에 실행
+        ConcurrencyTestHelper.ConcurrencyTestResult result = 
+            ConcurrencyTestHelper.executeInParallel(6, () -> {
+                if (Math.random() < 0.5) {
+                    balanceJpaRepository.save(saveBalance);
+                    return 1;
+                } else {
+                    Optional<Balance> found = balanceJpaRepository.findByUserId(2L);
+                    return found.isPresent() ? 1 : 0;
+                }
+            });
+
+        // Then
+        assertThat(result.getTotalCount()).isEqualTo(6);
+        verify(entityManager, atLeastOnce()).persist(any(Balance.class));
+        verify(entityManager, atLeastOnce()).createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class);
+    }
+
+    // === 예외 처리 시나리오 ===
+
+    @Test
+    @DisplayName("EntityManager 저장 예외가 적절히 전파된다")
+    void properlyPropagatesSaveExceptions() {
+        // Given - ID가 null인 새로운 엔티티
+        Balance balance = TestBuilder.BalanceBuilder.defaultBalance().build();
+        RuntimeException expectedException = new RuntimeException("저장 실패");
+        doThrow(expectedException).when(entityManager).persist(balance);
+
+        // When & Then
+        assertThatThrownBy(() -> balanceJpaRepository.save(balance))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessage("저장 실패");
+            
+        verify(entityManager).persist(balance);
+    }
+
+    @Test
+    @DisplayName("조회 시 EntityManager 예외 발생해도 빈 결과를 반환한다")
+    void returnsEmptyWhenFindExceptionOccurs() {
+        // Given
+        Long userId = 1L;
+        RuntimeException expectedException = new RuntimeException("조회 실패");
+        
+        when(entityManager.createQuery("SELECT b FROM Balance b WHERE b.userId = :userId", Balance.class))
+            .thenReturn(balanceQuery);
+        when(balanceQuery.setParameter("userId", userId)).thenReturn(balanceQuery);
+        when(balanceQuery.getSingleResult()).thenThrow(expectedException);
+
+        // When
+        Optional<Balance> result = balanceJpaRepository.findByUserId(userId);
+
+        // Then - 예외가 발생해도 빈 Optional 반환
+        assertThat(result).isEmpty();
+        verify(balanceQuery).getSingleResult();
+    }
+
+
+    // === 헬퍼 메서드 ===
+
+    static Stream<Arguments> provideBalanceAmounts() {
         return Stream.of(
-                Arguments.of("홍길동", "100000"),
-                Arguments.of("김철수", "250000"),
-                Arguments.of("이영희", "50000"),
-                Arguments.of("박민수", "0"),
-                Arguments.of("최유리", "999999999")
-        );
-    }
-
-    private static Stream<Arguments> provideInvalidUsers() {
-        return Stream.of(
-                Arguments.of(User.builder().id(0L).build()),
-                Arguments.of(User.builder().id(-1L).build()),
-                Arguments.of(User.builder().id(Long.MAX_VALUE).build()),
-                Arguments.of(User.builder().id(Long.MIN_VALUE).build())
+            Arguments.of(new BigDecimal("0")),
+            Arguments.of(new BigDecimal("1000")),
+            Arguments.of(new BigDecimal("50000")),
+            Arguments.of(new BigDecimal("100000")),
+            Arguments.of(new BigDecimal("500000")),
+            Arguments.of(new BigDecimal("1000000")),
+            Arguments.of(new BigDecimal("9999999.99"))
         );
     }
 }

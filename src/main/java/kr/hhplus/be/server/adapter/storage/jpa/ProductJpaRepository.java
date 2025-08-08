@@ -7,8 +7,11 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.TypedQuery;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @Repository
 @Profile({"local", "test", "dev", "prod", "integration-test"})
@@ -24,6 +27,35 @@ public class ProductJpaRepository implements ProductRepositoryPort {
             return Optional.ofNullable(product);
         } catch (Exception e) {
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        try {
+            Product product = entityManager.find(Product.class, id, LockModeType.PESSIMISTIC_WRITE);
+            return Optional.ofNullable(product);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<Product> findByIdsWithLock(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        try {
+            TypedQuery<Product> query = entityManager.createQuery(
+                "SELECT p FROM Product p WHERE p.id IN :ids ORDER BY p.id", Product.class);
+            query.setParameter("ids", ids);
+            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+            // 락 타임아웃 3초 설정
+            query.setHint("javax.persistence.lock.timeout", 3000);
+            return query.getResultList();
+        } catch (Exception e) {
+            return new ArrayList<>();
         }
     }
 

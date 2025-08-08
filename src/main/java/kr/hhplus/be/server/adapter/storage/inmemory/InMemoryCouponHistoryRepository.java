@@ -1,8 +1,6 @@
 package kr.hhplus.be.server.adapter.storage.inmemory;
 
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
@@ -32,20 +30,17 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     }
 
     @Override
-    public boolean existsByUserAndCoupon(User user, Coupon coupon) {
-        if (user == null || coupon == null) {
-            throw new CouponException.UserIdAndCouponIdRequired();
-        }
-        if (user.getId() == null || coupon.getId() == null) {
+    public boolean existsByUserIdAndCouponId(Long userId, Long couponId) {
+        if (userId == null || couponId == null) {
             throw new CouponException.UserIdAndCouponIdRequired();
         }
         
         return couponHistories.values().stream()
                 .anyMatch(history -> 
-                    history.getUser() != null && 
-                    history.getCoupon() != null &&
-                    history.getUser().getId().equals(user.getId()) && 
-                    history.getCoupon().getId().equals(coupon.getId()));
+                    history.getUserId() != null && 
+                    history.getCouponId() != null &&
+                    history.getUserId().equals(userId) && 
+                    history.getCouponId().equals(couponId));
     }
 
     @Override
@@ -53,10 +48,10 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
         if (couponHistory == null) {
             throw new CouponException.InvalidCouponHistoryData(ErrorCode.INVALID_INPUT.getMessage());
         }
-        if (couponHistory.getUser() == null) {
+        if (couponHistory.getUserId() == null) {
             throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
-        if (couponHistory.getCoupon() == null) {
+        if (couponHistory.getCouponId() == null) {
             throw new CouponException.InvalidCouponData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
@@ -90,8 +85,8 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
     }
 
     @Override
-    public List<CouponHistory> findByUserWithPagination(User user, int limit, int offset) {
-        if (user == null || user.getId() == null) {
+    public List<CouponHistory> findByUserIdWithPagination(Long userId, int limit, int offset) {
+        if (userId == null) {
             throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (limit <= 0 || offset < 0) {
@@ -100,16 +95,16 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
         
         return couponHistories.values().stream()
                 .filter(history -> 
-                    history.getUser() != null && 
-                    history.getUser().getId().equals(user.getId()))
+                    history.getUserId() != null && 
+                    history.getUserId().equals(userId))
                 .skip(offset)
                 .limit(limit)
                 .toList();
     }
 
     @Override
-    public List<CouponHistory> findByUserAndStatus(User user, CouponHistoryStatus status) {
-        if (user == null || user.getId() == null) {
+    public List<CouponHistory> findByUserIdAndStatus(Long userId, CouponHistoryStatus status) {
+        if (userId == null) {
             throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         if (status == null) {
@@ -118,35 +113,32 @@ public class InMemoryCouponHistoryRepository implements CouponHistoryRepositoryP
         
         return couponHistories.values().stream()
                 .filter(history -> 
-                    history.getUser() != null && 
-                    history.getUser().getId().equals(user.getId()) &&
+                    history.getUserId() != null && 
+                    history.getUserId().equals(userId) &&
                     history.getStatus() == status)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<CouponHistory> findExpiredHistoriesInStatus(LocalDateTime now, CouponHistoryStatus status) {
+        // InMemory 구현에서는 서비스 층에서 처리하도록 단순히 상태만 필터링
         return couponHistories.values().stream()
                 .filter(history -> history.getStatus() == status)
-                .filter(history -> history.getCoupon() != null && 
-                        now.isAfter(history.getCoupon().getEndDate()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public long countUsableCouponsByUser(User user) {
-        if (user == null || user.getId() == null) {
+    public long countUsableCouponsByUserId(Long userId) {
+        if (userId == null) {
             throw new CouponException.InvalidUserData(ErrorCode.INVALID_INPUT.getMessage());
         }
         
-        LocalDateTime now = LocalDateTime.now();
+        // InMemory 구현에서는 서비스 층에서 만료 체크하도록 단순히 상태만 확인
         return couponHistories.values().stream()
                 .filter(history -> 
-                    history.getUser() != null && 
-                    history.getUser().getId().equals(user.getId()) &&
-                    history.getStatus() == CouponHistoryStatus.ISSUED &&
-                    history.getCoupon() != null &&
-                    now.isBefore(history.getCoupon().getEndDate()))
+                    history.getUserId() != null && 
+                    history.getUserId().equals(userId) &&
+                    history.getStatus() == CouponHistoryStatus.ISSUED)
                 .count();
     }
 } 

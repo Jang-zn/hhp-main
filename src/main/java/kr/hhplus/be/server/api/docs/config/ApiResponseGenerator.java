@@ -1,12 +1,12 @@
 package kr.hhplus.be.server.api.docs.config;
 
+import kr.hhplus.be.server.api.docs.dto.ApiResponseDto;
 import kr.hhplus.be.server.api.docs.schema.ErrorInfo;
 import kr.hhplus.be.server.api.docs.schema.ErrorSchemas;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.Map;
 
 /**
  * API 응답 예시 자동 생성기
@@ -16,35 +16,24 @@ import java.util.Map;
 public class ApiResponseGenerator {
 
     /**
-     * 성공 응답 예시 생성
+     * 타입 안전한 성공 응답 예시 생성
      */
-    public Map<String, Object> generateSuccessResponse(Object data) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "요청 성공");
-        response.put("data", data);
-        response.put("timestamp", LocalDateTime.now().toString());
-        return response;
+    public <T> ApiResponseDto<T> generateSuccessResponse(T data) {
+        return ApiResponseDto.success("요청 성공", data);
     }
 
     /**
-     * 에러 응답 예시 생성
+     * 타입 안전한 에러 응답 예시 생성
      */
-    public Map<String, Object> generateErrorResponse(String errorCode, String message) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("errorCode", errorCode);
-        response.put("message", message);
-        response.put("data", null);
-        response.put("timestamp", LocalDateTime.now().toString());
-        return response;
+    public <T> ApiResponseDto<T> generateErrorResponse(String errorCode, String message) {
+        return ApiResponseDto.error(errorCode, message);
     }
 
     /**
      * 도메인별 에러 응답 예시 생성
      */
-    public Map<String, Map<String, Object>> generateDomainErrorExamples(String domain) {
-        Map<String, Map<String, Object>> examples = new HashMap<>();
+    public java.util.Map<String, ApiResponseDto<Object>> generateDomainErrorExamples(String domain) {
+        java.util.Map<String, ApiResponseDto<Object>> examples = new HashMap<>();
         
         switch (domain.toLowerCase()) {
             case "balance" -> {
@@ -80,8 +69,8 @@ public class ApiResponseGenerator {
     /**
      * HTTP 상태 코드별 에러 응답 예시 생성
      */
-    public Map<String, Map<String, Object>> generateHttpStatusErrorExamples() {
-        Map<String, Map<String, Object>> examples = new HashMap<>();
+    public java.util.Map<String, ApiResponseDto<Object>> generateHttpStatusErrorExamples() {
+        java.util.Map<String, ApiResponseDto<Object>> examples = new HashMap<>();
         
         // 400 Bad Request
         examples.put("400", generateErrorResponse("INVALID_REQUEST", "잘못된 요청입니다"));
@@ -110,45 +99,23 @@ public class ApiResponseGenerator {
     /**
      * 특정 에러 코드의 응답 예시 생성
      */
-    public Map<String, Object> generateSpecificErrorExample(String errorCode) {
-        // 모든 도메인 에러에서 찾기
-        for (ErrorInfo errorInfo : ErrorSchemas.BALANCE_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
+    public ApiResponseDto<Object> generateSpecificErrorExample(String errorCode) {
+        // 모든 도메인 에러 스키마를 리스트로 관리하여 반복 제거
+        var allErrorSchemas = java.util.List.of(
+            ErrorSchemas.BALANCE_ERRORS,
+            ErrorSchemas.COUPON_ERRORS,
+            ErrorSchemas.PRODUCT_ERRORS,
+            ErrorSchemas.ORDER_ERRORS,
+            ErrorSchemas.USER_ERRORS,
+            ErrorSchemas.COMMON_ERRORS
+        );
         
-        for (ErrorInfo errorInfo : ErrorSchemas.COUPON_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
-        
-        for (ErrorInfo errorInfo : ErrorSchemas.PRODUCT_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
-        
-        for (ErrorInfo errorInfo : ErrorSchemas.ORDER_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
-        
-        for (ErrorInfo errorInfo : ErrorSchemas.USER_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
-        
-        for (ErrorInfo errorInfo : ErrorSchemas.COMMON_ERRORS.values()) {
-            if (errorInfo.errorCode().equals(errorCode)) {
-                return generateErrorResponse(errorInfo.errorCode(), errorInfo.message());
-            }
-        }
-        
-        // 기본 에러 응답
-        return generateErrorResponse(errorCode, "알 수 없는 오류가 발생했습니다");
+        return allErrorSchemas.stream()
+                .flatMap(schema -> schema.values().stream())
+                .filter(errorInfo -> errorInfo.errorCode().equals(errorCode))
+                .findFirst()
+                .map(errorInfo -> generateErrorResponse(errorInfo.errorCode(), errorInfo.message()))
+                .orElse(generateErrorResponse(errorCode, "알 수 없는 오류가 발생했습니다"));
     }
+    
 }
