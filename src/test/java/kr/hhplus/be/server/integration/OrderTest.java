@@ -3,6 +3,7 @@ package kr.hhplus.be.server.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
+import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Product;
@@ -291,9 +292,25 @@ public class OrderTest {
     @Test
     @DisplayName("동일 고객의 여러 동시 주문도 안정적으로 처리된다")
     void stableProcessingForSameCustomerConcurrentOrders() throws Exception {
-        // Given - 충분한 재고의 상품
+        // Given - 충분한 재고의 상품과 잔액이 충분한 고객
         User customer = createUniqueCustomer("동시주문고객");
         Product product = createUniqueProduct("일반상품", "5000", 10);
+        
+        // 고객 잔액 충전
+        BalanceRequest balanceRequest = new BalanceRequest();
+        balanceRequest.setAmount(new BigDecimal("20000"));
+        mockMvc.perform(post("/api/balance/charge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(balanceRequest)))
+            .andExpect(status().isOk());
+
+        // 초기 상태 저장
+        Product initialProduct = productRepositoryPort.findById(product.getId()).orElseThrow();
+        int initialStock = initialProduct.getStock();
+        int initialReservedStock = initialProduct.getReservedStock();
+        
+        User initialCustomer = userRepositoryPort.findById(customer.getId()).orElseThrow();
+        BigDecimal initialBalance = initialCustomer.getBalance();
 
         // When - 동일 고객의 3번 동시 주문
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
@@ -318,6 +335,35 @@ public class OrderTest {
         // Then - 동시성 제어가 안정적으로 동작
         assertThat(result.getTotalCount()).isEqualTo(3);
         assertThat(result.getFailureCount()).isEqualTo(0);
+        
+        // 비즈니스 상태 검증: 재고가 올바르게 차감되었는지 확인
+        Product finalProduct = productRepositoryPort.findById(product.getId()).orElseThrow();
+        assertThat(finalProduct.getStock())
+            .as("재고가 올바르게 차감되어야 함")
+            .isEqualTo(initialStock - 3);
+        assertThat(finalProduct.getReservedStock())
+            .as("예약 재고는 0이어야 함 (주문 완료 후)")
+            .isEqualTo(0);
+        
+        // 비즈니스 상태 검증: 고객 잔액이 올바르게 차감되었는지 확인
+        User finalCustomer = userRepositoryPort.findById(customer.getId()).orElseThrow();
+        BigDecimal expectedDeduction = new BigDecimal("5000").multiply(new BigDecimal("3")); // 상품가격 * 주문수량
+        assertThat(finalCustomer.getBalance())
+            .as("고객 잔액이 올바르게 차감되어야 함")
+            .isEqualTo(initialBalance.subtract(expectedDeduction));
+        
+        // 주문 레코드 검증: 3개의 주문이 생성되었는지 확인
+        List<Order> customerOrders = orderRepositoryPort.findByUserId(customer.getId());
+        assertThat(customerOrders)
+            .as("3개의 주문이 생성되어야 함")
+            .hasSize(3);
+        
+        // 각 주문의 총액이 올바른지 확인
+        customerOrders.forEach(order -> {
+            assertThat(order.getTotalAmount())
+                .as("각 주문의 총액이 상품 가격과 일치해야 함")
+                .isEqualTo(new BigDecimal("5000"));
+        });
     }
 
     // === 헬퍼 메서드 ===
