@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.unit.usecase;
+package kr.hhplus.be.server.unit.usecase.product;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
