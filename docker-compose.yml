@@ -1,7 +1,8 @@
-version: '3'
+version: '3.8'
 services:
   mysql:
     image: mysql:8.0
+    container_name: hhplus-mysql
     ports:
       - "3306:3306"
     environment:
@@ -11,7 +12,35 @@ services:
       - MYSQL_DATABASE=hhplus
     volumes:
       - ./data/mysql/:/var/lib/mysql
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    networks:
+      - hhplus-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hhplus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis/:/data
+    command: redis-server --appendonly yes
+    networks:
+      - hhplus-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: hhplus-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - hhplus-network
 
 networks:
-  default:
+  hhplus-network:
     driver: bridge
