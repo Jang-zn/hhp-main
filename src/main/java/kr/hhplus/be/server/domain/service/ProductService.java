@@ -5,7 +5,6 @@ import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -13,10 +12,10 @@ import java.util.List;
  * 상품 관련 비즈니스 로직을 처리하는 서비스
  * 
  * 상품 조회, 인기 상품 조회 등의 기능을 제공합니다.
+ * 읽기 전용 작업으로 트랜잭션이 필요하지 않아 TransactionTemplate을 사용하지 않습니다.
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductService {
 
     private final GetProductUseCase getProductUseCase;

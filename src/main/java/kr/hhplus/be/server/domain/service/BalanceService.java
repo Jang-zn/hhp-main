@@ -9,7 +9,7 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 
@@ -21,9 +21,9 @@ import java.math.BigDecimal;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BalanceService {
 
+    private final TransactionTemplate transactionTemplate;
     private final ChargeBalanceUseCase chargeBalanceUseCase;
     private final GetBalanceUseCase getBalanceUseCase;
     private final LockingPort lockingPort;
@@ -48,30 +48,34 @@ public class BalanceService {
     /**
      * 사용자 잔액 충전
      * 
-     * 동시성 제어를 위해 분산 락을 사용합니다.
+     * 동시성 제어를 위해 분산 락을 사용하고, TransactionTemplate으로 명시적 트랜잭션 관리합니다.
+     * 실행 순서: Lock 획득 → Transaction 시작 → Logic 실행 → Transaction 종료 → Lock 해제
      * 
      * @param userId 사용자 ID
      * @param chargeAmount 충전 금액
      * @return 충전 후 잔액 정보
      */
-    @Transactional
     public Balance chargeBalance(Long userId, BigDecimal chargeAmount) {
         String lockKey = "balance-" + userId;
         
-        // 사용자 존재 확인
+        // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
-        // 락 획득
+        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            return chargeBalanceUseCase.execute(userId, chargeAmount);
+            // 2. 명시적 트랜잭션 실행
+            return transactionTemplate.execute(status -> {
+                // 3. 비즈니스 로직 실행 (트랜잭션 내)
+                return chargeBalanceUseCase.execute(userId, chargeAmount);
+            });
         } finally {
-            // 락 해제
+            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }

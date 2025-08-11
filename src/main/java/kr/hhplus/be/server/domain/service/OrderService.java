@@ -17,7 +17,7 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,9 +30,9 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class OrderService {
 
+    private final TransactionTemplate transactionTemplate;
     private final CreateOrderUseCase createOrderUseCase;
     private final GetOrderUseCase getOrderUseCase;
     private final GetOrderListUseCase getOrderListUseCase;
@@ -47,23 +47,29 @@ public class OrderService {
     /**
      * 주문 생성
      * 
-     * 동시성 제어를 위해 분산 락을 사용합니다.
+     * 동시성 제어를 위해 분산 락을 사용하고, TransactionTemplate으로 명시적 트랜잭션 관리합니다.
+     * 실행 순서: Lock 획득 → Transaction 시작 → Logic 실행 → Transaction 종료 → Lock 해제
      * 
      * @param userId 사용자 ID
      * @param productQuantities 상품 및 수량 정보
      * @return 생성된 주문 정보
      */
-    @Transactional
     public Order createOrder(Long userId, List<ProductQuantityDto> productQuantities) {
         String lockKey = "order-creation-" + userId;
         
+        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            return createOrderUseCase.execute(userId, productQuantities);
+            // 2. 명시적 트랜잭션 실행
+            return transactionTemplate.execute(status -> {
+                // 3. 비즈니스 로직 실행 (트랜잭션 내)
+                return createOrderUseCase.execute(userId, productQuantities);
+            });
         } finally {
+            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }
@@ -108,25 +114,26 @@ public class OrderService {
      * 주문 결제 처리
      * 
      * 여러 UseCase를 조합하여 결제 프로세스를 수행합니다:
-     * 1. 주문 검증
-     * 2. 쿠폰 적용
-     * 3. 잔액 차감
-     * 4. 주문 완료 처리
-     * 5. 결제 생성
+     * 1. 사용자 존재 확인
+     * 2. 주문 검증
+     * 3. 쿠폰 적용
+     * 4. 잔액 차감
+     * 5. 주문 완료 처리
+     * 6. 결제 생성
      * 
-     * 동시성 제어를 위해 분산 락을 사용합니다.
+     * 동시성 제어를 위해 분산 락을 사용하고, TransactionTemplate으로 명시적 트랜잭션 관리합니다.
+     * 실행 순서: Lock 획득 → Transaction 시작 → Logic 실행 → Transaction 종료 → Lock 해제
      * 
      * @param orderId 주문 ID
      * @param userId 사용자 ID
      * @param couponId 쿠폰 ID (선택사항)
      * @return 결제 정보
      */
-    @Transactional
     public Payment payOrder(Long orderId, Long userId, Long couponId) {
         String paymentLockKey = "payment-" + orderId;
         String balanceLockKey = "balance-" + userId;
         
-        // 락 획득 (데드락 방지를 위해 순서 고정)
+        // 1. 락 획득 (데드락 방지를 위해 순서 고정)
         if (!lockingPort.acquireLock(paymentLockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
@@ -137,28 +144,33 @@ public class OrderService {
         }
         
         try {
-            // 1. 사용자 존재 확인
-            if (!userRepositoryPort.existsById(userId)) {
-                throw new UserException.NotFound();
-            }
-            
-            // 2. 주문 검증
-            Order order = validateOrderUseCase.execute(orderId, userId);
-            
-            // 3. 쿠폰 적용 (선택사항)
-            BigDecimal finalAmount = applyCouponUseCase.execute(order.getTotalAmount(), couponId);
-            
-            // 4. 잔액 차감
-            deductBalanceUseCase.execute(userId, finalAmount);
-            
-            // 5. 주문 완료 처리
-            completeOrderUseCase.execute(order);
-            
-            // 6. 결제 생성
-            return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
+            // 2. 명시적 트랜잭션 실행
+            return transactionTemplate.execute(status -> {
+                // 3. 비즈니스 로직 실행 (트랜잭션 내)
+                
+                // 3-1. 사용자 존재 확인
+                if (!userRepositoryPort.existsById(userId)) {
+                    throw new UserException.NotFound();
+                }
+                
+                // 3-2. 주문 검증
+                Order order = validateOrderUseCase.execute(orderId, userId);
+                
+                // 3-3. 쿠폰 적용 (선택사항)
+                BigDecimal finalAmount = applyCouponUseCase.execute(order.getTotalAmount(), couponId);
+                
+                // 3-4. 잔액 차감
+                deductBalanceUseCase.execute(userId, finalAmount);
+                
+                // 3-5. 주문 완료 처리
+                completeOrderUseCase.execute(order);
+                
+                // 3-6. 결제 생성
+                return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
+            });
             
         } finally {
-            // 락 해제 (획득 순서의 반대로 해제)
+            // 4. 락 해제 (획득 순서의 반대로 해제)
             lockingPort.releaseLock(balanceLockKey);
             lockingPort.releaseLock(paymentLockKey);
         }

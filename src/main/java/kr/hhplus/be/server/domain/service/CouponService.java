@@ -10,7 +10,7 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -22,9 +22,9 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class CouponService {
 
+    private final TransactionTemplate transactionTemplate;
     private final GetCouponListUseCase getCouponListUseCase;
     private final IssueCouponUseCase issueCouponUseCase;
     private final LockingPort lockingPort;
@@ -50,28 +50,34 @@ public class CouponService {
     /**
      * 쿠폰 발급
      * 
-     * 동시성 제어를 위해 분산 락을 사용합니다.
+     * 동시성 제어를 위해 분산 락을 사용하고, TransactionTemplate으로 명시적 트랜잭션 관리합니다.
+     * 실행 순서: Lock 획득 → Transaction 시작 → Logic 실행 → Transaction 종료 → Lock 해제
      * 
      * @param couponId 쿠폰 ID
      * @param userId 사용자 ID
      * @return 발급된 쿠폰 히스토리
      */
-    @Transactional
     public CouponHistory issueCoupon(Long couponId, Long userId) {
         String lockKey = "coupon-issue-" + couponId;
         
-        // 사용자 존재 확인
+        // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
+        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            return issueCouponUseCase.execute(couponId, userId);
+            // 2. 명시적 트랜잭션 실행
+            return transactionTemplate.execute(status -> {
+                // 3. 비즈니스 로직 실행 (트랜잭션 내)
+                return issueCouponUseCase.execute(couponId, userId);
+            });
         } finally {
+            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }
