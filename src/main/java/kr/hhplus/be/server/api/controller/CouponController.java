@@ -13,8 +13,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
-import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
+import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
 import java.util.stream.Collectors;
@@ -39,8 +38,7 @@ import java.util.Optional;
 @Validated
 public class CouponController {
     
-    private final IssueCouponFacade issueCouponFacade;
-    private final GetCouponListFacade getCouponListFacade;
+    private final CouponService couponService;
     private final CouponRepositoryPort couponRepositoryPort;
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
@@ -49,7 +47,7 @@ public class CouponController {
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
 
 
-        CouponHistory couponHistory = issueCouponFacade.issueCoupon(request.getUserId(), request.getCouponId());
+        CouponHistory couponHistory = couponService.issueCoupon(request.getCouponId(), request.getUserId());
         
         // Coupon 정보 조회
         Coupon coupon = couponRepositoryPort.findById(couponHistory.getCouponId())
@@ -78,7 +76,7 @@ public class CouponController {
             @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
 
 
-        List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, limit, offset);
+        List<CouponHistory> couponHistories = couponService.getCouponList(userId, limit, offset);
         return couponHistories.stream()
                 .map(history -> safeCouponLookup(history))
                 .filter(Optional::isPresent)
