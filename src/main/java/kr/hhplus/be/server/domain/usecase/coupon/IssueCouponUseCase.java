@@ -35,7 +35,7 @@ public class IssueCouponUseCase {
      * @param couponId 쿠폰 ID
      * @return 생성된 쿠폰 발급 이력
      */
-    @Transactional(timeout = 5)
+    
     public CouponHistory execute(Long userId, Long couponId) {
         log.info("쿠폰 발급 요청: userId={}, couponId={}", userId, couponId);
         

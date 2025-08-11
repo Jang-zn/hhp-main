@@ -17,7 +17,7 @@ public class ValidateCouponUseCase {
     
     private final CouponRepositoryPort couponRepositoryPort;
     
-    @Transactional(readOnly = true)
+    
     public void execute(List<Long> couponIds) {
         log.debug("쿠폰 유효성 검증 요청: couponIds={}", couponIds);
         

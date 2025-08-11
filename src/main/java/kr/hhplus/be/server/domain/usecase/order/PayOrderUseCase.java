@@ -33,7 +33,7 @@ public class PayOrderUseCase {
     private final CachePort cachePort;
     private final MessagingPort messagingPort;
     
-    @Transactional
+    
     public Payment execute(Long orderId, Long userId, Long couponId) {
         log.debug("결제 처리 요청: orderId={}, userId={}, couponId={}", orderId, userId, couponId);
         

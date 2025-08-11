@@ -26,7 +26,7 @@ public class ExpireCouponsUseCase {
     private final CouponRepositoryPort couponRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
-    @Transactional
+    
     public void execute() {
         LocalDateTime now = LocalDateTime.now();
         log.info("만료 쿠폰 처리 시작: {}", now);

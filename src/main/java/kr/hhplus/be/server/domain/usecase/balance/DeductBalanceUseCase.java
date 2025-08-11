@@ -9,7 +9,6 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -26,13 +25,11 @@ public class DeductBalanceUseCase {
      * 동시성 제어:
      * - 낙관적 락 (@Version) 사용으로 동시 차감 방지
      * - OptimisticLockingFailureException 발생 시 최대 3회 재시도
-     * - 트랜잭션 타임아웃 3초 설정
      * 
      * @param userId 사용자 ID
      * @param amount 차감할 금액
      * @return 차감 후 잔액 엔티티
      */
-    @Transactional(timeout = 3)
     @Retryable(retryFor = OptimisticLockingFailureException.class, maxAttempts = 3)
     public Balance execute(Long userId, BigDecimal amount) {
         log.debug("잔액 차감: userId={}, amount={}", userId, amount);

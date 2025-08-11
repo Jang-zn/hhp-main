@@ -15,7 +15,6 @@ import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
@@ -42,13 +41,12 @@ public class CreateOrderUseCase {
      * 동시성 제어:
      * - LockOrderManager로 상품 ID 정렬하여 데드락 방지
      * - 비관적 락으로 상품 조회하여 재고 경합 방지
-     * - 트랜잭션 타임아웃 10초 설정 (여러 상품 처리 고려)
+     * - 트랜잭션 관리는 Service 레이어에서 담당
      * 
      * @param userId 주문하는 사용자 ID
      * @param productQuantities 주문할 상품과 수량 정보
      * @return 생성된 주문 엔티티
      */
-    @Transactional(timeout = 10)
     public Order execute(Long userId, List<ProductQuantityDto> productQuantities) {
         log.debug("주문 생성 요청: userId={}, products={}", userId, productQuantities);
         
