@@ -1,7 +1,7 @@
-package kr.hhplus.be.server.unit.facade.balance;
+package kr.hhplus.be.server.unit.service.balance;
 
 import kr.hhplus.be.server.domain.entity.*;
-import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
+import kr.hhplus.be.server.domain.service.BalanceService;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
@@ -24,13 +24,13 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * ChargeBalanceFacade 비즈니스 시나리오 테스트
+ * BalanceService.chargeBalance 메서드 테스트
  * 
- * Why: 잔액 충전 파사드의 비즈니스 로직이 요구사항을 충족하는지 검증
- * How: 잔액 충전 시나리오를 반영한 파사드 레이어 테스트로 구성
+ * Why: 잔액 충전 서비스의 비즈니스 로직이 요구사항을 충족하는지 검증
+ * How: 잔액 충전 시나리오를 반영한 서비스 레이어 테스트로 구성
  */
-@DisplayName("잔액 충전 파사드 비즈니스 시나리오")
-class ChargeBalanceFacadeTest {
+@DisplayName("잔액 충전 서비스")
+class ChargeBalanceTest {
 
     @Mock
     private ChargeBalanceUseCase chargeBalanceUseCase;
@@ -40,12 +40,13 @@ class ChargeBalanceFacadeTest {
     
     @Mock
     private UserRepositoryPort userRepositoryPort;
-    private ChargeBalanceFacade chargeBalanceFacade;
+    
+    private BalanceService balanceService;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        chargeBalanceFacade = new ChargeBalanceFacade(chargeBalanceUseCase, lockingPort, userRepositoryPort);
+        balanceService = new BalanceService(chargeBalanceUseCase, null, lockingPort, userRepositoryPort);
     }
 
     @Test
@@ -64,7 +65,7 @@ class ChargeBalanceFacadeTest {
         when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(expectedBalance);
         
         // when
-        Balance result = chargeBalanceFacade.chargeBalance(userId, chargeAmount);
+        Balance result = balanceService.chargeBalance(userId, chargeAmount);
         
         // then
         assertThat(result).isNotNull();
@@ -87,7 +88,7 @@ class ChargeBalanceFacadeTest {
         when(lockingPort.acquireLock("balance-" + userId)).thenReturn(false);
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
+        assertThatThrownBy(() -> balanceService.chargeBalance(userId, chargeAmount))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
         verify(userRepositoryPort).existsById(userId);
@@ -108,7 +109,7 @@ class ChargeBalanceFacadeTest {
             .thenThrow(new BalanceException.InvalidAmount());
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
+        assertThatThrownBy(() -> balanceService.chargeBalance(userId, chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
         verify(userRepositoryPort).existsById(userId);
@@ -129,7 +130,7 @@ class ChargeBalanceFacadeTest {
             .thenThrow(new BalanceException.InvalidAmount());
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, invalidAmount))
+        assertThatThrownBy(() -> balanceService.chargeBalance(userId, invalidAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
         verify(lockingPort).releaseLock("balance-" + userId);
@@ -145,7 +146,7 @@ class ChargeBalanceFacadeTest {
         when(userRepositoryPort.existsById(userId)).thenReturn(false);
         
         // when & then
-        assertThatThrownBy(() -> chargeBalanceFacade.chargeBalance(userId, chargeAmount))
+        assertThatThrownBy(() -> balanceService.chargeBalance(userId, chargeAmount))
             .isInstanceOf(UserException.NotFound.class);
             
         verify(userRepositoryPort).existsById(userId);
@@ -178,7 +179,7 @@ class ChargeBalanceFacadeTest {
             threadCount,
             () -> {
                 try {
-                    chargeBalanceFacade.chargeBalance(userId, chargeAmount);
+                    balanceService.chargeBalance(userId, chargeAmount);
                     return "SUCCESS";
                 } catch (CommonException.ConcurrencyConflict e) {
                     throw new RuntimeException("LOCK_FAILED");
@@ -224,14 +225,14 @@ class ChargeBalanceFacadeTest {
             List.of(
                 () -> {
                     try {
-                        chargeBalanceFacade.chargeBalance(userId1, chargeAmount);
+                        balanceService.chargeBalance(userId1, chargeAmount);
                     } catch (Exception e) {
                         throw new RuntimeException("USER1_FAILED: " + e.getMessage());
                     }
                 },
                 () -> {
                     try {
-                        chargeBalanceFacade.chargeBalance(userId2, chargeAmount);
+                        balanceService.chargeBalance(userId2, chargeAmount);
                     } catch (Exception e) {
                         throw new RuntimeException("USER2_FAILED: " + e.getMessage());
                     }

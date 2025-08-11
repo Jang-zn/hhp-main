@@ -41,7 +41,8 @@ public class BalanceService {
             throw new UserException.NotFound();
         }
         
-        return getBalanceUseCase.execute(userId);
+        return getBalanceUseCase.execute(userId)
+                .orElseThrow(() -> new RuntimeException("Balance not found"));
     }
 
     /**

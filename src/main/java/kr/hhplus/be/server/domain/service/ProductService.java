@@ -2,7 +2,7 @@ package kr.hhplus.be.server.domain.service;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
-import kr.hhplus.be.server.domain.usecase.product.GetPopularProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +20,7 @@ import java.util.List;
 public class ProductService {
 
     private final GetProductUseCase getProductUseCase;
-    private final GetPopularProductUseCase getPopularProductUseCase;
+    private final GetPopularProductListUseCase getPopularProductListUseCase;
 
     /**
      * 상품 목록 조회
@@ -41,6 +41,7 @@ public class ProductService {
      * @return 인기 상품 목록
      */
     public List<Product> getPopularProductList(int limit, int offset) {
-        return getPopularProductUseCase.execute(limit, offset);
+        // 현재 UseCase는 period만 받으므로, 기본값으로 7일을 사용
+        return getPopularProductListUseCase.execute(7);
     }
 }

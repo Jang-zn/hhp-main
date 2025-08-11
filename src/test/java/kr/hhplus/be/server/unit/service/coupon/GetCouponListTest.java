@@ -1,8 +1,10 @@
-package kr.hhplus.be.server.unit.facade.coupon;
+package kr.hhplus.be.server.unit.service.coupon;
 
 import kr.hhplus.be.server.domain.entity.*;
-import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
+import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
+import kr.hhplus.be.server.domain.port.locking.LockingPort;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
@@ -22,20 +24,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("GetCouponListFacade 단위 테스트")
-class GetCouponListFacadeTest {
+/**
+ * CouponService.getCouponList 메서드 테스트
+ */
+@DisplayName("쿠폰 목록 조회 서비스")
+class GetCouponListTest {
 
     @Mock
     private GetCouponListUseCase getCouponListUseCase;
     
-    private GetCouponListFacade getCouponListFacade;
+    @Mock
+    private LockingPort lockingPort;
+    
+    @Mock
+    private UserRepositoryPort userRepositoryPort;
+    
+    private CouponService couponService;
     
     private List<CouponHistory> testCouponHistories;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getCouponListFacade = new GetCouponListFacade(getCouponListUseCase);
+        couponService = new CouponService(getCouponListUseCase, null, lockingPort, userRepositoryPort);
         
         Coupon coupon1 = Coupon.builder()
             .id(1L)
@@ -84,10 +95,11 @@ class GetCouponListFacadeTest {
             int limit = 10;
             int offset = 0;
             
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(testCouponHistories);
             
             // when
-            List<CouponHistory> result = getCouponListFacade.getCouponList(userId, limit, offset);
+            List<CouponHistory> result = couponService.getCouponList(userId, limit, offset);
             
             // then
             assertThat(result).isNotNull();
@@ -95,6 +107,7 @@ class GetCouponListFacadeTest {
             assertThat(result.get(0).getCouponId()).isEqualTo(1L);
             assertThat(result.get(1).getCouponId()).isEqualTo(2L);
             
+            verify(userRepositoryPort).existsById(userId);
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -106,15 +119,17 @@ class GetCouponListFacadeTest {
             int limit = 10;
             int offset = 0;
             
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(List.of());
             
             // when
-            List<CouponHistory> result = getCouponListFacade.getCouponList(userId, limit, offset);
+            List<CouponHistory> result = couponService.getCouponList(userId, limit, offset);
             
             // then
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
             
+            verify(userRepositoryPort).existsById(userId);
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -126,14 +141,14 @@ class GetCouponListFacadeTest {
             int limit = 10;
             int offset = 0;
             
-            when(getCouponListUseCase.execute(userId, limit, offset))
-                .thenThrow(new UserException.NotFound());
+            when(userRepositoryPort.existsById(userId)).thenReturn(false);
             
             // when & then
-            assertThatThrownBy(() -> getCouponListFacade.getCouponList(userId, limit, offset))
+            assertThatThrownBy(() -> couponService.getCouponList(userId, limit, offset))
                 .isInstanceOf(UserException.NotFound.class);
                 
-            verify(getCouponListUseCase).execute(userId, limit, offset);
+            verify(userRepositoryPort).existsById(userId);
+            verify(getCouponListUseCase, never()).execute(any(), anyInt(), anyInt());
         }
         
         @Test
@@ -144,15 +159,17 @@ class GetCouponListFacadeTest {
             int limit = 5;
             int offset = 10;
             
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(List.of(testCouponHistories.get(0)));
             
             // when
-            List<CouponHistory> result = getCouponListFacade.getCouponList(userId, limit, offset);
+            List<CouponHistory> result = couponService.getCouponList(userId, limit, offset);
             
             // then
             assertThat(result).isNotNull();
             assertThat(result).hasSize(1);
             
+            verify(userRepositoryPort).existsById(userId);
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
     }

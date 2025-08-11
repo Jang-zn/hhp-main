@@ -6,7 +6,6 @@ import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
-import kr.hhplus.be.server.domain.usecase.order.GetOrderWithDetailsUseCase;
 import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.CompleteOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.CreatePaymentUseCase;
@@ -37,7 +36,6 @@ public class OrderService {
     private final CreateOrderUseCase createOrderUseCase;
     private final GetOrderUseCase getOrderUseCase;
     private final GetOrderListUseCase getOrderListUseCase;
-    private final GetOrderWithDetailsUseCase getOrderWithDetailsUseCase;
     private final ValidateOrderUseCase validateOrderUseCase;
     private final CompleteOrderUseCase completeOrderUseCase;
     private final CreatePaymentUseCase createPaymentUseCase;
@@ -78,7 +76,8 @@ public class OrderService {
      * @return 주문 정보
      */
     public Order getOrder(Long orderId, Long userId) {
-        return getOrderUseCase.execute(orderId, userId);
+        return getOrderUseCase.execute(userId, orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
     /**
@@ -90,7 +89,7 @@ public class OrderService {
      * @return 주문 목록
      */
     public List<Order> getOrderList(Long userId, int limit, int offset) {
-        return getOrderListUseCase.execute(userId, limit, offset);
+        return getOrderListUseCase.execute(userId);
     }
 
     /**
@@ -101,7 +100,8 @@ public class OrderService {
      * @return 상세 주문 정보
      */
     public Order getOrderWithDetails(Long orderId, Long userId) {
-        return getOrderWithDetailsUseCase.execute(orderId, userId);
+        return getOrderUseCase.execute(userId, orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
     /**
