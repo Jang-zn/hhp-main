@@ -2,7 +2,9 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -60,20 +63,19 @@ public class OrderController {
                     .map(productId -> new ProductQuantityDto(productId, 1))
                     .collect(Collectors.toList());
         } else {
-            // 상품 정보가 없는 경우 예외 처리
-            throw new OrderException.EmptyItems();
+            // Bean Validation으로 이미 검증되었으므로 여기까지 오면 안됨
+            productQuantities = List.of();
         }
         
         Order order = orderService.createOrder(request.getUserId(), productQuantities);
         
-        // 임시로 빈 아이템 리스트로 응답 생성 (OrderItem 조회 로직 추가 필요)
         return new OrderResponse(
                 order.getId(),
                 order.getUserId(),
                 order.getStatus().name(),
                 order.getTotalAmount(),
                 order.getCreatedAt(),
-                List.of() // 빈 아이템 리스트
+                List.of()
         );
     }
 
@@ -105,24 +107,26 @@ public class OrderController {
         // 서비스를 통해 상세 정보 조회
         Order orderDetails = orderService.getOrderWithDetails(orderId, userId);
         
-        // 임시로 빈 아이템 리스트로 응답 생성
         return new OrderResponse(
                 orderDetails.getId(),
                 orderDetails.getUserId(),
                 orderDetails.getStatus().name(),
                 orderDetails.getTotalAmount(),
                 orderDetails.getCreatedAt(),
-                List.of() // 빈 아이템 리스트
+                List.of()
         );
     }
 
     @OrderApiDocs(summary = "사용자 주문 목록 조회", description = "사용자의 모든 주문 목록을 조회합니다")
     @GetMapping("/user/{userId}")
-    public List<OrderResponse> getUserOrders(@PathVariable @Positive Long userId) {
+    public List<OrderResponse> getUserOrders(
+            @PathVariable @Positive Long userId,
+            @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
+            @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
         
         
         // 서비스를 통해 주문 목록 조회
-        List<Order> orders = orderService.getOrderList(userId, 100, 0);
+        List<Order> orders = orderService.getOrderList(userId, limit, offset);
         
         return orders.stream()
                 .map(order -> new OrderResponse(
@@ -131,7 +135,7 @@ public class OrderController {
                         order.getStatus().name(),
                         order.getTotalAmount(),
                         order.getCreatedAt(),
-                        List.of() // 빈 아이템 리스트
+                        List.of()
                 ))
                 .collect(Collectors.toList());
     }

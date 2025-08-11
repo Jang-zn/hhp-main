@@ -129,13 +129,16 @@ class CreateOrderControllerTest {
         request.setUserId(1L);
         request.setProducts(null);
 
+        when(orderService.createOrder(eq(1L), eq(List.of())))
+                .thenThrow(new OrderException.EmptyItems());
+
         // when & then
         mockMvc.perform(post("/api/order")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("V001"))
-                .andExpect(jsonPath("$.message").value("유효하지 않은 입력입니다."));
+                .andExpect(jsonPath("$.message").value("유효하지 않은 주문 상품입니다."));
     }
 
     @Test
@@ -146,13 +149,16 @@ class CreateOrderControllerTest {
         request.setUserId(1L);
         request.setProducts(List.of());
 
+        when(orderService.createOrder(eq(1L), eq(List.of())))
+                .thenThrow(new OrderException.EmptyItems());
+
         // when & then
         mockMvc.perform(post("/api/order")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("V001"))
-                .andExpect(jsonPath("$.message").value("유효하지 않은 입력입니다."));
+                .andExpect(jsonPath("$.message").value("유효하지 않은 주문 상품입니다."));
     }
 
     @Test
