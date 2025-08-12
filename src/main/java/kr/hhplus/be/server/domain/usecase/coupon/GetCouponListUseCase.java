@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,9 +17,7 @@ public class GetCouponListUseCase {
     
     private final UserRepositoryPort userRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
-    private final CachePort cachePort;
     private static final int MAX_LIMIT = 1000;
-    private static final int CACHE_TTL_SECONDS = 300;
     
     public List<CouponHistory> execute(Long userId, int limit, int offset) {
         log.debug("쿠폰 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
@@ -35,11 +32,7 @@ public class GetCouponListUseCase {
                 throw new UserException.NotFound();
             }
             
-            // 캐시 키 생성
-            String cacheKey = "coupon_list_" + userId + "_" + limit + "_" + offset;
-            
-            // 캐시에서 조회 시도
-            List<CouponHistory> result = getCachedCouponList(cacheKey, userId, limit, offset);
+            List<CouponHistory> result = couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
             
             log.debug("쿠폰 목록 조회 완료: userId={}, count={}", userId, result.size());
             
@@ -75,17 +68,4 @@ public class GetCouponListUseCase {
         }
     }
     
-    private List<CouponHistory> getCachedCouponList(String cacheKey, Long userId, int limit, int offset) {
-        try {
-            return cachePort.get(cacheKey, List.class, () -> {
-                List<CouponHistory> couponHistories = couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
-                log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
-                return couponHistories;
-            });
-        } catch (Exception e) {
-            log.warn("캐시 조회 실패, 직접 DB 조회: userId={}, error={}", userId, e.getMessage());
-            // 캐시 실패 시 직접 DB에서 조회
-            return couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
-        }
-    }
 } 

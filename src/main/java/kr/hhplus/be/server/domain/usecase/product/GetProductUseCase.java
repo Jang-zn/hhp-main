@@ -2,7 +2,6 @@ package kr.hhplus.be.server.domain.usecase.product;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.ProductException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +16,6 @@ import java.util.Optional;
 public class GetProductUseCase {
     
     private final ProductRepositoryPort productRepositoryPort;
-    private final CachePort cachePort;
     
     private static final int MAX_LIMIT = 1000;
     
@@ -33,10 +31,13 @@ public class GetProductUseCase {
         }
         
         try {
-            String cacheKey = "product_" + productId;
-            return cachePort.get(cacheKey, Optional.class, () -> 
-                productRepositoryPort.findById(productId)
-            );
+            Optional<Product> productOpt = productRepositoryPort.findById(productId);
+            if (productOpt.isPresent()) {
+                log.debug("상품 조회 성공: productId={}", productId);
+            } else {
+                log.debug("상품 조회 결과 없음: productId={}", productId);
+            }
+            return productOpt;
         } catch (Exception e) {
             log.error("상품 조회 중 오류 발생: productId={}", productId, e);
             return productRepositoryPort.findById(productId);
@@ -52,11 +53,9 @@ public class GetProductUseCase {
         validatePaginationParams(limit, offset);
         
         try {
-            String cacheKey = "product_list_" + limit + "_" + offset;
-            
-            return cachePort.get(cacheKey, List.class, () -> 
-                productRepositoryPort.findAllWithPagination(limit, offset)
-            );
+            List<Product> products = productRepositoryPort.findAllWithPagination(limit, offset);
+            log.debug("상품 목록 조회 성공: count={}", products.size());
+            return products;
         } catch (Exception e) {
             log.error("상품 목록 조회 중 오류 발생: limit={}, offset={}", limit, offset, e);
             return productRepositoryPort.findAllWithPagination(limit, offset);

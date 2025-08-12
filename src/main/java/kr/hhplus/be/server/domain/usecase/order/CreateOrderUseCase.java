@@ -9,8 +9,6 @@ import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.LockOrderManager;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +30,6 @@ public class CreateOrderUseCase {
     private final OrderRepositoryPort orderRepositoryPort;
     private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
-    private final CachePort cachePort;
-    private final LockOrderManager lockOrderManager;
 
     /**
      * 주문을 생성하고 상품 재고를 예약합니다.
@@ -59,14 +55,13 @@ public class CreateOrderUseCase {
                 throw new UserException.NotFound();
             }
 
-            // 데드락 방지를 위한 상품 ID 정렬
+            // 상품 ID 목록 추출
             List<Long> productIds = productQuantities.stream()
                     .map(ProductQuantityDto::getProductId)
                     .collect(Collectors.toList());
-            List<Long> orderedProductIds = lockOrderManager.getOrderedLockIds(productIds);
             
-            // 정렬된 순서로 비관적 락으로 상품 조회 (데드락 방지)
-            List<Product> products = productRepositoryPort.findByIdsWithLock(orderedProductIds);
+            // 상품 조회 (낙관적 락 사용으로 변경)
+            List<Product> products = productRepositoryPort.findByIds(productIds);
             Map<Long, Product> productMap = products.stream()
                     .collect(Collectors.toMap(Product::getId, product -> product));
             
@@ -122,9 +117,6 @@ public class CreateOrderUseCase {
             log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
                     savedOrder.getId(), userId, totalAmount, orderItems.size());
             
-            // 캐시 무효화
-            invalidateUserRelatedCache(userId);
-            
             return savedOrder;
         } catch (Exception e) {
             log.error("주문 생성 중 오류 발생: userId={}", userId, e);
@@ -141,17 +133,5 @@ public class CreateOrderUseCase {
             throw new OrderException.EmptyItems();
         }
         
-    }
-    
-    private void invalidateUserRelatedCache(Long userId) {
-        try {
-            // 사용자 관련 캐시 무효화 (주문 목록 등)
-            String userOrderCacheKey = "user_orders_" + userId;
-            // cachePort.evict(userOrderCacheKey); // 구현 필요시 추가
-            log.debug("캐시 무효화 완료: userId={}", userId);
-        } catch (Exception e) {
-            log.warn("캐시 무효화 실패: userId={}", userId, e);
-            // 캐시 무효화 실패는 비즈니스 로직에 영향 없음
-        }
     }
 }

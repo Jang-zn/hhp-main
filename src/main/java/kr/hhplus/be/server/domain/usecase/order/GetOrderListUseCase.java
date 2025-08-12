@@ -3,12 +3,10 @@ package kr.hhplus.be.server.domain.usecase.order;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,7 +17,6 @@ public class GetOrderListUseCase {
     
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
-    private final CachePort cachePort;
     
     public List<Order> execute(Long userId) {
         log.debug("주문 목록 조회 요청: userId={}", userId);
@@ -33,25 +30,16 @@ public class GetOrderListUseCase {
             throw new UserException.NotFound();
         }
         
-        try {
-            // 캐시에서 주문 목록 조회 시도
-            String cacheKey = "user_orders_" + userId;
-            List<Order> cachedOrders = cachePort.get(cacheKey, List.class, () -> 
-                orderRepositoryPort.findByUserId(userId)
-            );
-            
-            if (cachedOrders != null) {
-                log.debug("주문 목록 조회 성공: userId={}, count={}", userId, cachedOrders.size());
-                return cachedOrders;
-            } else {
-                log.debug("주문 목록 조회 결과 없음: userId={}", userId);
-                return List.of();
-            }
-        } catch (Exception e) {
-            log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
-            // 캐시 오류 시 DB에서 직접 조회
-            return orderRepositoryPort.findByUserId(userId);
+        // 데이터베이스에서 주문 목록 조회
+        List<Order> orders = orderRepositoryPort.findByUserId(userId);
+        
+        if (!orders.isEmpty()) {
+            log.debug("주문 목록 조회 성공: userId={}, count={}", userId, orders.size());
+        } else {
+            log.debug("주문 목록 조회 결과 없음: userId={}", userId);
         }
+        
+        return orders;
     }
     
     private void validateParameters(Long userId) {
@@ -62,4 +50,4 @@ public class GetOrderListUseCase {
             throw new IllegalArgumentException("UserId must be positive");
         }
     }
-} 
+}

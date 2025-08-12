@@ -49,8 +49,8 @@ public class IssueCouponUseCase {
                     return new UserException.NotFound();
                 });
         
-        // 쿠폰 조회 (비관적 락으로 동시 발급 방지)
-        Coupon coupon = couponRepositoryPort.findByIdWithLock(couponId)
+        // 쿠폰 조회 (Redis 분산 락으로 동시 발급 방지)
+        Coupon coupon = couponRepositoryPort.findById(couponId)
                 .orElseThrow(() -> {
                     log.warn("쿠폰 없음: couponId={}", couponId);
                     return new CouponException.NotFound();

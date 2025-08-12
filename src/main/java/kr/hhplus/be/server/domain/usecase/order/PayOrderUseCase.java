@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,6 @@ public class PayOrderUseCase {
     private final ProductRepositoryPort productRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final LockingPort lockingPort;
-    private final CachePort cachePort;
     private final MessagingPort messagingPort;
     
     
@@ -270,8 +268,6 @@ public class PayOrderUseCase {
             String balanceCacheKey = "balance_" + userId;
             // 주문 캐시 무효화
             String orderCacheKey = "order_" + orderId + "_" + userId;
-            // cachePort.evict(balanceCacheKey); // 구현 필요시 추가
-            // cachePort.evict(orderCacheKey);   // 구현 필요시 추가
             
             log.debug("캐시 무효화 완료: userId={}, orderId={}", userId, orderId);
         } catch (Exception e) {
