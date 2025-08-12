@@ -5,13 +5,18 @@ import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 /**
  * 잔액 관련 비즈니스 로직을 처리하는 서비스
@@ -21,6 +26,7 @@ import java.math.BigDecimal;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BalanceService {
 
     private final TransactionTemplate transactionTemplate;
@@ -28,21 +34,50 @@ public class BalanceService {
     private final GetBalanceUseCase getBalanceUseCase;
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
+    private final CachePort cachePort;
+    
+    private static final int BALANCE_CACHE_TTL = 600; // 10분
 
     /**
-     * 사용자 잔액 조회
+     * 사용자 잔액 조회 (캐시 적용)
      * 
      * @param userId 사용자 ID
      * @return 사용자 잔액 정보
      */
     public Balance getBalance(Long userId) {
+        log.debug("잔액 조회 요청: userId={}", userId);
+        
         // 사용자 존재 확인
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
-        return getBalanceUseCase.execute(userId)
-                .orElseThrow(() -> new RuntimeException("Balance not found"));
+        try {
+            String cacheKey = "balance:" + userId;
+            Balance cachedBalance = cachePort.get(cacheKey, Balance.class, () -> {
+                Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
+                if (balanceOpt.isPresent()) {
+                    Balance balance = balanceOpt.get();
+                    log.debug("데이터베이스에서 잔액 조회: userId={}, amount={}", userId, balance.getAmount());
+                    return balance;
+                } else {
+                    log.debug("잔액 정보 없음: userId={}", userId);
+                    return null;
+                }
+            });
+            
+            if (cachedBalance != null) {
+                log.debug("잔액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
+                return cachedBalance;
+            } else {
+                throw new RuntimeException("Balance not found");
+            }
+        } catch (Exception e) {
+            log.error("잔액 조회 중 오류 발생: userId={}", userId, e);
+            // 캐시 오류 시 직접 DB에서 조회
+            return getBalanceUseCase.execute(userId)
+                    .orElseThrow(() -> new RuntimeException("Balance not found"));
+        }
     }
 
     /**
@@ -72,11 +107,40 @@ public class BalanceService {
             // 2. 명시적 트랜잭션 실행
             return transactionTemplate.execute(status -> {
                 // 3. 비즈니스 로직 실행 (트랜잭션 내)
-                return chargeBalanceUseCase.execute(userId, chargeAmount);
+                Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
+                
+                // 트랜잭션 커밋 후 캐시 무효화 등록
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                invalidateBalanceCache(userId);
+                            }
+                        }
+                    );
+                }
+                
+                return result;
             });
         } finally {
             // 4. 락 해제
             lockingPort.releaseLock(lockKey);
+        }
+    }
+    
+    /**
+     * 잔액 캐시 무효화
+     * 
+     * @param userId 사용자 ID
+     */
+    private void invalidateBalanceCache(Long userId) {
+        try {
+            String cacheKey = "balance:" + userId;
+            cachePort.evict(cacheKey);
+            log.debug("잔액 캐시 무효화: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("잔액 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

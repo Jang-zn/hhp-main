@@ -13,11 +13,15 @@ import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,6 +34,7 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderService {
 
     private final TransactionTemplate transactionTemplate;
@@ -43,6 +48,10 @@ public class OrderService {
     private final ApplyCouponUseCase applyCouponUseCase;
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
+    private final CachePort cachePort;
+    
+    private static final int ORDER_CACHE_TTL = 600; // 10분
+    private static final int ORDER_LIST_CACHE_TTL = 300; // 5분
 
     /**
      * 주문 생성
@@ -66,7 +75,21 @@ public class OrderService {
             // 2. 명시적 트랜잭션 실행
             return transactionTemplate.execute(status -> {
                 // 3. 비즈니스 로직 실행 (트랜잭션 내)
-                return createOrderUseCase.execute(userId, productQuantities);
+                Order order = createOrderUseCase.execute(userId, productQuantities);
+                
+                // 4. 트랜잭션 커밋 후 캐시 무효화 등록
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronizationAdapter() {
+                            @Override
+                            public void afterCommit() {
+                                invalidateUserRelatedCache(userId);
+                            }
+                        }
+                    );
+                }
+                
+                return order;
             });
         } finally {
             // 4. 락 해제
@@ -75,39 +98,84 @@ public class OrderService {
     }
 
     /**
-     * 주문 조회
+     * 주문 조회 (캐시 적용)
      * 
      * @param orderId 주문 ID
      * @param userId 사용자 ID (권한 확인용)
      * @return 주문 정보
      */
     public Order getOrder(Long orderId, Long userId) {
-        return getOrderUseCase.execute(userId, orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+        log.debug("주문 조회 요청: orderId={}, userId={}", orderId, userId);
+        
+        try {
+            String cacheKey = "order_" + orderId + "_" + userId;
+            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
+                return getOrderUseCase.execute(userId, orderId).orElse(null);
+            });
+            
+            if (cachedOrder != null) {
+                log.debug("주문 조회 성공: orderId={}, userId={}", orderId, userId);
+                return cachedOrder;
+            } else {
+                throw new RuntimeException("Order not found");
+            }
+        } catch (Exception e) {
+            log.error("주문 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
+            return getOrderUseCase.execute(userId, orderId)
+                    .orElseThrow(() -> new RuntimeException("Order not found"));
+        }
     }
 
     /**
-     * 사용자 주문 목록 조회
+     * 사용자 주문 목록 조회 (캐시 적용)
      * 
      * @param userId 사용자 ID
-     * @param limit 조회할 주문 개수
-     * @param offset 건너뛸 주문 개수
      * @return 주문 목록
      */
-    public List<Order> getOrderList(Long userId, int limit, int offset) {
-        return getOrderListUseCase.execute(userId);
+    @SuppressWarnings("unchecked")
+    public List<Order> getOrderList(Long userId) {
+        log.debug("주문 목록 조회 요청: userId={}", userId);
+        
+        try {
+            String cacheKey = "order_list_" + userId;
+            return (List<Order>) cachePort.get(cacheKey, List.class, () -> {
+                List<Order> orders = getOrderListUseCase.execute(userId);
+                log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
+                return orders;
+            });
+        } catch (Exception e) {
+            log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
+            return getOrderListUseCase.execute(userId);
+        }
     }
 
     /**
-     * 주문 상세 정보 조회 (주문 항목 포함)
+     * 주문 상세 정보 조회 (주문 항목 포함, 캐시 적용)
      * 
      * @param orderId 주문 ID
      * @param userId 사용자 ID (권한 확인용)
      * @return 상세 주문 정보
      */
     public Order getOrderWithDetails(Long orderId, Long userId) {
-        return getOrderUseCase.execute(userId, orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+        log.debug("주문 상세 정보 조회 요청: orderId={}, userId={}", orderId, userId);
+        
+        try {
+            String cacheKey = "order_details_" + orderId + "_" + userId;
+            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
+                return getOrderUseCase.execute(userId, orderId).orElse(null);
+            });
+            
+            if (cachedOrder != null) {
+                log.debug("주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
+                return cachedOrder;
+            } else {
+                throw new RuntimeException("Order not found");
+            }
+        } catch (Exception e) {
+            log.error("주문 상세 정보 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
+            return getOrderUseCase.execute(userId, orderId)
+                    .orElseThrow(() -> new RuntimeException("Order not found"));
+        }
     }
 
     /**
@@ -173,6 +241,31 @@ public class OrderService {
             // 4. 락 해제 (획득 순서의 반대로 해제)
             lockingPort.releaseLock(balanceLockKey);
             lockingPort.releaseLock(paymentLockKey);
+        }
+    }
+    
+    /**
+     * 사용자 관련 캐시 무효화
+     * 트랜잭션 커밋 후에 실행되어 데이터 일관성을 보장합니다.
+     * 
+     * @param userId 사용자 ID
+     */
+    /**
+     * 사용자 관련 캐시 무효화
+     * 트랜잭션 커밋 후에 실행되어 데이터 일관성을 보장합니다.
+     * 
+     * @param userId 사용자 ID
+     */
+    private void invalidateUserRelatedCache(Long userId) {
+        try {
+            // 주문 목록 캐시 무효화
+            String orderListCacheKey = "order_list_" + userId;
+            cachePort.evict(orderListCacheKey);
+            
+            log.debug("사용자 관련 캐시 무효화 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("사용자 관련 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
+            // 캐시 무효화 실패는 비즈니스 로직에 영향 없음
         }
     }
 }
