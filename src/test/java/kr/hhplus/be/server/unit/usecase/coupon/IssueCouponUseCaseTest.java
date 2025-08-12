@@ -78,7 +78,7 @@ class IssueCouponUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponRepositoryPort.findByIdWithLock(couponId)).thenReturn(Optional.of(coupon));
+        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
         when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -110,7 +110,7 @@ class IssueCouponUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponRepositoryPort.findByIdWithLock(couponId)).thenReturn(Optional.of(coupon));
+        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(coupon));
         when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(false);
         when(couponRepositoryPort.save(any(Coupon.class))).thenReturn(coupon);
         when(couponHistoryRepositoryPort.save(any(CouponHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -151,7 +151,7 @@ class IssueCouponUseCaseTest {
         User user = TestBuilder.UserBuilder.defaultUser().id(userId).build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponRepositoryPort.findByIdWithLock(couponId)).thenReturn(Optional.empty());
+        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))

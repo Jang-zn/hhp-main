@@ -8,8 +8,6 @@ import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.LockOrderManager;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,10 +41,6 @@ class CreateOrderUseCaseTest {
     
     @Mock
     private EventLogRepositoryPort eventLogRepositoryPort;
-    @Mock
-    private CachePort cachePort;
-    @Mock
-    private LockOrderManager lockOrderManager;
 
     private CreateOrderUseCase createOrderUseCase;
 
@@ -62,9 +56,7 @@ class CreateOrderUseCaseTest {
             productRepositoryPort, 
             orderRepositoryPort,
             orderItemRepositoryPort,
-            eventLogRepositoryPort,
-            cachePort,
-            lockOrderManager
+            eventLogRepositoryPort
         );
         
         testUser = User.builder()
