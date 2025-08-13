@@ -47,7 +47,6 @@ public class CouponService {
         log.debug("쿠폰 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
         
         if (!userRepositoryPort.existsById(userId)) {
-        if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         

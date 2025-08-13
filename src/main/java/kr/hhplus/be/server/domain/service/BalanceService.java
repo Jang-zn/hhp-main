@@ -45,7 +45,6 @@ public class BalanceService {
         log.debug("잔액 조회 요청: userId={}", userId);
         
         if (!userRepositoryPort.existsById(userId)) {
-        if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
