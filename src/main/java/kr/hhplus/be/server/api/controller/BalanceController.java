@@ -7,11 +7,9 @@ import kr.hhplus.be.server.api.docs.annotation.BalanceApiDocs;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.service.BalanceService;
 
-import java.math.BigDecimal;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -34,8 +32,6 @@ public class BalanceController {
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
-        
-        
         Balance balance = balanceService.chargeBalance(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUserId(),
@@ -47,8 +43,6 @@ public class BalanceController {
     @BalanceApiDocs(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable @Positive Long userId) {
-        
-        
         Balance balance = balanceService.getBalance(userId);
         return new BalanceResponse(
                 balance.getUserId(),

@@ -10,9 +10,7 @@ import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
@@ -45,11 +43,7 @@ public class CouponController {
     @PostMapping("/issue")
     @ResponseStatus(HttpStatus.CREATED)
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
-
-
         CouponHistory couponHistory = couponService.issueCoupon(request.getCouponId(), request.getUserId());
-        
-        // Coupon 정보 조회
         Coupon coupon = couponRepositoryPort.findById(couponHistory.getCouponId())
                 .orElseThrow(() -> new CouponException.NotFound());
         
@@ -74,8 +68,6 @@ public class CouponController {
             @PathVariable @Positive Long userId,
             @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
             @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
-
-
         List<CouponHistory> couponHistories = couponService.getCouponList(userId, limit, offset);
         return couponHistories.stream()
                 .map(history -> safeCouponLookup(history))
@@ -93,7 +85,6 @@ public class CouponController {
      */
     private Optional<CouponResponse> safeCouponLookup(CouponHistory history) {
         try {
-            // Coupon 정보 조회
             Optional<Coupon> couponOpt = couponRepositoryPort.findById(history.getCouponId());
             
             if (couponOpt.isEmpty()) {

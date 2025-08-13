@@ -6,7 +6,6 @@ import kr.hhplus.be.server.api.dto.request.ProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.api.docs.annotation.ProductApiDocs;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.service.ProductService;
 import org.springframework.validation.annotation.Validated;
 
@@ -33,7 +32,6 @@ public class ProductController {
     @ProductApiDocs(summary = "상품 목록 조회", description = "모든 상품 목록을 조회합니다")
     @GetMapping("/list")
     public List<ProductResponse> getProductList(@Valid @ModelAttribute ProductRequest request) {
-        
         List<Product> products = productService.getProductList(request.getLimit(), request.getOffset());
         return products.stream()
                 .map(product -> new ProductResponse(
@@ -48,8 +46,6 @@ public class ProductController {
     @ProductApiDocs(summary = "인기 상품 조회", description = "지정된 기간 동안의 인기 상품을 조회합니다")
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts(@Valid @ModelAttribute ProductRequest request) {
-        
-        // 지정된 기간 동안의 인기 상품 조회
         List<Product> popularProducts = productService.getPopularProductList(request.getDays());
         return popularProducts.stream()
                 .map(product -> new ProductResponse(

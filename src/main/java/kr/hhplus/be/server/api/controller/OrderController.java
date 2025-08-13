@@ -10,13 +10,8 @@ import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.docs.annotation.OrderApiDocs;
 import kr.hhplus.be.server.domain.entity.Order;
-import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Payment;
-import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.exception.CommonException;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.ProductException;
-import kr.hhplus.be.server.domain.exception.CouponException;
+
 import kr.hhplus.be.server.domain.service.OrderService;
 
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
@@ -45,11 +40,7 @@ public class OrderController {
     @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-  
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
-        
-        
-        // 상품 수량 정보를 타입 안전한 DTO로 변환
         List<ProductQuantityDto> productQuantities;
         
         if (request.getProducts() != null && !request.getProducts().isEmpty()) {
@@ -84,8 +75,6 @@ public class OrderController {
     public PaymentResponse payOrder(
             @PathVariable @Positive Long orderId,
             @Valid @RequestBody OrderRequest request) {
-        
-        
         Payment payment = orderService.payOrder(orderId, request.getUserId(), request.getCouponId());
         
         return new PaymentResponse(
@@ -93,7 +82,7 @@ public class OrderController {
                 payment.getOrderId(),
                 payment.getStatus().name(),
                 payment.getAmount(),
-                payment.getCreatedAt()  // paidAt 대신 createdAt 사용
+                payment.getCreatedAt()
         );
     }
 
@@ -102,9 +91,6 @@ public class OrderController {
     public OrderResponse getOrder(
             @PathVariable @Positive Long orderId,
             @RequestParam @Positive Long userId) {
-        
-        
-        // 서비스를 통해 상세 정보 조회
         Order orderDetails = orderService.getOrderWithDetails(orderId, userId);
         
         return new OrderResponse(
@@ -123,9 +109,6 @@ public class OrderController {
             @PathVariable @Positive Long userId,
             @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
             @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
-        
-        
-        // 서비스를 통해 주문 목록 조회
         List<Order> orders = orderService.getOrderList(userId, limit, offset);
         
         return orders.stream()

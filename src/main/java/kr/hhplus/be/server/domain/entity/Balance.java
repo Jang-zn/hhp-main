@@ -37,13 +37,12 @@ public class Balance extends BaseEntity {
     @DecimalMin(value = "0.00")
     private BigDecimal amount;
 
-    // 비즈니스 메서드
     public void addAmount(@NotNull @Positive BigDecimal amount) {
         this.amount = this.amount.add(amount);
     }
 
     /**
-     * 잔액을 차감합니다.
+     * 잔액 차감
      * DB @Check 제약조건으로 추가 무결성 보장:
      * - amount >= 0: 잔액이 음수가 될 수 없음
      * 
@@ -56,7 +55,6 @@ public class Balance extends BaseEntity {
             throw new BalanceException.InsufficientBalance();
         }
         this.amount = this.amount.subtract(amount);
-        // DB @Check 제약 조건이 추가 검증 수행하여 데이터 무결성 보장
     }
 
 } 

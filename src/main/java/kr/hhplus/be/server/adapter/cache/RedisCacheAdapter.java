@@ -24,7 +24,6 @@ public class RedisCacheAdapter implements CachePort {
     
     private final RedissonClient redissonClient;
     
-    // 캐시 키 접두사
     private static final String CACHE_KEY_PREFIX = "cache:";
     
     /**
@@ -47,8 +46,7 @@ public class RedisCacheAdapter implements CachePort {
                 log.debug("Cache hit: key={}, type={}", cacheKey, type.getSimpleName());
                 return cachedValue;
             }
-            
-            // 캐시 미스 - supplier에서 값을 가져와서 캐시에 저장
+
             log.debug("Cache miss: key={}, type={}", cacheKey, type.getSimpleName());
             T suppliedValue = supplier.get();
             
@@ -61,7 +59,6 @@ public class RedisCacheAdapter implements CachePort {
             
         } catch (Exception e) {
             log.error("Error accessing cache: key={}, type={}", cacheKey, type.getSimpleName(), e);
-            // 캐시 오류 시 supplier로부터 직접 값 반환
             return supplier.get();
         }
     }
@@ -137,8 +134,7 @@ public class RedisCacheAdapter implements CachePort {
                 log.debug("Cache hit with TTL: key={}, type={}", cacheKey, type.getSimpleName());
                 return cachedValue;
             }
-            
-            // 캐시 미스 - supplier에서 값을 가져와서 TTL과 함께 캐시에 저장
+
             log.debug("Cache miss with TTL: key={}, type={}, ttl={}s", cacheKey, type.getSimpleName(), ttlSeconds);
             T suppliedValue = supplier.get();
             
@@ -199,8 +195,7 @@ public class RedisCacheAdapter implements CachePort {
                 log.debug("Cache hit (List): key={}", cacheKey);
                 return cachedValue;
             }
-            
-            // 캐시 미스 - supplier에서 값을 가져와서 캐시에 저장
+
             log.debug("Cache miss (List): key={}", cacheKey);
             List<T> suppliedValue = supplier.get();
             
@@ -213,7 +208,6 @@ public class RedisCacheAdapter implements CachePort {
             
         } catch (Exception e) {
             log.error("Error accessing cache (List): key={}", cacheKey, e);
-            // 캐시 오류 시 supplier로부터 직접 값 반환
             return supplier.get();
         }
     }
@@ -229,7 +223,7 @@ public class RedisCacheAdapter implements CachePort {
         
         try {
             RBucket<Object> bucket = redissonClient.getBucket(cacheKey);
-            long ttl = bucket.remainTimeToLive();
+            long ttl = bucket.remaiㄴnTimeToLive();
             log.debug("Cache TTL check: key={}, ttl={}ms", cacheKey, ttl);
             return ttl;
             
