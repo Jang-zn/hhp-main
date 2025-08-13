@@ -37,9 +37,6 @@ public class Balance extends BaseEntity {
     @DecimalMin(value = "0.00")
     private BigDecimal amount;
 
-    @Version // 낙관적 락 - JPA 사용 시 사용
-    private Long version;
-
     // 비즈니스 메서드
     public void addAmount(@NotNull @Positive BigDecimal amount) {
         this.amount = this.amount.add(amount);

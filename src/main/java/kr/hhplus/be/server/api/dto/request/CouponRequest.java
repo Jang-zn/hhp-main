@@ -63,5 +63,31 @@ public class CouponRequest implements DocumentedDto {
                 .build();
     }
     
-    
+    /**
+     * 쿠폰 발급 요청
+     */
+    @Schema(description = "쿠폰 발급 요청")
+    public static class IssueCouponRequest {
+        @Schema(description = "사용자 ID", example = "1")
+        @NotNull
+        @Positive
+        private Long userId;
+        
+        @Schema(description = "쿠폰 ID", example = "1")
+        @NotNull
+        @Positive
+        private Long couponId;
+        
+        public IssueCouponRequest() {}
+        
+        public IssueCouponRequest(Long userId, Long couponId) {
+            this.userId = userId;
+            this.couponId = couponId;
+        }
+        
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Long getCouponId() { return couponId; }
+        public void setCouponId(Long couponId) { this.couponId = couponId; }
+    }
 }
