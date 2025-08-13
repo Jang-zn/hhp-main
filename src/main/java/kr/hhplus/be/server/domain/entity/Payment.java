@@ -23,7 +23,6 @@ public class Payment extends BaseEntity {
 
     /**
      * 주문 ID (외래키: orders.id)
-     * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
     @NotNull
@@ -32,7 +31,6 @@ public class Payment extends BaseEntity {
 
     /**
      * 사용자 ID (외래키: users.id)
-     * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
     @Column(nullable = false)
     @NotNull
@@ -51,9 +49,8 @@ public class Payment extends BaseEntity {
 
     /**
      * 쿠폰 ID (외래키: coupon.id, 선택적)
-     * 데이터베이스 레벨에서 외래키 제약 조건 적용 필요
      */
-    @Column(nullable = true)  // 명시적으로 nullable 설정 (선택적 필드)
+    @Column(nullable = true)
     @Positive
     private Long couponId;
 
