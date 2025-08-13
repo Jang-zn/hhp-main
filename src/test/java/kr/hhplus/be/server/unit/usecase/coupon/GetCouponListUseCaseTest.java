@@ -7,7 +7,6 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -47,15 +46,13 @@ class GetCouponListUseCaseTest {
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
-    @Mock
-    private CachePort cachePort;
 
     private GetCouponListUseCase getCouponListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort, cachePort);
+        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort);
     }
 
     // === 기본 쿠폰 목록 조회 시나리오 ===
@@ -94,8 +91,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
-                .thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(couponHistories);
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -107,7 +103,7 @@ class GetCouponListUseCaseTest {
         assertThat(result.get(1).getCouponId()).isEqualTo(coupon2.getId());
         
         verify(userRepositoryPort).existsById(userId);
-        verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
     }
 
     @ParameterizedTest
@@ -130,8 +126,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
-                .thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(couponHistories);
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -151,8 +146,7 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
-                .thenReturn(Collections.emptyList());
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(Collections.emptyList());
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -162,7 +156,7 @@ class GetCouponListUseCaseTest {
         assertThat(result).isEmpty();
         
         verify(userRepositoryPort).existsById(userId);
-        verify(cachePort).get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any());
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
     }
 
     // === 예외 처리 시나리오 ===
@@ -261,11 +255,9 @@ class GetCouponListUseCaseTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // === 캐시 관련 시나리오 ===
-
     @Test
-    @DisplayName("캐시 실패 시 DB에서 직접 조회한다")
-    void retrievesFromDatabaseOnCacheFailure() {
+    @DisplayName("DB에서 직접 조회한다")
+    void retrievesFromDatabase() {
         // Given
         Long userId = 1L;
         int limit = 10;
@@ -286,8 +278,6 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(eq("coupon_list_" + userId + "_" + limit + "_" + offset), eq(List.class), any()))
-                .thenThrow(new RuntimeException("Cache error"));
         when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset))
                 .thenReturn(couponHistories);
 

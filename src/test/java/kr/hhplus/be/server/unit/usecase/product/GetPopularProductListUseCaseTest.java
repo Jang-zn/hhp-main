@@ -2,7 +2,6 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,15 +25,13 @@ class GetPopularProductListUseCaseTest {
     @Mock
     private ProductRepositoryPort productRepositoryPort;
     
-    @Mock
-    private CachePort cachePort;
 
     private GetPopularProductListUseCase getPopularProductListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getPopularProductListUseCase = new GetPopularProductListUseCase(productRepositoryPort, cachePort);
+        getPopularProductListUseCase = new GetPopularProductListUseCase(productRepositoryPort);
     }
 
     @Test
@@ -58,11 +55,6 @@ class GetPopularProductListUseCaseTest {
                         .build()
         );
         
-        // cachePort.get이 람다식을 실행하도록 Mocking
-        when(cachePort.get(anyString(), any(Class.class), any())).thenAnswer(invocation -> {
-            // 세 번째 인자가 Supplier 람다식이므로, 이를 실행하여 값을 반환
-            return ((java.util.function.Supplier<List<Product>>) invocation.getArgument(2)).get();
-        });
         when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
 
         // when
@@ -73,7 +65,6 @@ class GetPopularProductListUseCaseTest {
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getName()).isEqualTo("인기 노트북");
         assertThat(result.get(1).getName()).isEqualTo("인기 스마트폰");
-        verify(cachePort, times(1)).get(anyString(), any(Class.class), any());
         verify(productRepositoryPort, times(1)).findPopularProducts(period);
     }
 
@@ -92,9 +83,6 @@ class GetPopularProductListUseCaseTest {
         );
         
         // cachePort.get이 람다식을 실행하도록 Mocking
-        when(cachePort.get(anyString(), any(Class.class), any())).thenAnswer(invocation -> {
-            return ((java.util.function.Supplier<List<Product>>) invocation.getArgument(2)).get();
-        });
         when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
 
         // when
@@ -105,7 +93,6 @@ class GetPopularProductListUseCaseTest {
         assertThat(result).isNotEmpty();
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("상품1");
-        verify(cachePort, times(1)).get(anyString(), any(Class.class), any());
         verify(productRepositoryPort, times(1)).findPopularProducts(period);
     }
 

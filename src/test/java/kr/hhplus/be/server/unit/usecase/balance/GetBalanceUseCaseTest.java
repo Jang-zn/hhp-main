@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
@@ -36,8 +35,6 @@ class GetBalanceUseCaseTest {
     @Mock
     private BalanceRepositoryPort balanceRepositoryPort;
 
-    @Mock
-    private CachePort cachePort;
 
     private GetBalanceUseCase getBalanceUseCase;
 
@@ -46,7 +43,7 @@ class GetBalanceUseCaseTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         getBalanceUseCase = new GetBalanceUseCase(
-                userRepositoryPort, balanceRepositoryPort, cachePort
+                userRepositoryPort, balanceRepositoryPort
         );
     }
 
@@ -71,8 +68,7 @@ class GetBalanceUseCaseTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance balance = Balance.builder().userId(userId).amount(new BigDecimal("100000")).build();
 
-            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(null); // Cache miss
-            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+                        when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(balance));
 
             // when
@@ -82,10 +78,8 @@ class GetBalanceUseCaseTest {
             assertThat(result).isPresent();
             assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("100000"));
 
-            verify(cachePort).get(eq(cacheKey), eq(Balance.class), any());
             verify(userRepositoryPort).existsById(userId);
             verify(balanceRepositoryPort).findByUserId(userId);
-            verify(cachePort).put(eq(cacheKey), eq(balance), anyInt());
         }
 
         @Test
@@ -97,7 +91,8 @@ class GetBalanceUseCaseTest {
             User user = User.builder().id(userId).name("테스트 사용자").build();
             Balance cachedBalance = Balance.builder().userId(userId).amount(new BigDecimal("123456")).build();
 
-            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(cachedBalance); // Cache hit
+            when(userRepositoryPort.existsById(userId)).thenReturn(true);
+            when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(cachedBalance));
 
             // when
             Optional<Balance> result = getBalanceUseCase.execute(userId);
@@ -106,10 +101,8 @@ class GetBalanceUseCaseTest {
             assertThat(result).isPresent();
             assertThat(result.get().getAmount()).isEqualTo(new BigDecimal("123456"));
 
-            verify(cachePort).get(eq(cacheKey), eq(Balance.class), any());
-            verify(userRepositoryPort, never()).findById(anyLong());
-            verify(balanceRepositoryPort, never()).findByUserId(anyLong());
-            verify(cachePort, never()).put(anyString(), any(Balance.class), anyInt());
+            verify(userRepositoryPort).existsById(userId);
+            verify(balanceRepositoryPort).findByUserId(userId);
         }
 
         @ParameterizedTest
@@ -121,7 +114,6 @@ class GetBalanceUseCaseTest {
             User user = User.builder().id(userId).name(userName).build();
             Balance balance = Balance.builder().userId(userId).amount(new BigDecimal(amount)).build();
 
-            when(cachePort.get(eq(cacheKey), eq(Balance.class), any())).thenReturn(null);
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(balance));
 
@@ -131,7 +123,6 @@ class GetBalanceUseCaseTest {
             // then
             assertThat(result).isPresent();
             assertThat(result.get().getAmount()).isEqualTo(new BigDecimal(amount));
-            verify(cachePort).put(eq(cacheKey), eq(balance), anyInt());
         }
 
         @Test
@@ -142,7 +133,6 @@ class GetBalanceUseCaseTest {
             User user = User.builder().id(userId).name("음수 잔액 사용자").build();
             Balance negativeBalance = Balance.builder().userId(userId).amount(new BigDecimal("-50000")).build();
 
-            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(negativeBalance));
 
@@ -162,7 +152,6 @@ class GetBalanceUseCaseTest {
             User user = User.builder().id(userId).name("부자 사용자").build();
             Balance largeBalance = Balance.builder().userId(userId).amount(new BigDecimal("999999999999")).build();
 
-            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.of(largeBalance));
 
@@ -191,7 +180,6 @@ class GetBalanceUseCaseTest {
         void getBalance_UserNotFound() {
             // given
             Long userId = 999L;
-            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.existsById(userId)).thenReturn(false);
 
             // when & then
@@ -221,7 +209,6 @@ class GetBalanceUseCaseTest {
             Long userId = 1L;
             User user = User.builder().id(userId).name("잔액 없는 사용자").build();
 
-            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(balanceRepositoryPort.findByUserId(userId)).thenReturn(Optional.empty());
 
@@ -237,7 +224,6 @@ class GetBalanceUseCaseTest {
         @DisplayName("실패케이스: 다양한 비정상 사용자 ID로 잔액 조회")
         void getBalance_WithInvalidUserIds(Long invalidUserId) {
             // given
-            when(cachePort.get(anyString(), any(), any())).thenReturn(null);
             when(userRepositoryPort.existsById(invalidUserId)).thenReturn(false);
 
             // when & then

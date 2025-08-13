@@ -4,7 +4,6 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -43,15 +42,13 @@ class GetOrderUseCaseTest {
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
     
-    @Mock
-    private CachePort cachePort;
 
     private GetOrderUseCase getOrderUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getOrderUseCase = new GetOrderUseCase(userRepositoryPort, orderRepositoryPort, cachePort);
+        getOrderUseCase = new GetOrderUseCase(userRepositoryPort, orderRepositoryPort);
     }
 
     // === 기본 주문 조회 시나리오 ===
@@ -70,8 +67,6 @@ class GetOrderUseCaseTest {
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
-        when(cachePort.get(anyString(), eq(Optional.class), any()))
-                .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -106,8 +101,6 @@ class GetOrderUseCaseTest {
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.empty());
-        when(cachePort.get(anyString(), eq(Optional.class), any()))
-                .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -142,8 +135,6 @@ class GetOrderUseCaseTest {
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
-        when(cachePort.get(anyString(), eq(Optional.class), any()))
-                .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -153,62 +144,6 @@ class GetOrderUseCaseTest {
         assertThat(result.get().getTotalAmount()).isEqualTo(new BigDecimal(amount));
     }
 
-    // === 캐시 관련 시나리오 ===
-        
-    @Test
-    @DisplayName("캐시에서 주문을 성공적으로 조회한다")
-    void canRetrieveOrderFromCache() {
-        // Given
-        Long userId = 1L;
-        Long orderId = 1L;
-        String cacheKey = "order_" + orderId + "_" + userId;
-        
-        Order cachedOrder = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(userId)
-                .totalAmount(new BigDecimal("100000"))
-                .build();
-        
-        when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(eq(cacheKey), eq(Optional.class), any()))
-                .thenReturn(Optional.of(cachedOrder));
-
-        // When
-        Optional<Order> result = getOrderUseCase.execute(userId, orderId);
-
-        // Then
-        assertThat(result).isPresent();
-        assertThat(result.get()).isEqualTo(cachedOrder);
-        verify(cachePort).get(eq(cacheKey), eq(Optional.class), any());
-    }
-
-    @Test
-    @DisplayName("캐시 미스 시 DB에서 주문을 조회한다")
-    void retrievesOrderFromDatabaseOnCacheMiss() {
-        // Given
-        Long userId = 1L;
-        Long orderId = 1L;
-        
-        Order order = TestBuilder.OrderBuilder.defaultOrder()
-                .userId(userId)
-                .totalAmount(new BigDecimal("100000"))
-                .build();
-        
-        when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(cachePort.get(anyString(), eq(Optional.class), any()))
-                .thenAnswer(invocation -> {
-                    // 캐시 미스 시뮬레이션: supplier 실행
-                    return orderRepositoryPort.findByIdAndUserId(orderId, userId);
-                });
-        when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
-
-        // When
-        Optional<Order> result = getOrderUseCase.execute(userId, orderId);
-
-        // Then
-        assertThat(result).isPresent();
-        assertThat(result.get()).isEqualTo(order);
-        verify(orderRepositoryPort).findByIdAndUserId(orderId, userId);
-    }
 
     // === 동시성 시나리오 ===
         
@@ -226,8 +161,6 @@ class GetOrderUseCaseTest {
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
-        when(cachePort.get(anyString(), eq(Optional.class), any()))
-                .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
         
         // When - 10개의 동시 조회 작업
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
@@ -257,8 +190,6 @@ class GetOrderUseCaseTest {
             
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
-            when(cachePort.get(eq("order_" + orderId + "_" + userId), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> orderRepositoryPort.findByIdAndUserId(orderId, userId));
         }
         
         // When - 10개의 동시 조회 작업 (다양한 사용자)

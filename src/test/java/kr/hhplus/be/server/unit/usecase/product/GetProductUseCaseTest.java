@@ -2,7 +2,6 @@ package kr.hhplus.be.server.unit.usecase;
 
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -33,15 +32,13 @@ class GetProductUseCaseTest {
     @Mock
     private ProductRepositoryPort productRepositoryPort;
     
-    @Mock
-    private CachePort cachePort;
 
     private GetProductUseCase getProductUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getProductUseCase = new GetProductUseCase(productRepositoryPort, cachePort);
+        getProductUseCase = new GetProductUseCase(productRepositoryPort);
     }
 
     @Nested
@@ -61,8 +58,6 @@ class GetProductUseCaseTest {
                     .reservedStock(0)
                     .build();
             
-            when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> productRepositoryPort.findById(productId));
             when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(product));
 
             // when
@@ -79,8 +74,6 @@ class GetProductUseCaseTest {
             // given
             Long productId = 999L;
             
-            when(cachePort.get(anyString(), eq(Optional.class), any()))
-                    .thenAnswer(invocation -> productRepositoryPort.findById(productId));
             when(productRepositoryPort.findById(productId)).thenReturn(Optional.empty());
 
             // when
@@ -117,8 +110,6 @@ class GetProductUseCaseTest {
                     createProduct("태블릿", "600000", 30)
             );
             
-            when(cachePort.get(anyString(), eq(List.class), any()))
-                    .thenAnswer(invocation -> productRepositoryPort.findAllWithPagination(limit, offset));
             when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(products);
 
             // when
@@ -136,8 +127,6 @@ class GetProductUseCaseTest {
             int limit = 10;
             int offset = 0;
             
-            when(cachePort.get(anyString(), eq(List.class), any()))
-                    .thenAnswer(invocation -> productRepositoryPort.findAllWithPagination(limit, offset));
             when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(Collections.emptyList());
 
             // when

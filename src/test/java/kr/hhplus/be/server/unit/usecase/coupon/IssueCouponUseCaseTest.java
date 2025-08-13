@@ -172,7 +172,7 @@ class IssueCouponUseCaseTest {
         User user = TestBuilder.UserBuilder.defaultUser().id(userId).build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponRepositoryPort.findByIdWithLock(couponId)).thenReturn(Optional.of(invalidCoupon));
+        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(invalidCoupon));
         if (!description.contains("already")) {
             when(couponHistoryRepositoryPort.existsByUserIdAndCouponId(userId, couponId)).thenReturn(description.contains("already"));
         } else {
@@ -209,7 +209,7 @@ class IssueCouponUseCaseTest {
                 .build();
         
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
-        when(couponRepositoryPort.findByIdWithLock(couponId)).thenReturn(Optional.of(futureStartCoupon));
+        when(couponRepositoryPort.findById(couponId)).thenReturn(Optional.of(futureStartCoupon));
         
         // When & Then
         assertThatThrownBy(() -> issueCouponUseCase.execute(userId, couponId))
