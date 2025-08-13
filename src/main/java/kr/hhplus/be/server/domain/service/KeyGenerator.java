@@ -3,10 +3,9 @@ package kr.hhplus.be.server.domain.service;
 import org.springframework.stereotype.Component;
 
 /**
- * 분산락 및 캐시 키 생성기
+ * 분산락 및 캐시 키 생성
  * 
- * 도메인별로 일관된 락 키 및 캐시 키 생성 전략을 제공한다.
- * 키 충돌을 방지하고 가독성을 높이기 위해 계층화된 구조를 사용한다.
+ * 도메인별로 일관된 락 키 및 캐시 키 생성 전략을 제공
  * 
  * 락 키 구조: {domain}:{identifier} (동일 리소스 통합)
  * 캐시 키 구조: {domain}:{type}:{identifier} (세분화된 관리)
@@ -30,11 +29,11 @@ public class KeyGenerator {
     private static final String USE_RESOURCE = "use";
     
     // Cache types
-    private static final String INFO_TYPE = "info";        // 기본 정보 (상세 조회)
-    private static final String LIST_TYPE = "list";        // 목록 조회
-    private static final String POPULAR_TYPE = "popular";  // 인기 상품
-    private static final String STATS_TYPE = "stats";      // 통계 정보
-    private static final String HISTORY_TYPE = "history";  // 히스토리 정보
+    private static final String INFO_TYPE = "info";
+    private static final String LIST_TYPE = "list";
+    private static final String POPULAR_TYPE = "popular";
+    private static final String STATS_TYPE = "stats";
+    private static final String HISTORY_TYPE = "history";
     
     private static final String SEPARATOR = ":";
     
@@ -120,7 +119,7 @@ public class KeyGenerator {
      * @return 복합 락 키 (예: order:create_multi:user_1:products_1_2_3)
      */
     public String generateOrderCreateMultiProductKey(Long userId, Long... productIds) {
-        java.util.Arrays.sort(productIds); // 데드락 방지를 위한 정렬
+        java.util.Arrays.sort(productIds); // How: 항상 동일한 순서로 락 획득하여 데드락 방지
         String productList = java.util.Arrays.stream(productIds)
             .map(String::valueOf)
             .collect(java.util.stream.Collectors.joining("_"));
@@ -128,33 +127,16 @@ public class KeyGenerator {
         return String.join(SEPARATOR, ORDER_DOMAIN, "create_multi", "user_" + userId, "products_" + productList);
     }
     
-    /**
-     * 사용자 전체 락 키 생성 (긴급 상황 또는 관리 목적)
-     * 사용자의 모든 활동을 일시적으로 중단할 때 사용
-     * 
-     * @param userId 사용자 ID
-     * @return 사용자 전체 락 키 (예: user:global:user_1)
-     */
+    // Why: 사용자 차단/정지 등 관리 목적의 전역 락 필요
     public String generateUserGlobalKey(Long userId) {
         return String.join(SEPARATOR, "user", "global", "user_" + userId);
     }
     
-    /**
-     * 커스텀 락 키 생성
-     * 특별한 경우에 사용할 수 있는 일반적인 키 생성기
-     * 
-     * @param domain 도메인
-     * @param resource 리소스
-     * @param identifier 식별자
-     * @return 커스텀 락 키
-     */
     public String generateCustomKey(String domain, String resource, String identifier) {
         return String.join(SEPARATOR, domain, resource, identifier);
     }
     
     /**
-     * 키에서 도메인 추출
-     * 
      * @param lockKey 락 키
      * @return 도메인
      */
@@ -166,10 +148,8 @@ public class KeyGenerator {
     }
     
     /**
-     * 키 유효성 검증
-     * 
+     * Why: 락 키는 2단계 구조 필수 (domain:identifier)
      * @param lockKey 락 키
-     * @return 유효성 여부
      */
     public boolean isValidKey(String lockKey) {
         if (lockKey == null || lockKey.trim().isEmpty()) {
@@ -177,59 +157,44 @@ public class KeyGenerator {
         }
         
         String[] parts = lockKey.split(SEPARATOR);
-        return parts.length >= 2; // domain:identifier 최소 구조 (락 키는 2단계)
+        return parts.length >= 2;
     }
     
     // ========================= 캐시 키 생성 메서드들 =========================
     
     /**
-     * 사용자 잔액 정보 캐시 키 생성
-     * 
      * @param userId 사용자 ID
-     * @return 잔액 정보 캐시 키 (예: balance:info:user_1)
      */
     public String generateBalanceCacheKey(Long userId) {
         return String.join(SEPARATOR, BALANCE_DOMAIN, INFO_TYPE, "user_" + userId);
     }
     
     /**
-     * 상품 상세 정보 캐시 키 생성
-     * 
      * @param productId 상품 ID
-     * @return 상품 상세 캐시 키 (예: product:info:product_1)
      */
     public String generateProductCacheKey(Long productId) {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, INFO_TYPE, "product_" + productId);
     }
     
     /**
-     * 인기 상품 목록 캐시 키 생성
-     * 
      * @param limit 조회 개수
-     * @return 인기 상품 목록 캐시 키 (예: product:popular:limit_10)
      */
     public String generatePopularProductListCacheKey(int limit) {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, "limit_" + limit);
     }
     
     /**
-     * 상품 목록 캐시 키 생성
-     * 
      * @param limit 조회 개수
      * @param offset 오프셋
-     * @return 상품 목록 캐시 키 (예: product:list:limit_10_offset_0)
      */
     public String generateProductListCacheKey(int limit, int offset) {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, LIST_TYPE, "limit_" + limit + "_offset_" + offset);
     }
     
     /**
-     * 사용자 주문 목록 캐시 키 생성
-     * 
      * @param userId 사용자 ID
      * @param limit 조회 개수
      * @param offset 오프셋
-     * @return 주문 목록 캐시 키 (예: order:list:user_1_limit_10_offset_0)
      */
     public String generateOrderListCacheKey(Long userId, int limit, int offset) {
         return String.join(SEPARATOR, ORDER_DOMAIN, LIST_TYPE, 
@@ -237,22 +202,16 @@ public class KeyGenerator {
     }
     
     /**
-     * 주문 상세 정보 캐시 키 생성
-     * 
      * @param orderId 주문 ID
-     * @return 주문 상세 캐시 키 (예: order:info:order_1)
      */
     public String generateOrderCacheKey(Long orderId) {
         return String.join(SEPARATOR, ORDER_DOMAIN, INFO_TYPE, "order_" + orderId);
     }
     
     /**
-     * 사용자 쿠폰 목록 캐시 키 생성
-     * 
      * @param userId 사용자 ID
      * @param limit 조회 개수
      * @param offset 오프셋
-     * @return 쿠폰 목록 캐시 키 (예: coupon:list:user_1_limit_10_offset_0)
      */
     public String generateCouponListCacheKey(Long userId, int limit, int offset) {
         return String.join(SEPARATOR, COUPON_DOMAIN, LIST_TYPE, 
@@ -260,11 +219,9 @@ public class KeyGenerator {
     }
     
     /**
-     * 쿠폰 히스토리 캐시 키 생성
-     * 
+     * Why: 쿠폰별 히스토리와 전체 히스토리 구분 필요
      * @param userId 사용자 ID
      * @param couponId 쿠폰 ID (선택적)
-     * @return 쿠폰 히스토리 캐시 키 (예: coupon:history:user_1 또는 coupon:history:user_1_coupon_2)
      */
     public String generateCouponHistoryCacheKey(Long userId, Long couponId) {
         if (couponId != null) {
@@ -275,33 +232,24 @@ public class KeyGenerator {
     }
     
     /**
-     * 상품 통계 캐시 키 생성 (인기도, 판매량 등)
-     * 
      * @param productId 상품 ID
-     * @return 상품 통계 캐시 키 (예: product:stats:product_1)
      */
     public String generateProductStatsCacheKey(Long productId) {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, STATS_TYPE, "product_" + productId);
     }
     
     /**
-     * 커스텀 캐시 키 생성
-     * 특별한 캐시 요구사항이 있을 때 사용
-     * 
      * @param domain 도메인
      * @param type 캐시 타입
      * @param identifier 식별자
-     * @return 커스텀 캐시 키
      */
     public String generateCustomCacheKey(String domain, String type, String identifier) {
         return String.join(SEPARATOR, domain, type, identifier);
     }
     
     /**
-     * 키에서 캐시 타입 추출
-     * 
+     * How: 3단계 구조에서 중간 부분 추출
      * @param cacheKey 캐시 키
-     * @return 캐시 타입 (3단계 구조에서 중간 부분)
      */
     public String extractCacheType(String cacheKey) {
         if (cacheKey == null || !cacheKey.contains(SEPARATOR)) {
@@ -312,10 +260,8 @@ public class KeyGenerator {
     }
     
     /**
-     * 캐시 키 유효성 검증
-     * 
+     * Why: 캐시 키는 3단계 구조 필수 (domain:type:identifier)
      * @param cacheKey 캐시 키
-     * @return 유효성 여부
      */
     public boolean isValidCacheKey(String cacheKey) {
         if (cacheKey == null || cacheKey.trim().isEmpty()) {
@@ -323,6 +269,6 @@ public class KeyGenerator {
         }
         
         String[] parts = cacheKey.split(SEPARATOR);
-        return parts.length >= 3; // domain:type:identifier 최소 구조 (캐시 키는 3단계)
+        return parts.length >= 3;
     }
 }

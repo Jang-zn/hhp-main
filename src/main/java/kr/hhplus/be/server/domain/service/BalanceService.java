@@ -46,13 +46,13 @@ public class BalanceService {
     public Balance getBalance(Long userId) {
         log.debug("잔액 조회 요청: userId={}", userId);
         
-        // 사용자 존재 확인
+        if (!userRepositoryPort.existsById(userId)) {
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
         try {
-            String cacheKey = "balance:" + userId;
+            String cacheKey = lockKeyGenerator.generateBalanceCacheKey(userId);
             Balance cachedBalance = cachePort.get(cacheKey, Balance.class, () -> {
                 Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
                 if (balanceOpt.isPresent()) {
@@ -92,23 +92,18 @@ public class BalanceService {
     public Balance chargeBalance(Long userId, BigDecimal chargeAmount) {
         String lockKey = lockKeyGenerator.generateBalanceKey(userId);
         
-        // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
-        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            // 2. 명시적 트랜잭션 실행
             return transactionTemplate.execute(status -> {
-                // 3. 비즈니스 로직 실행 (트랜잭션 내)
                 Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
                 
-                // 트랜잭션 커밋 후 캐시 무효화 등록
                 if (TransactionSynchronizationManager.isSynchronizationActive()) {
                     TransactionSynchronizationManager.registerSynchronization(
                         new TransactionSynchronization() {
@@ -123,7 +118,6 @@ public class BalanceService {
                 return result;
             });
         } finally {
-            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }
@@ -135,7 +129,7 @@ public class BalanceService {
      */
     private void invalidateBalanceCache(Long userId) {
         try {
-            String cacheKey = "balance:" + userId;
+            String cacheKey = lockKeyGenerator.generateBalanceCacheKey(userId);
             cachePort.evict(cacheKey);
             log.debug("잔액 캐시 무효화: userId={}", userId);
         } catch (Exception e) {

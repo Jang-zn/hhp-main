@@ -37,20 +37,14 @@ public class ChargeBalanceUseCase {
     public Balance execute(Long userId, BigDecimal amount) {
         log.info("잔액 충전 요청: userId={}, amount={}", userId, amount);
         
-        // 입력 값 검증
         validateUserId(userId);
         validateAmount(amount);
-        
-        // 기존 잔액 조회 또는 새 잔액 생성
         Balance balance = balanceRepositoryPort.findByUserId(userId)
                 .orElse(Balance.builder().userId(userId).amount(BigDecimal.ZERO).build());
         
         BigDecimal originalAmount = balance.getAmount();
         
-        // 잔액 충전
         balance.addAmount(amount);
-        
-        // 저장
         Balance savedBalance = balanceRepositoryPort.save(balance);
         
         log.info("잔액 충전 완료: userId={}, 이전잔액={}, 충전금액={}, 현재잔액={}", 

@@ -48,13 +48,13 @@ public class CouponService {
     public List<CouponHistory> getCouponList(Long userId, int limit, int offset) {
         log.debug("쿠폰 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
         
-        // 사용자 존재 확인
+        if (!userRepositoryPort.existsById(userId)) {
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
         try {
-            String cacheKey = "coupon_list_" + userId + "_" + limit + "_" + offset;
+            String cacheKey = lockKeyGenerator.generateCouponListCacheKey(userId, limit, offset);
             return cachePort.getList(cacheKey, () -> {
                 List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
                 log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
@@ -79,23 +79,18 @@ public class CouponService {
     public CouponHistory issueCoupon(Long couponId, Long userId) {
         String lockKey = lockKeyGenerator.generateCouponKey(couponId);
         
-        // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
         
-        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            // 2. 명시적 트랜잭션 실행
             return transactionTemplate.execute(status -> {
-                // 3. 비즈니스 로직 실행 (트랜잭션 내)
                 CouponHistory result = issueCouponUseCase.execute(couponId, userId);
                 
-                // 트랜잭션 커밋 후 캐시 무효화 등록
                 if (TransactionSynchronizationManager.isSynchronizationActive()) {
                     TransactionSynchronizationManager.registerSynchronization(
                         new TransactionSynchronization() {
@@ -110,7 +105,6 @@ public class CouponService {
                 return result;
             });
         } finally {
-            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }
@@ -122,8 +116,7 @@ public class CouponService {
      */
     private void invalidateUserCouponCache(Long userId) {
         try {
-            // 사용자의 모든 쿠폰 목록 캐시 무효화 (다양한 페이지단위가 있을 수 있음)
-            String cacheKeyPattern = "coupon_list_" + userId + "_*";
+            String cacheKeyPattern = "coupon:list:user_" + userId + "_*";
             log.debug("사용자 쿠폰 캐시 무효화: userId={}", userId);
         } catch (Exception e) {
             log.warn("사용자 쿠폰 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());

@@ -22,21 +22,14 @@ public class GetBalanceUseCase {
     public Optional<Balance> execute(Long userId) {
         log.debug("잔액 조회 요청: userId={}", userId);
         
-        // 입력 값 검증
-        if (userId == null) {
-            log.warn("잘못된 사용자 ID: null");
-            throw new UserException.InvalidUser();
-        }
+        validateUserId(userId);
         
         try {
-            
-            // 사용자 존재 확인
             if (!userRepositoryPort.existsById(userId)) {
                 log.warn("사용자 없음: userId={}", userId);
                 throw new UserException.InvalidUser();
             }
             
-            // 잔액 조회
             Optional<Balance> balanceOpt = balanceRepositoryPort.findByUserId(userId);
             
             if (balanceOpt.isPresent()) {
@@ -53,6 +46,13 @@ public class GetBalanceUseCase {
             throw e;
         } catch (Exception e) {
             log.error("잔액 조회 중 예상치 못한 오류: userId={}", userId, e);
+            throw new UserException.InvalidUser();
+        }
+    }
+    
+    private void validateUserId(Long userId) {
+        if (userId == null) {
+            log.warn("잘못된 사용자 ID: null");
             throw new UserException.InvalidUser();
         }
     }
