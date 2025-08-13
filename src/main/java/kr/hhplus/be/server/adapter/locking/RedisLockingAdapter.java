@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
-@Profile({"!test", "integration-test"}) // 테스트 환경에서는 InMemoryLockingAdapter 사용, 통합 테스트에서는 Redis 사용
 @RequiredArgsConstructor
 public class RedisLockingAdapter implements LockingPort {
     
