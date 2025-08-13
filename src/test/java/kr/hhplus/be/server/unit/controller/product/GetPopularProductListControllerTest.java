@@ -39,8 +39,7 @@ class GetPopularProductListControllerTest {
     @DisplayName("고객이 인기 상품 목록을 성공적으로 조회한다")
     void getPopularProductList_Success() throws Exception {
         // given
-        int limit = 10;
-        int offset = 0;
+        int days = 7;
 
         List<Product> popularProducts = List.of(
                 TestBuilder.ProductBuilder.defaultProduct()
@@ -55,12 +54,11 @@ class GetPopularProductListControllerTest {
                         .build()
         );
 
-        when(productService.getPopularProductList(limit, offset)).thenReturn(popularProducts);
+        when(productService.getPopularProductList(days)).thenReturn(popularProducts);
 
         // when & then
         mockMvc.perform(get("/api/product/popular")
-                .param("limit", String.valueOf(limit))
-                .param("offset", String.valueOf(offset)))
+                .param("days", String.valueOf(days)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("S001"))
                 .andExpect(jsonPath("$.data").isArray())
@@ -77,38 +75,34 @@ class GetPopularProductListControllerTest {
     @DisplayName("빈 인기 상품 목록 조회가 성공한다")
     void getPopularProductList_EmptyList() throws Exception {
         // given
-        int limit = 10;
-        int offset = 0;
+        int days = 7;
 
-        when(productService.getPopularProductList(limit, offset)).thenReturn(List.of());
+        when(productService.getPopularProductList(days)).thenReturn(List.of());
 
         // when & then
         mockMvc.perform(get("/api/product/popular")
-                .param("limit", String.valueOf(limit))
-                .param("offset", String.valueOf(offset)))
+                .param("days", String.valueOf(days)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("S001"))
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data.length()").value(0));
     }
 
-    static Stream<Arguments> provideInvalidPaginationParams() {
+    static Stream<Arguments> provideInvalidDaysParams() {
         return Stream.of(
-                Arguments.of(-1, 0, "음수 limit"),
-                Arguments.of(0, 0, "0인 limit"),
-                Arguments.of(101, 0, "최대값 초과 limit"),
-                Arguments.of(10, -1, "음수 offset")
+                Arguments.of(-1, "음수 days"),
+                Arguments.of(0, "0인 days"),
+                Arguments.of(31, "최대값 초과 days")
         );
     }
 
     @ParameterizedTest
-    @MethodSource("provideInvalidPaginationParams")
-    @DisplayName("유효하지 않은 페이징 파라미터로 조회 시 validation 에러가 발생한다")
-    void getPopularProductList_InvalidPaginationParams_ValidationError(int limit, int offset, String description) throws Exception {
+    @MethodSource("provideInvalidDaysParams")
+    @DisplayName("유효하지 않은 days 파라미터로 조회 시 validation 에러가 발생한다")
+    void getPopularProductList_InvalidDaysParams_ValidationError(int days, String description) throws Exception {
         // when & then
         mockMvc.perform(get("/api/product/popular")
-                .param("limit", String.valueOf(limit))
-                .param("offset", String.valueOf(offset)))
+                .param("days", String.valueOf(days)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("V001"))
                 .andExpect(jsonPath("$.message").value("유효하지 않은 입력입니다."));
@@ -122,7 +116,7 @@ class GetPopularProductListControllerTest {
                 TestBuilder.ProductBuilder.defaultProduct().id(1L).name("인기 상품 1").build()
         );
 
-        when(productService.getPopularProductList(anyInt(), anyInt())).thenReturn(popularProducts);
+        when(productService.getPopularProductList(anyInt())).thenReturn(popularProducts);
 
         // when & then
         mockMvc.perform(get("/api/product/popular"))
