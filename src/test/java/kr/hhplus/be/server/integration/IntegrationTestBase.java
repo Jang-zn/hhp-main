@@ -16,12 +16,16 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * 통합 테스트 베이스 클래스
  * TestContainers를 사용하여 MySQL과 Redis를 자동으로 실행
+ * 
+ * @Transactional: 테스트 데이터 세팅과 자동 롤백을 위해 사용
+ * 실제 구현에서는 @Transactional을 사용하지 않지만,
+ * 테스트에서는 데이터 격리와 Repository.save() 트랜잭션을 위해 필요
  */
 @SpringBootTest
-@ActiveProfiles("integration-test")
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Transactional
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 public abstract class IntegrationTestBase {
 

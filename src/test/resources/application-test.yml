@@ -1,11 +1,19 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop  # 테스트 시작시 생성, 종료시 삭제
+      ddl-auto: create  # create-drop 대신 create만 사용 (Testcontainers가 자동으로 정리)
     show-sql: false  # 테스트에서는 SQL 로그 비활성화
     properties:
       hibernate:
         format_sql: true
+  
+  # HikariCP 설정으로 연결 종료 문제 해결
+  datasource:
+    hikari:
+      max-lifetime: 60000  # 60초로 단축
+      connection-timeout: 20000
+      idle-timeout: 30000
+      leak-detection-threshold: 60000
         
 # SpringDoc 테스트 설정
 springdoc:

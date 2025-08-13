@@ -13,7 +13,6 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import kr.hhplus.be.server.api.ErrorCode;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,10 +45,6 @@ public class OrderTest extends IntegrationTestBase {
     @Autowired private CouponRepositoryPort couponRepositoryPort;
     @Autowired private OrderRepositoryPort orderRepositoryPort;
 
-    @BeforeEach
-    void setUp() {
-        // 각 테스트마다 개별 데이터를 생성하여 OptimisticLocking 충돌 회피
-    }
 
     @Test
     @DisplayName("고객이 복수 상품과 쿠폰으로 주문을 생성할 수 있다")

@@ -6,10 +6,8 @@ import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
-import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,10 +42,6 @@ public class BalanceTest extends IntegrationTestBase {
     @Autowired private BalanceRepositoryPort balanceRepositoryPort;
 
 
-    @BeforeEach
-    void setUp() {
-        // Redis 환경에서는 락 클리어 불필요
-    }
 
     private User createCustomerWithBalance(String name, String amount) {
         User customer = userRepositoryPort.save(

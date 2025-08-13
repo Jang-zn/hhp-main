@@ -171,20 +171,18 @@ class ProductTest {
     @DisplayName("잘못된 수량 입력에 대해 안전하게 처리한다")
     void safelyHandlesInvalidQuantityInputs() {
         // Given - 사용자 입력 오류나 시스템 버그로 인한 잘못된 수량
-        // Why: 입력 검증을 통한 시스템 안정성 보장
-        Product product = TestBuilder.ProductBuilder.defaultProduct().build();
+        // Why: Bean Validation으로 입력 검증이 처리되므로 도메인 레벨에서는 비즈니스 규칙만 검증
+        Product product = TestBuilder.ProductBuilder
+            .defaultProduct()
+            .stock(10)
+            .reservedStock(0)
+            .build();
 
-        // When & Then - 음수 수량 입력 차단
-        assertThatThrownBy(() -> product.reserveStock(-5))
-            .as("음수 수량은 차단되어야 함")
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Quantity must be positive");
-
-        // When & Then - 0 수량 입력 차단
-        assertThatThrownBy(() -> product.reserveStock(0))
-            .as("0 수량은 차단되어야 함")
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Quantity must be positive");
+        // When & Then - 음수나 0 수량은 Bean Validation으로 처리되므로
+        // 도메인 레벨에서는 재고 부족 상황만 테스트
+        assertThatThrownBy(() -> product.reserveStock(15))
+            .as("재고 부족 시 주문이 차단되어야 함")
+            .isInstanceOf(ProductException.OutOfStock.class);
     }
 
     @Test

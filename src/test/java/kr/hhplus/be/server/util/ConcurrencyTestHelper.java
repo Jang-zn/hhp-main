@@ -142,10 +142,15 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
@@ -224,10 +229,15 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
@@ -307,10 +317,15 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }

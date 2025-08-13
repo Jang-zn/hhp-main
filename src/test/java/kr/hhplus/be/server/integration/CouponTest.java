@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -40,11 +39,6 @@ public class CouponTest extends IntegrationTestBase {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepositoryPort userRepositoryPort;
     @Autowired private CouponRepositoryPort couponRepositoryPort;
-
-    @BeforeEach
-    void setUp() {
-        // 각 테스트마다 고유한 데이터를 생성하여 OptimisticLocking 충돌 회피
-    }
 
     @Test
     @DisplayName("고객이 사용 가능한 쿠폰을 발급받을 수 있다")
