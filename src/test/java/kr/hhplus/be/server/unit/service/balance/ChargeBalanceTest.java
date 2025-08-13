@@ -77,7 +77,11 @@ class ChargeBalanceTest {
                 .build();
                 
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn("balance:user_" + userId);
+        when(lockingPort.acquireLock("balance:user_" + userId)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            return chargeBalanceUseCase.execute(userId, chargeAmount);
+        });
         when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(expectedBalance);
         
         // when
@@ -89,9 +93,10 @@ class ChargeBalanceTest {
         assertThat(result.getAmount()).isEqualTo(new BigDecimal("150000"));
         
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("balance-" + userId);
-        verify(chargeBalanceUseCase).execute(userId, chargeAmount);
-        verify(lockingPort).releaseLock("balance-" + userId);
+        verify(keyGenerator).generateBalanceKey(userId);
+        verify(lockingPort).acquireLock("balance:user_" + userId);
+        verify(transactionTemplate).execute(any());
+        verify(lockingPort).releaseLock("balance:user_" + userId);
     }
         
     @Test
@@ -101,15 +106,17 @@ class ChargeBalanceTest {
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(false);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn("balance:user_" + userId);
+        when(lockingPort.acquireLock("balance:user_" + userId)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> balanceService.chargeBalance(userId, chargeAmount))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("balance-" + userId);
-        verify(chargeBalanceUseCase, never()).execute(any(), any());
+        verify(keyGenerator).generateBalanceKey(userId);
+        verify(lockingPort).acquireLock("balance:user_" + userId);
+        verify(transactionTemplate, never()).execute(any());
         verify(lockingPort, never()).releaseLock(any());
     }
         
@@ -120,18 +127,21 @@ class ChargeBalanceTest {
         Long userId = 1L;
         BigDecimal chargeAmount = new BigDecimal("50000");
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-        when(chargeBalanceUseCase.execute(userId, chargeAmount))
-            .thenThrow(new BalanceException.InvalidAmount());
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn("balance:user_" + userId);
+        when(lockingPort.acquireLock("balance:user_" + userId)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            throw new BalanceException.InvalidAmount();
+        });
         
         // when & then
         assertThatThrownBy(() -> balanceService.chargeBalance(userId, chargeAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("balance-" + userId);
-        verify(chargeBalanceUseCase).execute(userId, chargeAmount);
-        verify(lockingPort).releaseLock("balance-" + userId);
+        verify(keyGenerator).generateBalanceKey(userId);
+        verify(lockingPort).acquireLock("balance:user_" + userId);
+        verify(transactionTemplate).execute(any());
+        verify(lockingPort).releaseLock("balance:user_" + userId);
     }
         
     @Test
@@ -141,15 +151,17 @@ class ChargeBalanceTest {
         Long userId = 1L;
         BigDecimal invalidAmount = new BigDecimal("-10000");
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
-        when(chargeBalanceUseCase.execute(userId, invalidAmount))
-            .thenThrow(new BalanceException.InvalidAmount());
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn("balance:user_" + userId);
+        when(lockingPort.acquireLock("balance:user_" + userId)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            throw new BalanceException.InvalidAmount();
+        });
         
         // when & then
         assertThatThrownBy(() -> balanceService.chargeBalance(userId, invalidAmount))
             .isInstanceOf(BalanceException.InvalidAmount.class);
             
-        verify(lockingPort).releaseLock("balance-" + userId);
+        verify(lockingPort).releaseLock("balance:user_" + userId);
     }
       
     @Test
@@ -183,11 +195,15 @@ class ChargeBalanceTest {
                 .build();
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn("balance:user_" + userId);
         // 첫 번째 스레드만 락 획득 성공, 나머지는 실패하도록 설정
-        when(lockingPort.acquireLock("balance-" + userId))
+        when(lockingPort.acquireLock("balance:user_" + userId))
             .thenReturn(true)  // 첫 번째 호출만 성공
             .thenReturn(false, false, false, false);  // 나머지는 실패
             
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            return chargeBalanceUseCase.execute(userId, chargeAmount);
+        });
         when(chargeBalanceUseCase.execute(userId, chargeAmount)).thenReturn(expectedBalance);
         
         // when & then
@@ -208,9 +224,10 @@ class ChargeBalanceTest {
         assertThat(result.getSuccessCount()).isEqualTo(1); // 하나만 성공
         assertThat(result.getFailureCount()).isEqualTo(4); // 나머지는 락 실패
         
-        verify(lockingPort, times(5)).acquireLock("balance-" + userId);
-        verify(chargeBalanceUseCase, times(1)).execute(userId, chargeAmount);
-        verify(lockingPort, times(1)).releaseLock("balance-" + userId);
+        verify(keyGenerator, times(5)).generateBalanceKey(userId);
+        verify(lockingPort, times(5)).acquireLock("balance:user_" + userId);
+        verify(transactionTemplate, times(1)).execute(any());
+        verify(lockingPort, times(1)).releaseLock("balance:user_" + userId);
     }
         
     @Test
@@ -231,8 +248,14 @@ class ChargeBalanceTest {
         
         when(userRepositoryPort.existsById(userId1)).thenReturn(true);
         when(userRepositoryPort.existsById(userId2)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId1)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId2)).thenReturn(true);
+        when(keyGenerator.generateBalanceKey(userId1)).thenReturn("balance:user_" + userId1);
+        when(keyGenerator.generateBalanceKey(userId2)).thenReturn("balance:user_" + userId2);
+        when(lockingPort.acquireLock("balance:user_" + userId1)).thenReturn(true);
+        when(lockingPort.acquireLock("balance:user_" + userId2)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            // userId에 따라 적절한 balance 반환하도록 설정
+            return chargeBalanceUseCase.execute(any(Long.class), eq(chargeAmount));
+        });
         when(chargeBalanceUseCase.execute(userId1, chargeAmount)).thenReturn(testBalance1);
         when(chargeBalanceUseCase.execute(userId2, chargeAmount)).thenReturn(testBalance2);
         
@@ -258,11 +281,12 @@ class ChargeBalanceTest {
         
         assertThat(result.getSuccessCount()).isEqualTo(2); // 둘 다 성공해야 함
         
-        verify(lockingPort).acquireLock("balance-" + userId1);
-        verify(lockingPort).acquireLock("balance-" + userId2);
-        verify(chargeBalanceUseCase).execute(userId1, chargeAmount);
-        verify(chargeBalanceUseCase).execute(userId2, chargeAmount);
-        verify(lockingPort).releaseLock("balance-" + userId1);
-        verify(lockingPort).releaseLock("balance-" + userId2);
+        verify(keyGenerator).generateBalanceKey(userId1);
+        verify(keyGenerator).generateBalanceKey(userId2);
+        verify(lockingPort).acquireLock("balance:user_" + userId1);
+        verify(lockingPort).acquireLock("balance:user_" + userId2);
+        verify(transactionTemplate, times(2)).execute(any());
+        verify(lockingPort).releaseLock("balance:user_" + userId1);
+        verify(lockingPort).releaseLock("balance:user_" + userId2);
     }
 }

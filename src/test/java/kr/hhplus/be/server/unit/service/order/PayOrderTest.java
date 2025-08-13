@@ -3,13 +3,14 @@ package kr.hhplus.be.server.unit.service.order;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.service.OrderService;
-import kr.hhplus.be.server.domain.usecase.order.ValidateOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.CompleteOrderUseCase;
-import kr.hhplus.be.server.domain.usecase.order.CreatePaymentUseCase;
+import kr.hhplus.be.server.domain.usecase.order.*;
 import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 
@@ -32,6 +34,18 @@ import static org.mockito.Mockito.*;
 @DisplayName("주문 결제 서비스")
 class PayOrderTest {
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+    
+    @Mock
+    private CreateOrderUseCase createOrderUseCase;
+    
+    @Mock
+    private GetOrderUseCase getOrderUseCase;
+    
+    @Mock
+    private GetOrderListUseCase getOrderListUseCase;
+    
     @Mock
     private ValidateOrderUseCase validateOrderUseCase;
     
@@ -53,15 +67,24 @@ class PayOrderTest {
     @Mock
     private UserRepositoryPort userRepositoryPort;
     
+    @Mock
+    private OrderRepositoryPort orderRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator lockKeyGenerator;
+    
     private OrderService orderService;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        orderService = new OrderService(transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, applyCouponUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
-            null, null, null, validateOrderUseCase, completeOrderUseCase, 
-            createPaymentUseCase, deductBalanceUseCase, applyCouponUseCase,
-            lockingPort, userRepositoryPort
+        orderService = new OrderService(
+            transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
+            validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, lockKeyGenerator
         );
     }
 
@@ -86,8 +109,16 @@ class PayOrderTest {
                 .amount(finalAmount)
                 .build();
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_1";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
+        when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(validateOrderUseCase.execute(orderId, userId)).thenReturn(order);
         when(applyCouponUseCase.execute(orderAmount, couponId)).thenReturn(finalAmount);
@@ -102,16 +133,19 @@ class PayOrderTest {
         assertThat(result.getUserId()).isEqualTo(userId);
         assertThat(result.getAmount()).isEqualTo(finalAmount);
         
-        verify(lockingPort).acquireLock("payment-" + orderId);
-        verify(lockingPort).acquireLock("balance-" + userId);
+        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
+        verify(lockKeyGenerator).generateBalanceKey(userId);
+        verify(lockingPort).acquireLock(paymentLockKey);
+        verify(lockingPort).acquireLock(balanceLockKey);
+        verify(transactionTemplate).execute(any());
         verify(userRepositoryPort).existsById(userId);
         verify(validateOrderUseCase).execute(orderId, userId);
         verify(applyCouponUseCase).execute(orderAmount, couponId);
         verify(deductBalanceUseCase).execute(userId, finalAmount);
         verify(completeOrderUseCase).execute(order);
         verify(createPaymentUseCase).execute(orderId, userId, finalAmount);
-        verify(lockingPort).releaseLock("balance-" + userId);
-        verify(lockingPort).releaseLock("payment-" + orderId);
+        verify(lockingPort).releaseLock(balanceLockKey);
+        verify(lockingPort).releaseLock(paymentLockKey);
     }
     
     @Test
@@ -134,8 +168,16 @@ class PayOrderTest {
                 .amount(orderAmount)
                 .build();
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_1";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
+        when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(validateOrderUseCase.execute(orderId, userId)).thenReturn(order);
         when(applyCouponUseCase.execute(orderAmount, couponId)).thenReturn(orderAmount);
@@ -159,14 +201,19 @@ class PayOrderTest {
         Long userId = 1L;
         Long couponId = null;
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(false);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_1";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> orderService.payOrder(orderId, userId, couponId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(lockingPort).acquireLock("payment-" + orderId);
-        verify(lockingPort, never()).acquireLock("balance-" + userId);
+        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
+        verify(lockingPort).acquireLock(paymentLockKey);
+        verify(lockingPort, never()).acquireLock(balanceLockKey);
         verify(userRepositoryPort, never()).existsById(any());
     }
     
@@ -178,16 +225,22 @@ class PayOrderTest {
         Long userId = 1L;
         Long couponId = null;
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(false);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_1";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
+        when(lockingPort.acquireLock(balanceLockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> orderService.payOrder(orderId, userId, couponId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(lockingPort).acquireLock("payment-" + orderId);
-        verify(lockingPort).acquireLock("balance-" + userId);
-        verify(lockingPort).releaseLock("payment-" + orderId);
+        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
+        verify(lockKeyGenerator).generateBalanceKey(userId);
+        verify(lockingPort).acquireLock(paymentLockKey);
+        verify(lockingPort).acquireLock(balanceLockKey);
+        verify(lockingPort).releaseLock(paymentLockKey);
         verify(userRepositoryPort, never()).existsById(any());
     }
     
@@ -199,17 +252,26 @@ class PayOrderTest {
         Long userId = 999L;
         Long couponId = null;
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_999";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
+        when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(userRepositoryPort.existsById(userId)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> orderService.payOrder(orderId, userId, couponId))
             .isInstanceOf(UserException.NotFound.class);
             
+        verify(transactionTemplate).execute(any());
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).releaseLock("balance-" + userId);
-        verify(lockingPort).releaseLock("payment-" + orderId);
+        verify(lockingPort).releaseLock(balanceLockKey);
+        verify(lockingPort).releaseLock(paymentLockKey);
     }
     
     @Test
@@ -227,8 +289,16 @@ class PayOrderTest {
                 .totalAmount(orderAmount)
                 .build();
         
-        when(lockingPort.acquireLock("payment-" + orderId)).thenReturn(true);
-        when(lockingPort.acquireLock("balance-" + userId)).thenReturn(true);
+        String paymentLockKey = "order:payment:order_1";
+        String balanceLockKey = "balance:user_1";
+        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
+        when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         when(validateOrderUseCase.execute(orderId, userId)).thenReturn(order);
         when(applyCouponUseCase.execute(orderAmount, couponId)).thenReturn(orderAmount);
@@ -240,7 +310,8 @@ class PayOrderTest {
             .isInstanceOf(RuntimeException.class)
             .hasMessage("Insufficient balance");
             
-        verify(lockingPort).releaseLock("balance-" + userId);
-        verify(lockingPort).releaseLock("payment-" + orderId);
+        verify(transactionTemplate).execute(any());
+        verify(lockingPort).releaseLock(balanceLockKey);
+        verify(lockingPort).releaseLock(paymentLockKey);
     }
 }

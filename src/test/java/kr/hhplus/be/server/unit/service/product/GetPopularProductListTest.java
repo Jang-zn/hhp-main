@@ -44,18 +44,22 @@ class GetPopularProductListTest {
     @DisplayName("정상적인 인기 상품 목록 조회가 성공한다")
     void getPopularProductList_Success() {
         // given
-        int limit = 10;
-        int offset = 0;
+        int period = 7;
         
         List<Product> expectedProducts = List.of(
             TestBuilder.ProductBuilder.defaultProduct().name("Popular Product 1").build(),
             TestBuilder.ProductBuilder.defaultProduct().name("Popular Product 2").build()
         );
         
-        when(getPopularProductListUseCase.execute(7)).thenReturn(expectedProducts);
+        String cacheKey = "popular_products_7";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
+        when(getPopularProductListUseCase.execute(period)).thenReturn(expectedProducts);
         
         // when
-        List<Product> result = productService.getPopularProductList(7);
+        List<Product> result = productService.getPopularProductList(period);
         
         // then
         assertThat(result).isNotNull();
@@ -63,48 +67,59 @@ class GetPopularProductListTest {
         assertThat(result.get(0).getName()).isEqualTo("Popular Product 1");
         assertThat(result.get(1).getName()).isEqualTo("Popular Product 2");
         
-        verify(getPopularProductListUseCase).execute(7);
+        verify(cachePort).getList(eq(cacheKey), any());
+        verify(getPopularProductListUseCase).execute(period);
     }
     
     @Test
     @DisplayName("빈 인기 상품 목록 조회가 성공한다")
     void getPopularProductList_EmptyList() {
         // given
-        int limit = 10;
-        int offset = 0;
+        int period = 7;
         
-        when(getPopularProductListUseCase.execute(7)).thenReturn(List.of());
+        String cacheKey = "popular_products_7";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
+        when(getPopularProductListUseCase.execute(period)).thenReturn(List.of());
         
         // when
-        List<Product> result = productService.getPopularProductList(7);
+        List<Product> result = productService.getPopularProductList(period);
         
         // then
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
-        verify(getPopularProductListUseCase).execute(7);
+        verify(cachePort).getList(eq(cacheKey), any());
+        verify(getPopularProductListUseCase).execute(period);
     }
     
     @Test
     @DisplayName("페이징 처리가 정상적으로 동작한다")
     void getPopularProductList_WithPaging() {
         // given
-        int limit = 5;
-        int offset = 10;
+        int period = 14; // 다른 기간으로 테스트
         
         List<Product> expectedProducts = List.of(
             TestBuilder.ProductBuilder.defaultProduct().name("Popular Product 11").build()
         );
         
-        when(getPopularProductListUseCase.execute(7)).thenReturn(expectedProducts);
+        String cacheKey = "popular_products_14";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
+        when(getPopularProductListUseCase.execute(period)).thenReturn(expectedProducts);
         
         // when
-        List<Product> result = productService.getPopularProductList(7);
+        List<Product> result = productService.getPopularProductList(period);
         
         // then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         
-        verify(getPopularProductListUseCase).execute(7);
+        verify(cachePort).getList(eq(cacheKey), any());
+        verify(getPopularProductListUseCase).execute(period);
     }
 }

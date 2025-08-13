@@ -8,6 +8,7 @@ import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.CommonException;
@@ -43,6 +44,7 @@ class CreateOrderTest {
     @Mock private ApplyCouponUseCase applyCouponUseCase;
     @Mock private LockingPort lockingPort;
     @Mock private UserRepositoryPort userRepositoryPort;
+    @Mock private OrderRepositoryPort orderRepositoryPort;
     @Mock private CachePort cachePort;
     @Mock private KeyGenerator keyGenerator;
     
@@ -51,7 +53,11 @@ class CreateOrderTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        orderService = new OrderService(transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, applyCouponUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
+        orderService = new OrderService(
+            transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
+            validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
+        );
     }
 
     @Test
@@ -67,7 +73,12 @@ class CreateOrderTest {
                 .userId(userId)
                 .build();
         
-        when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(true);
+        String expectedLockKey = "order:create_multi:user_1:products_1_2";
+        when(keyGenerator.generateOrderCreateMultiProductKey(userId, 1L, 2L)).thenReturn(expectedLockKey);
+        when(lockingPort.acquireLock(expectedLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            return createOrderUseCase.execute(userId, productQuantities);
+        });
         when(createOrderUseCase.execute(userId, productQuantities)).thenReturn(expectedOrder);
         
         // when
@@ -77,9 +88,10 @@ class CreateOrderTest {
         assertThat(result).isNotNull();
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(lockingPort).acquireLock("order-creation-" + userId);
-        verify(createOrderUseCase).execute(userId, productQuantities);
-        verify(lockingPort).releaseLock("order-creation-" + userId);
+        verify(keyGenerator).generateOrderCreateMultiProductKey(userId, 1L, 2L);
+        verify(lockingPort).acquireLock(expectedLockKey);
+        verify(transactionTemplate).execute(any());
+        verify(lockingPort).releaseLock(expectedLockKey);
     }
     
     @Test
@@ -91,14 +103,17 @@ class CreateOrderTest {
             new ProductQuantityDto(1L, 2)
         );
         
-        when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(false);
+        String expectedLockKey = "order:create_multi:user_1:products_1";
+        when(keyGenerator.generateOrderCreateMultiProductKey(userId, 1L)).thenReturn(expectedLockKey);
+        when(lockingPort.acquireLock(expectedLockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> orderService.createOrder(userId, productQuantities))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(lockingPort).acquireLock("order-creation-" + userId);
-        verify(createOrderUseCase, never()).execute(any(), any());
+        verify(keyGenerator).generateOrderCreateMultiProductKey(userId, 1L);
+        verify(lockingPort).acquireLock(expectedLockKey);
+        verify(transactionTemplate, never()).execute(any());
         verify(lockingPort, never()).releaseLock(any());
     }
     
@@ -111,17 +126,21 @@ class CreateOrderTest {
             new ProductQuantityDto(1L, 2)
         );
         
-        when(lockingPort.acquireLock("order-creation-" + userId)).thenReturn(true);
-        when(createOrderUseCase.execute(userId, productQuantities))
-            .thenThrow(new RuntimeException("Order creation failed"));
+        String expectedLockKey = "order:create_multi:user_1:products_1";
+        when(keyGenerator.generateOrderCreateMultiProductKey(userId, 1L)).thenReturn(expectedLockKey);
+        when(lockingPort.acquireLock(expectedLockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            throw new RuntimeException("Order creation failed");
+        });
         
         // when & then
         assertThatThrownBy(() -> orderService.createOrder(userId, productQuantities))
             .isInstanceOf(RuntimeException.class)
             .hasMessage("Order creation failed");
             
-        verify(lockingPort).acquireLock("order-creation-" + userId);
-        verify(createOrderUseCase).execute(userId, productQuantities);
-        verify(lockingPort).releaseLock("order-creation-" + userId);
+        verify(keyGenerator).generateOrderCreateMultiProductKey(userId, 1L);
+        verify(lockingPort).acquireLock(expectedLockKey);
+        verify(transactionTemplate).execute(any());
+        verify(lockingPort).releaseLock(expectedLockKey);
     }
 }

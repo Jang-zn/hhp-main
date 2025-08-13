@@ -74,9 +74,15 @@ class IssueCouponTest {
                 .couponId(couponId)
                 .build();
         
+        String lockKey = "coupon:lock:coupon_1";
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("coupon-issue-" + couponId)).thenReturn(true);
-        when(issueCouponUseCase.execute(couponId, userId)).thenReturn(expectedHistory);
+        when(lockingPort.acquireLock(lockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(issueCouponUseCase.execute(userId, couponId)).thenReturn(expectedHistory);
         
         // when
         CouponHistory result = couponService.issueCoupon(couponId, userId);
@@ -85,10 +91,13 @@ class IssueCouponTest {
         assertThat(result).isNotNull();
         assertThat(result).isEqualTo(expectedHistory);
         
+        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
-        verify(issueCouponUseCase).execute(couponId, userId);
-        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
+        verify(lockingPort).acquireLock(lockKey);
+        verify(transactionTemplate).execute(any());
+        verify(issueCouponUseCase).execute(userId, couponId);
+        verify(cachePort).evictByPattern("coupon:list:user_1_*");
+        verify(lockingPort).releaseLock(lockKey);
     }
         
     @Test
@@ -98,15 +107,19 @@ class IssueCouponTest {
         Long userId = 1L;
         Long couponId = 1L;
         
+        String lockKey = "coupon:lock:coupon_1";
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("coupon-issue-" + couponId)).thenReturn(false);
+        when(lockingPort.acquireLock(lockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> couponService.issueCoupon(couponId, userId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
+        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
+        verify(lockingPort).acquireLock(lockKey);
+        verify(transactionTemplate, never()).execute(any());
         verify(issueCouponUseCase, never()).execute(any(), any());
         verify(lockingPort, never()).releaseLock(any());
     }
@@ -118,19 +131,27 @@ class IssueCouponTest {
         Long userId = 1L;
         Long couponId = 1L;
         
+        String lockKey = "coupon:lock:coupon_1";
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(lockingPort.acquireLock("coupon-issue-" + couponId)).thenReturn(true);
-        when(issueCouponUseCase.execute(couponId, userId))
+        when(lockingPort.acquireLock(lockKey)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(issueCouponUseCase.execute(userId, couponId))
             .thenThrow(new CouponException.NotFound());
         
         // when & then
         assertThatThrownBy(() -> couponService.issueCoupon(couponId, userId))
             .isInstanceOf(CouponException.NotFound.class);
             
+        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId);
-        verify(issueCouponUseCase).execute(couponId, userId);
-        verify(lockingPort).releaseLock("coupon-issue-" + couponId);
+        verify(lockingPort).acquireLock(lockKey);
+        verify(transactionTemplate).execute(any());
+        verify(issueCouponUseCase).execute(userId, couponId);
+        verify(lockingPort).releaseLock(lockKey);
     }
     
     @Test
@@ -163,14 +184,19 @@ class IssueCouponTest {
                 .couponId(couponId)
                 .build();
         
+        String lockKey = "coupon:lock:coupon_1";
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(userRepositoryPort.existsById(userId1)).thenReturn(true);
         when(userRepositoryPort.existsById(userId2)).thenReturn(true);
         // 첫 번째 스레드만 락 획득 성공
-        when(lockingPort.acquireLock("coupon-issue-" + couponId))
+        when(lockingPort.acquireLock(lockKey))
             .thenReturn(true)  // 첫 번째 호출만 성공
             .thenReturn(false); // 두 번째는 실패
-            
-        when(issueCouponUseCase.execute(eq(couponId), anyLong())).thenReturn(expectedHistory);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(issueCouponUseCase.execute(anyLong(), eq(couponId))).thenReturn(expectedHistory);
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
@@ -199,9 +225,11 @@ class IssueCouponTest {
         assertThat(result.getSuccessCount()).isEqualTo(1); // 하나만 성공
         assertThat(result.getFailureCount()).isEqualTo(1); // 하나는 락 실패
         
-        verify(lockingPort, times(2)).acquireLock("coupon-issue-" + couponId);
-        verify(issueCouponUseCase, times(1)).execute(eq(couponId), anyLong());
-        verify(lockingPort, times(1)).releaseLock("coupon-issue-" + couponId);
+        verify(keyGenerator, atLeast(1)).generateCouponKey(couponId);
+        verify(lockingPort, times(2)).acquireLock(lockKey);
+        verify(transactionTemplate, times(1)).execute(any());
+        verify(issueCouponUseCase, times(1)).execute(anyLong(), eq(couponId));
+        verify(lockingPort, times(1)).releaseLock(lockKey);
     }
         
     @Test
@@ -222,12 +250,20 @@ class IssueCouponTest {
                 .couponId(couponId2)
                 .build();
         
+        String lockKey1 = "coupon:lock:coupon_1";
+        String lockKey2 = "coupon:lock:coupon_2";
+        when(keyGenerator.generateCouponKey(couponId1)).thenReturn(lockKey1);
+        when(keyGenerator.generateCouponKey(couponId2)).thenReturn(lockKey2);
         when(userRepositoryPort.existsById(userId1)).thenReturn(true);
         when(userRepositoryPort.existsById(userId2)).thenReturn(true);
-        when(lockingPort.acquireLock("coupon-issue-" + couponId1)).thenReturn(true);
-        when(lockingPort.acquireLock("coupon-issue-" + couponId2)).thenReturn(true);
-        when(issueCouponUseCase.execute(couponId1, userId1)).thenReturn(expectedHistory1);
-        when(issueCouponUseCase.execute(couponId2, userId2)).thenReturn(expectedHistory2);
+        when(lockingPort.acquireLock(lockKey1)).thenReturn(true);
+        when(lockingPort.acquireLock(lockKey2)).thenReturn(true);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(issueCouponUseCase.execute(userId1, couponId1)).thenReturn(expectedHistory1);
+        when(issueCouponUseCase.execute(userId2, couponId2)).thenReturn(expectedHistory2);
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
@@ -251,11 +287,14 @@ class IssueCouponTest {
         
         assertThat(result.getSuccessCount()).isEqualTo(2); // 둘 다 성공해야 함
         
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId1);
-        verify(lockingPort).acquireLock("coupon-issue-" + couponId2);
-        verify(issueCouponUseCase).execute(couponId1, userId1);
-        verify(issueCouponUseCase).execute(couponId2, userId2);
-        verify(lockingPort).releaseLock("coupon-issue-" + couponId1);
-        verify(lockingPort).releaseLock("coupon-issue-" + couponId2);
+        verify(keyGenerator).generateCouponKey(couponId1);
+        verify(keyGenerator).generateCouponKey(couponId2);
+        verify(lockingPort).acquireLock(lockKey1);
+        verify(lockingPort).acquireLock(lockKey2);
+        verify(transactionTemplate, times(2)).execute(any());
+        verify(issueCouponUseCase).execute(userId1, couponId1);
+        verify(issueCouponUseCase).execute(userId2, couponId2);
+        verify(lockingPort).releaseLock(lockKey1);
+        verify(lockingPort).releaseLock(lockKey2);
     }
 }

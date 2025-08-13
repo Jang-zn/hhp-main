@@ -52,6 +52,11 @@ class GetProductListTest {
             TestBuilder.ProductBuilder.defaultProduct().name("Product 2").build()
         );
         
+        String cacheKey = "product_list_10_0";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
         when(getProductUseCase.execute(limit, offset)).thenReturn(expectedProducts);
         
         // when
@@ -63,6 +68,7 @@ class GetProductListTest {
         assertThat(result.get(0).getName()).isEqualTo("Product 1");
         assertThat(result.get(1).getName()).isEqualTo("Product 2");
         
+        verify(cachePort).getList(eq(cacheKey), any());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -73,6 +79,11 @@ class GetProductListTest {
         int limit = 10;
         int offset = 0;
         
+        String cacheKey = "product_list_10_0";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
         when(getProductUseCase.execute(limit, offset)).thenReturn(List.of());
         
         // when
@@ -82,6 +93,7 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
+        verify(cachePort).getList(eq(cacheKey), any());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -96,6 +108,11 @@ class GetProductListTest {
             TestBuilder.ProductBuilder.defaultProduct().name("Product 11").build()
         );
         
+        String cacheKey = "product_list_5_10";
+        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
+            return supplier.get();
+        });
         when(getProductUseCase.execute(limit, offset)).thenReturn(expectedProducts);
         
         // when
@@ -105,6 +122,7 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         
+        verify(cachePort).getList(eq(cacheKey), any());
         verify(getProductUseCase).execute(limit, offset);
     }
 }

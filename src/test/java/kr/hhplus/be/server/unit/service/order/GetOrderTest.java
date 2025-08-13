@@ -7,6 +7,7 @@ import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -37,6 +38,7 @@ class GetOrderTest {
     @Mock private ApplyCouponUseCase applyCouponUseCase;
     @Mock private LockingPort lockingPort;
     @Mock private UserRepositoryPort userRepositoryPort;
+    @Mock private OrderRepositoryPort orderRepositoryPort;
     @Mock private CachePort cachePort;
     @Mock private KeyGenerator keyGenerator;
     
@@ -45,7 +47,11 @@ class GetOrderTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        orderService = new OrderService(transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, applyCouponUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
+        orderService = new OrderService(
+            transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
+            validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
+        );
     }
 
     @Test
@@ -59,7 +65,14 @@ class GetOrderTest {
                 .userId(userId)
                 .build();
         
-        when(getOrderUseCase.execute(userId, orderId)).thenReturn(java.util.Optional.of(expectedOrder));
+        String cacheKey = "order:info:order_1";
+        when(keyGenerator.generateOrderCacheKey(orderId)).thenReturn(cacheKey);
+        when(cachePort.get(eq(cacheKey), eq(Order.class), any())).thenAnswer(invocation -> {
+            // 캐시 miss 시 supplier를 호출
+            java.util.function.Supplier<Order> supplier = invocation.getArgument(2);
+            return supplier.get();
+        });
+        when(orderRepositoryPort.findById(orderId)).thenReturn(java.util.Optional.of(expectedOrder));
         
         // when
         Order result = orderService.getOrder(orderId, userId);
@@ -69,6 +82,8 @@ class GetOrderTest {
         assertThat(result.getId()).isEqualTo(orderId);
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(getOrderUseCase).execute(userId, orderId);
+        verify(keyGenerator).generateOrderCacheKey(orderId);
+        verify(cachePort).get(eq(cacheKey), eq(Order.class), any());
+        verify(orderRepositoryPort).findById(orderId);
     }
 }
