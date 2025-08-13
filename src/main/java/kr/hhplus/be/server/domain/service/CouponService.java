@@ -35,6 +35,7 @@ public class CouponService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
+    private final LockKeyGenerator lockKeyGenerator;
     
     private static final int COUPON_LIST_CACHE_TTL = 300; // 5분
 
@@ -46,7 +47,6 @@ public class CouponService {
      * @param offset 건너뛸 쿠폰 개수
      * @return 쿠폰 히스토리 목록
      */
-    @SuppressWarnings("unchecked")
     public List<CouponHistory> getCouponList(Long userId, int limit, int offset) {
         log.debug("쿠폰 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
         
@@ -57,7 +57,7 @@ public class CouponService {
         
         try {
             String cacheKey = "coupon_list_" + userId + "_" + limit + "_" + offset;
-            return (List<CouponHistory>) cachePort.get(cacheKey, List.class, () -> {
+            return cachePort.getList(cacheKey, () -> {
                 List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
                 log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
                 return couponHistories;
@@ -79,7 +79,7 @@ public class CouponService {
      * @return 발급된 쿠폰 히스토리
      */
     public CouponHistory issueCoupon(Long couponId, Long userId) {
-        String lockKey = "coupon-issue-" + couponId;
+        String lockKey = lockKeyGenerator.generateCouponIssueKey(couponId);
         
         // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {

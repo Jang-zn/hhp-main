@@ -69,13 +69,12 @@ public class ProductService {
      * @param offset 건너뛸 상품 개수
      * @return 상품 목록
      */
-    @SuppressWarnings("unchecked")
     public List<Product> getProductList(int limit, int offset) {
         log.debug("상품 목록 조회 요청: limit={}, offset={}", limit, offset);
         
         try {
             String cacheKey = "product_list_" + limit + "_" + offset;
-            return (List<Product>) cachePort.get(cacheKey, List.class, () -> {
+            return cachePort.getList(cacheKey, () -> {
                 List<Product> products = getProductUseCase.execute(limit, offset);
                 log.debug("데이터베이스에서 상품 목록 조회: count={}", products.size());
                 return products;
@@ -92,13 +91,12 @@ public class ProductService {
      * @param period 기간 (일)
      * @return 인기 상품 목록
      */
-    @SuppressWarnings("unchecked")
     public List<Product> getPopularProductList(int period) {
         log.debug("인기 상품 목록 조회 요청: period={}", period);
         
         try {
             String cacheKey = "popular_products_" + period;
-            return (List<Product>) cachePort.get(cacheKey, List.class, () -> {
+            return cachePort.getList(cacheKey, () -> {
                 List<Product> products = getPopularProductListUseCase.execute(period);
                 log.debug("데이터베이스에서 인기 상품 목록 조회: count={}", products.size());
                 return products;

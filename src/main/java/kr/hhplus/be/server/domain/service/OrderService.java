@@ -49,6 +49,7 @@ public class OrderService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
+    private final LockKeyGenerator lockKeyGenerator;
     
     private static final int ORDER_CACHE_TTL = 600; // 10분
     private static final int ORDER_LIST_CACHE_TTL = 300; // 5분
@@ -64,7 +65,13 @@ public class OrderService {
      * @return 생성된 주문 정보
      */
     public Order createOrder(Long userId, List<ProductQuantityDto> productQuantities) {
-        String lockKey = "order-creation-" + userId;
+        // 여러 상품의 재고를 동시에 차감하므로 복합 락 키 사용 (데드락 방지를 위해 정렬)
+        Long[] productIds = productQuantities.stream()
+            .map(ProductQuantityDto::getProductId)
+            .sorted()
+            .toArray(Long[]::new);
+        
+        String lockKey = lockKeyGenerator.generateOrderCreateMultiProductKey(userId, productIds);
         
         // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
@@ -132,13 +139,12 @@ public class OrderService {
      * @param userId 사용자 ID
      * @return 주문 목록
      */
-    @SuppressWarnings("unchecked")
     public List<Order> getOrderList(Long userId) {
         log.debug("주문 목록 조회 요청: userId={}", userId);
         
         try {
             String cacheKey = "order_list_" + userId;
-            return (List<Order>) cachePort.get(cacheKey, List.class, () -> {
+            return cachePort.getList(cacheKey, () -> {
                 List<Order> orders = getOrderListUseCase.execute(userId);
                 log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
                 return orders;
@@ -146,6 +152,43 @@ public class OrderService {
         } catch (Exception e) {
             log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
             return getOrderListUseCase.execute(userId);
+        }
+    }
+    
+    /**
+     * 사용자 주문 목록 조회 (페이징 지원, 캐시 적용)
+     * 
+     * @param userId 사용자 ID
+     * @param limit 페이지 크기
+     * @param offset 페이지 오프셋
+     * @return 주문 목록
+     */
+    public List<Order> getOrderList(Long userId, int limit, int offset) {
+        log.debug("주문 목록 조회 요청 (페이징): userId={}, limit={}, offset={}", userId, limit, offset);
+        
+        try {
+            String cacheKey = "order_list_" + userId + "_" + limit + "_" + offset;
+            return cachePort.getList(cacheKey, () -> {
+                // TODO: UseCase에서 limit, offset 지원하도록 수정 필요
+                List<Order> allOrders = getOrderListUseCase.execute(userId);
+                
+                // 임시로 메모리에서 페이징 처리 (성능상 비효율적, 추후 개선 필요)
+                int fromIndex = Math.min(offset, allOrders.size());
+                int toIndex = Math.min(offset + limit, allOrders.size());
+                List<Order> paginatedOrders = allOrders.subList(fromIndex, toIndex);
+                
+                log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, total={}, returned={}", 
+                    userId, allOrders.size(), paginatedOrders.size());
+                return paginatedOrders;
+            });
+        } catch (Exception e) {
+            log.error("주문 목록 조회 중 오류 발생 (페이징): userId={}, limit={}, offset={}", userId, limit, offset, e);
+            
+            // 예외 발생 시 전체 목록에서 페이징 처리
+            List<Order> allOrders = getOrderListUseCase.execute(userId);
+            int fromIndex = Math.min(offset, allOrders.size());
+            int toIndex = Math.min(offset + limit, allOrders.size());
+            return allOrders.subList(fromIndex, toIndex);
         }
     }
 
@@ -198,8 +241,8 @@ public class OrderService {
      * @return 결제 정보
      */
     public Payment payOrder(Long orderId, Long userId, Long couponId) {
-        String paymentLockKey = "payment-" + orderId;
-        String balanceLockKey = "balance-" + userId;
+        String paymentLockKey = lockKeyGenerator.generateOrderPaymentKey(orderId);
+        String balanceLockKey = lockKeyGenerator.generateBalanceDeductKey(userId);
         
         // 1. 락 획득 (데드락 방지를 위해 순서 고정)
         if (!lockingPort.acquireLock(paymentLockKey)) {
