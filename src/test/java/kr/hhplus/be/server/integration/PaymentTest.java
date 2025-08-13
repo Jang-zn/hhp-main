@@ -1,14 +1,12 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.enums.OrderStatus;
-import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
@@ -20,13 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -40,13 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 주문 결제 처리의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
  * How: 실제 고객의 결제 시나리오를 반영한 API 레벨 테스트
  */
-@SpringBootTest
-@ActiveProfiles("integration-test")
-@Import(TestcontainersConfiguration.class)
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("결제 API 통합 시나리오")
-public class PaymentTest {
+public class PaymentTest extends IntegrationTestBase {
     
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;

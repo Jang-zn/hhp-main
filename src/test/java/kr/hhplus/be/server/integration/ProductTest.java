@@ -1,20 +1,13 @@
 package kr.hhplus.be.server.integration;
 
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.ErrorCode;
-import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -30,13 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 상품 조회 API의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
  * How: 실제 고객의 상품 조회 시나리오를 반영한 API 레벨 테스트
  */
-@SpringBootTest
-@ActiveProfiles("integration-test")
-@Import(TestcontainersConfiguration.class)
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("상품 API 통합 시나리오")
-public class ProductTest {
+public class ProductTest extends IntegrationTestBase {
 
     @Autowired
     private MockMvc mockMvc;

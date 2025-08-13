@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.User;
@@ -15,17 +14,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,19 +33,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 쿠폰 발급부터 사용까지의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
  * How: 실제 고객의 쿠폰 사용 시나리오를 반영한 API 레벨 테스트
  */
-@SpringBootTest
-@ActiveProfiles("integration-test")
-@Import(TestcontainersConfiguration.class)
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("쿠폰 API 통합 시나리오")
-public class CouponTest {
+public class CouponTest extends IntegrationTestBase {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepositoryPort userRepositoryPort;
     @Autowired private CouponRepositoryPort couponRepositoryPort;
-    @Autowired private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
 
     @BeforeEach
     void setUp() {

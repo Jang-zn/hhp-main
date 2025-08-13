@@ -1,14 +1,12 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
-import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
-import kr.hhplus.be.server.adapter.locking.InMemoryLockingAdapter;
+import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,14 +16,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.annotation.DirtiesContext;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,27 +35,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 잔액 충전부터 조회까지의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
  * How: 실제 고객의 잔액 관리 시나리오를 반영한 API 레벨 테스트
  */
-@SpringBootTest
-@ActiveProfiles("integration-test")
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
-@Transactional
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("잔액 API 통합 시나리오")
-public class BalanceTest {
+public class BalanceTest extends IntegrationTestBase {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepositoryPort userRepositoryPort;
     @Autowired private BalanceRepositoryPort balanceRepositoryPort;
-    @Autowired private InMemoryLockingAdapter lockingAdapter;
 
-    private User customerWithBalance;
-    private User customerWithoutBalance;
 
     @BeforeEach
     void setUp() {
-        lockingAdapter.clearAllLocks();
+        // Redis 환경에서는 락 클리어 불필요
     }
 
     private User createCustomerWithBalance(String name, String amount) {
