@@ -26,10 +26,7 @@ public class ProductService {
     private final GetProductUseCase getProductUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
     private final CachePort cachePort;
-    
-    private static final int PRODUCT_CACHE_TTL = 600; // 10분
-    private static final int PRODUCT_LIST_CACHE_TTL = 300; // 5분
-    private static final int POPULAR_PRODUCT_CACHE_TTL = 300; // 5분
+
 
     /**
      * 단일 상품 조회 (캐시 적용)

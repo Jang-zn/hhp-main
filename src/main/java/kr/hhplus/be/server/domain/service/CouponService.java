@@ -35,10 +35,8 @@ public class CouponService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
-    private final LockKeyGenerator lockKeyGenerator;
+    private final KeyGenerator lockKeyGenerator;
     
-    private static final int COUPON_LIST_CACHE_TTL = 300; // 5분
-
     /**
      * 사용자의 쿠폰 히스토리 목록 조회 (캐시 적용)
      * 
@@ -79,7 +77,7 @@ public class CouponService {
      * @return 발급된 쿠폰 히스토리
      */
     public CouponHistory issueCoupon(Long couponId, Long userId) {
-        String lockKey = lockKeyGenerator.generateCouponIssueKey(couponId);
+        String lockKey = lockKeyGenerator.generateCouponKey(couponId);
         
         // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {

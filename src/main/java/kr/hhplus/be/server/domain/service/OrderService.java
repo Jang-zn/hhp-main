@@ -49,7 +49,7 @@ public class OrderService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
-    private final LockKeyGenerator lockKeyGenerator;
+    private final KeyGenerator lockKeyGenerator;
     
     private static final int ORDER_CACHE_TTL = 600; // 10분
     private static final int ORDER_LIST_CACHE_TTL = 300; // 5분
@@ -242,7 +242,7 @@ public class OrderService {
      */
     public Payment payOrder(Long orderId, Long userId, Long couponId) {
         String paymentLockKey = lockKeyGenerator.generateOrderPaymentKey(orderId);
-        String balanceLockKey = lockKeyGenerator.generateBalanceDeductKey(userId);
+        String balanceLockKey = lockKeyGenerator.generateBalanceKey(userId);
         
         // 1. 락 획득 (데드락 방지를 위해 순서 고정)
         if (!lockingPort.acquireLock(paymentLockKey)) {

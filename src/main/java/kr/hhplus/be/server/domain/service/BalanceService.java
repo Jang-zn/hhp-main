@@ -35,10 +35,8 @@ public class BalanceService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
-    private final LockKeyGenerator lockKeyGenerator;
+    private final KeyGenerator lockKeyGenerator;
     
-    private static final int BALANCE_CACHE_TTL = 600; // 10분
-
     /**
      * 사용자 잔액 조회 (캐시 적용)
      * 
@@ -92,7 +90,7 @@ public class BalanceService {
      * @return 충전 후 잔액 정보
      */
     public Balance chargeBalance(Long userId, BigDecimal chargeAmount) {
-        String lockKey = lockKeyGenerator.generateBalanceChargeKey(userId);
+        String lockKey = lockKeyGenerator.generateBalanceKey(userId);
         
         // 사용자 존재 확인 (트랜잭션 외부에서)
         if (!userRepositoryPort.existsById(userId)) {
