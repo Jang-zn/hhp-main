@@ -13,9 +13,11 @@ import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.service.KeyGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,7 @@ public class OrderService {
     private final ApplyCouponUseCase applyCouponUseCase;
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
+    private final OrderRepositoryPort orderRepositoryPort;
     private final CachePort cachePort;
     private final KeyGenerator lockKeyGenerator;
     
@@ -100,19 +103,18 @@ public class OrderService {
         try {
             String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
             Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
-                return getOrderUseCase.execute(userId, orderId).orElse(null);
+                return findOrderWithAuthCheck(orderId, userId);
             });
             
             if (cachedOrder != null) {
                 log.debug("주문 조회 성공: orderId={}, userId={}", orderId, userId);
                 return cachedOrder;
             } else {
-                throw new RuntimeException("Order not found");
+                return findOrderWithAuthCheck(orderId, userId);
             }
         } catch (Exception e) {
             log.error("주문 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
-            return getOrderUseCase.execute(userId, orderId)
-                    .orElseThrow(() -> new RuntimeException("Order not found"));
+            return findOrderWithAuthCheck(orderId, userId);
         }
     }
 
@@ -148,6 +150,12 @@ public class OrderService {
      */
     public List<Order> getOrderList(Long userId, int limit, int offset) {
         log.debug("주문 목록 조회 요청 (페이징): userId={}, limit={}, offset={}", userId, limit, offset);
+        
+        // 사용자 존재 확인
+        if (!userRepositoryPort.existsById(userId)) {
+            log.warn("존재하지 않는 사용자: userId={}", userId);
+            throw new UserException.NotFound();
+        }
         
         try {
             String cacheKey = lockKeyGenerator.generateOrderListCacheKey(userId, limit, offset);
@@ -188,19 +196,18 @@ public class OrderService {
         try {
             String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
             Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
-                return getOrderUseCase.execute(userId, orderId).orElse(null);
+                return findOrderWithAuthCheck(orderId, userId);
             });
             
             if (cachedOrder != null) {
                 log.debug("주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
                 return cachedOrder;
             } else {
-                throw new RuntimeException("Order not found");
+                return findOrderWithAuthCheck(orderId, userId);
             }
         } catch (Exception e) {
             log.error("주문 상세 정보 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
-            return getOrderUseCase.execute(userId, orderId)
-                    .orElseThrow(() -> new RuntimeException("Order not found"));
+            return findOrderWithAuthCheck(orderId, userId);
         }
     }
 
@@ -254,6 +261,33 @@ public class OrderService {
             lockingPort.releaseLock(balanceLockKey);
             lockingPort.releaseLock(paymentLockKey);
         }
+    }
+    
+    /**
+     * 권한 확인을 포함한 주문 조회
+     * 
+     * @param orderId 주문 ID
+     * @param userId 사용자 ID
+     * @return 주문 정보
+     * @throws OrderException.NotFound 주문이 존재하지 않는 경우
+     * @throws OrderException.Unauthorized 다른 사용자의 주문인 경우
+     */
+    private Order findOrderWithAuthCheck(Long orderId, Long userId) {
+        // 1. 주문이 존재하는지 확인
+        Order order = orderRepositoryPort.findById(orderId)
+            .orElseThrow(() -> {
+                log.warn("존재하지 않는 주문: orderId={}", orderId);
+                return new OrderException.NotFound();
+            });
+        
+        // 2. 주문 소유권 확인
+        if (!order.getUserId().equals(userId)) {
+            log.warn("주문 접근 권한 없음: orderId={}, requestUserId={}, orderUserId={}", 
+                orderId, userId, order.getUserId());
+            throw new OrderException.Unauthorized();
+        }
+        
+        return order;
     }
     
     /**

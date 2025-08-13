@@ -87,7 +87,7 @@ public class CouponService {
         
         try {
             CouponHistory result = transactionTemplate.execute(status -> {
-                return issueCouponUseCase.execute(couponId, userId);
+                return issueCouponUseCase.execute(userId, couponId);
             });
             
             // 트랜잭션 커밋 후 캐시 무효화
