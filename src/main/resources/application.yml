@@ -58,80 +58,29 @@ spring:
 spring.config.activate.on-profile: integration-test
 
 spring:
-  datasource:
-    # TestContainers가 자동으로 설정
-  logging:
-    level:
-      org.hibernate.SQL: DEBUG
-      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
-        use_sql_comments: true
-  retry:
-    enabled: false  # 통합 테스트에서는 재시도 비활성화
-  # Redis 설정 (TestContainers가 자동으로 설정)
-  data:
-    redis:
-      # TestContainers의 @ServiceConnection이 자동으로 설정
-      timeout: 2000
-
----
-# H2 테스트 환경 (JPA Repository 테스트용)
-spring.config.activate.on-profile: test
-
-spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
-  h2:
-    console:
-      enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  retry:
+    enabled: false  # 통합 테스트에서는 재시도 비활성화
+
+---
+# 테스트 환경 (TestContainers 사용)
+spring.config.activate.on-profile: test
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
         format_sql: true
   retry:
     enabled: false  # 테스트에서는 재시도 비활성화
-  # Redis 설정 (Embedded Redis 또는 Mock 사용)
-  data:
-    redis:
-      host: localhost
-      port: 6370  # 기본 포트와 다르게 설정하여 충돌 방지
-      password: 
-      timeout: 2000
 
----
-spring.config.activate.on-profile: test_inmemory
-
-spring:
-  # ===== H2 인메모리 데이터베이스 (InMemory Repository 전용) =====
-  # H2 Console: http://localhost:8080/h2-console
-  datasource:
-    url: jdbc:h2:mem:hhplus;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
-  h2:
-    console:
-      enabled: true  # H2 웹 콘솔 활성화
-      path: /h2-console
-  jpa:
-    hibernate:
-      ddl-auto: create-drop  # 시작시 테이블 생성, 종료시 삭제
-    show-sql: true  # SQL 쿼리 로그 출력
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-        format_sql: true  # SQL 포맷팅

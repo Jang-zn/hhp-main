@@ -1,20 +1,11 @@
 spring:
-  # H2 인메모리 데이터베이스 설정
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
-  h2:
-    console:
-      enabled: false  # 테스트에서는 콘솔 비활성화
   jpa:
     hibernate:
       ddl-auto: create-drop  # 테스트 시작시 생성, 종료시 삭제
     show-sql: false  # 테스트에서는 SQL 로그 비활성화
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
         
 # SpringDoc 테스트 설정
 springdoc:

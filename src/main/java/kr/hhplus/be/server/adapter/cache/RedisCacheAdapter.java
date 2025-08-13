@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.List;
 
 /**
  * Redis(Redisson)를 이용한 캐시 구현체
@@ -35,7 +36,6 @@ public class RedisCacheAdapter implements CachePort {
      * @return 캐시된 값 또는 새로 생성된 값
      */
     @Override
-    @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> type, Supplier<T> supplier) {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
@@ -126,7 +126,6 @@ public class RedisCacheAdapter implements CachePort {
      * @param ttlSeconds TTL (초 단위)
      * @return 캐시된 값 또는 새로 생성된 값
      */
-    @SuppressWarnings("unchecked")
     public <T> T getWithTTL(String key, Class<T> type, Supplier<T> supplier, int ttlSeconds) {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
@@ -178,6 +177,44 @@ public class RedisCacheAdapter implements CachePort {
         } catch (Exception e) {
             log.error("Error checking cache existence: key={}", cacheKey, e);
             return false;
+        }
+    }
+    
+    /**
+     * List 타입 전용 캐시 조회 메서드 (unchecked 경고 방지)
+     * 
+     * @param key 캐시 키
+     * @param supplier 캐시 미스 시 데이터를 공급하는 함수
+     * @return List 타입의 캐시된 값 또는 새로 생성된 값
+     */
+    @Override
+    public <T> List<T> getList(String key, Supplier<List<T>> supplier) {
+        String cacheKey = CACHE_KEY_PREFIX + key;
+        
+        try {
+            RBucket<List<T>> bucket = redissonClient.getBucket(cacheKey);
+            List<T> cachedValue = bucket.get();
+            
+            if (cachedValue != null) {
+                log.debug("Cache hit (List): key={}", cacheKey);
+                return cachedValue;
+            }
+            
+            // 캐시 미스 - supplier에서 값을 가져와서 캐시에 저장
+            log.debug("Cache miss (List): key={}", cacheKey);
+            List<T> suppliedValue = supplier.get();
+            
+            if (suppliedValue != null) {
+                bucket.set(suppliedValue);
+                log.debug("Cache stored (List): key={}, size={}", cacheKey, suppliedValue.size());
+            }
+            
+            return suppliedValue;
+            
+        } catch (Exception e) {
+            log.error("Error accessing cache (List): key={}", cacheKey, e);
+            // 캐시 오류 시 supplier로부터 직접 값 반환
+            return supplier.get();
         }
     }
     

@@ -49,8 +49,8 @@ public class ProductController {
     @GetMapping("/popular")
     public List<ProductResponse> getPopularProducts(@Valid @ModelAttribute ProductRequest request) {
         
-        // 최근 N일간 인기 상품 조회
-        List<Product> popularProducts = productService.getPopularProductList(request.getLimit(), request.getOffset());
+        // 지정된 기간 동안의 인기 상품 조회
+        List<Product> popularProducts = productService.getPopularProductList(request.getDays());
         return popularProducts.stream()
                 .map(product -> new ProductResponse(
                         product.getId(),
