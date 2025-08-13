@@ -20,8 +20,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.transaction.support.TransactionSynchronizationAdapter;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -51,8 +49,6 @@ public class OrderService {
     private final CachePort cachePort;
     private final KeyGenerator lockKeyGenerator;
     
-    private static final int ORDER_CACHE_TTL = 600; // 10분
-    private static final int ORDER_LIST_CACHE_TTL = 300; // 5분
 
     /**
      * 주문 생성
@@ -65,7 +61,6 @@ public class OrderService {
      * @return 생성된 주문 정보
      */
     public Order createOrder(Long userId, List<ProductQuantityDto> productQuantities) {
-        // 여러 상품의 재고를 동시에 차감하므로 복합 락 키 사용 (데드락 방지를 위해 정렬)
         Long[] productIds = productQuantities.stream()
             .map(ProductQuantityDto::getProductId)
             .sorted()
@@ -73,33 +68,20 @@ public class OrderService {
         
         String lockKey = lockKeyGenerator.generateOrderCreateMultiProductKey(userId, productIds);
         
-        // 1. 락 획득
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
         
         try {
-            // 2. 명시적 트랜잭션 실행
-            return transactionTemplate.execute(status -> {
-                // 3. 비즈니스 로직 실행 (트랜잭션 내)
-                Order order = createOrderUseCase.execute(userId, productQuantities);
-                
-                // 4. 트랜잭션 커밋 후 캐시 무효화 등록
-                if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                    TransactionSynchronizationManager.registerSynchronization(
-                        new TransactionSynchronizationAdapter() {
-                            @Override
-                            public void afterCommit() {
-                                invalidateUserRelatedCache(userId);
-                            }
-                        }
-                    );
-                }
-                
-                return order;
+            Order order = transactionTemplate.execute(status -> {
+                return createOrderUseCase.execute(userId, productQuantities);
             });
+            
+            // 트랜잭션 커밋 후 캐시 무효화
+            invalidateUserRelatedCache(userId);
+            
+            return order;
         } finally {
-            // 4. 락 해제
             lockingPort.releaseLock(lockKey);
         }
     }
@@ -115,7 +97,7 @@ public class OrderService {
         log.debug("주문 조회 요청: orderId={}, userId={}", orderId, userId);
         
         try {
-            String cacheKey = "order_" + orderId + "_" + userId;
+            String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
             Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
                 return getOrderUseCase.execute(userId, orderId).orElse(null);
             });
@@ -143,7 +125,7 @@ public class OrderService {
         log.debug("주문 목록 조회 요청: userId={}", userId);
         
         try {
-            String cacheKey = "order_list_" + userId;
+            String cacheKey = lockKeyGenerator.generateOrderListCacheKey(userId, 50, 0);
             return cachePort.getList(cacheKey, () -> {
                 List<Order> orders = getOrderListUseCase.execute(userId);
                 log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
@@ -167,7 +149,7 @@ public class OrderService {
         log.debug("주문 목록 조회 요청 (페이징): userId={}, limit={}, offset={}", userId, limit, offset);
         
         try {
-            String cacheKey = "order_list_" + userId + "_" + limit + "_" + offset;
+            String cacheKey = lockKeyGenerator.generateOrderListCacheKey(userId, limit, offset);
             return cachePort.getList(cacheKey, () -> {
                 // TODO: UseCase에서 limit, offset 지원하도록 수정 필요
                 List<Order> allOrders = getOrderListUseCase.execute(userId);
@@ -203,7 +185,7 @@ public class OrderService {
         log.debug("주문 상세 정보 조회 요청: orderId={}, userId={}", orderId, userId);
         
         try {
-            String cacheKey = "order_details_" + orderId + "_" + userId;
+            String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
             Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
                 return getOrderUseCase.execute(userId, orderId).orElse(null);
             });
@@ -244,7 +226,6 @@ public class OrderService {
         String paymentLockKey = lockKeyGenerator.generateOrderPaymentKey(orderId);
         String balanceLockKey = lockKeyGenerator.generateBalanceKey(userId);
         
-        // 1. 락 획득 (데드락 방지를 위해 순서 고정)
         if (!lockingPort.acquireLock(paymentLockKey)) {
             throw new CommonException.ConcurrencyConflict();
         }
@@ -255,33 +236,20 @@ public class OrderService {
         }
         
         try {
-            // 2. 명시적 트랜잭션 실행
             return transactionTemplate.execute(status -> {
-                // 3. 비즈니스 로직 실행 (트랜잭션 내)
-                
-                // 3-1. 사용자 존재 확인
                 if (!userRepositoryPort.existsById(userId)) {
                     throw new UserException.NotFound();
                 }
                 
-                // 3-2. 주문 검증
                 Order order = validateOrderUseCase.execute(orderId, userId);
-                
-                // 3-3. 쿠폰 적용 (선택사항)
                 BigDecimal finalAmount = applyCouponUseCase.execute(order.getTotalAmount(), couponId);
-                
-                // 3-4. 잔액 차감
                 deductBalanceUseCase.execute(userId, finalAmount);
-                
-                // 3-5. 주문 완료 처리
                 completeOrderUseCase.execute(order);
                 
-                // 3-6. 결제 생성
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
             
         } finally {
-            // 4. 락 해제 (획득 순서의 반대로 해제)
             lockingPort.releaseLock(balanceLockKey);
             lockingPort.releaseLock(paymentLockKey);
         }
@@ -289,26 +257,18 @@ public class OrderService {
     
     /**
      * 사용자 관련 캐시 무효화
-     * 트랜잭션 커밋 후에 실행되어 데이터 일관성을 보장합니다.
-     * 
-     * @param userId 사용자 ID
-     */
-    /**
-     * 사용자 관련 캐시 무효화
-     * 트랜잭션 커밋 후에 실행되어 데이터 일관성을 보장합니다.
      * 
      * @param userId 사용자 ID
      */
     private void invalidateUserRelatedCache(Long userId) {
         try {
-            // 주문 목록 캐시 무효화
-            String orderListCacheKey = "order_list_" + userId;
-            cachePort.evict(orderListCacheKey);
+            // 사용자의 모든 주문 목록 캐시를 패턴으로 무효화
+            String cacheKeyPattern = "order:list:user_" + userId + "_*";
+            cachePort.evictByPattern(cacheKeyPattern);
             
-            log.debug("사용자 관련 캐시 무효화 완료: userId={}", userId);
+            log.debug("사용자 관련 캐시 무효화 완료: userId={}, pattern={}", userId, cacheKeyPattern);
         } catch (Exception e) {
             log.warn("사용자 관련 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
-            // 캐시 무효화 실패는 비즈니스 로직에 영향 없음
         }
     }
 }

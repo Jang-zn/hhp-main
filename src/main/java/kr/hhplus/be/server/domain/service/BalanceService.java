@@ -12,8 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -101,22 +99,14 @@ public class BalanceService {
         }
         
         try {
-            return transactionTemplate.execute(status -> {
-                Balance result = chargeBalanceUseCase.execute(userId, chargeAmount);
-                
-                if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                    TransactionSynchronizationManager.registerSynchronization(
-                        new TransactionSynchronization() {
-                            @Override
-                            public void afterCommit() {
-                                invalidateBalanceCache(userId);
-                            }
-                        }
-                    );
-                }
-                
-                return result;
+            Balance result = transactionTemplate.execute(status -> {
+                return chargeBalanceUseCase.execute(userId, chargeAmount);
             });
+            
+            // 트랜잭션 커밋 후 캐시 무효화
+            invalidateBalanceCache(userId);
+            
+            return result;
         } finally {
             lockingPort.releaseLock(lockKey);
         }

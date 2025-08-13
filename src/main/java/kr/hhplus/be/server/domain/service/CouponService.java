@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -88,22 +86,14 @@ public class CouponService {
         }
         
         try {
-            return transactionTemplate.execute(status -> {
-                CouponHistory result = issueCouponUseCase.execute(couponId, userId);
-                
-                if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                    TransactionSynchronizationManager.registerSynchronization(
-                        new TransactionSynchronization() {
-                            @Override
-                            public void afterCommit() {
-                                invalidateUserCouponCache(userId);
-                            }
-                        }
-                    );
-                }
-                
-                return result;
+            CouponHistory result = transactionTemplate.execute(status -> {
+                return issueCouponUseCase.execute(couponId, userId);
             });
+            
+            // 트랜잭션 커밋 후 캐시 무효화
+            invalidateUserCouponCache(userId);
+            
+            return result;
         } finally {
             lockingPort.releaseLock(lockKey);
         }
@@ -117,7 +107,9 @@ public class CouponService {
     private void invalidateUserCouponCache(Long userId) {
         try {
             String cacheKeyPattern = "coupon:list:user_" + userId + "_*";
-            log.debug("사용자 쿠폰 캐시 무효화: userId={}", userId);
+            cachePort.evictByPattern(cacheKeyPattern);
+            
+            log.debug("사용자 쿠폰 캐시 무효화: userId={}, pattern={}", userId, cacheKeyPattern);
         } catch (Exception e) {
             log.warn("사용자 쿠폰 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
         }
