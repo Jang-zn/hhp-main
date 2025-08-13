@@ -18,4 +18,11 @@ public interface CachePort {
     
     void put(String key, Object value, int ttlSeconds);
     void evict(String key);
+    
+    /**
+     * 패턴과 일치하는 모든 캐시 키들을 무효화
+     * 
+     * @param pattern 캐시 키 패턴 (예: "order:list:user_1_*")
+     */
+    void evictByPattern(String pattern);
 } 

@@ -213,6 +213,32 @@ public class RedisCacheAdapter implements CachePort {
     }
     
     /**
+     * 패턴과 일치하는 모든 캐시 키들을 무효화
+     * 
+     * @param pattern 캐시 키 패턴 (예: "order:list:user_1_*")
+     */
+    @Override
+    public void evictByPattern(String pattern) {
+        String fullPattern = CACHE_KEY_PREFIX + pattern;
+        
+        try {
+            // Redisson의 keys 메서드를 사용하여 패턴과 일치하는 키들 찾기
+            Iterable<String> keys = redissonClient.getKeys().getKeysByPattern(fullPattern);
+            
+            int count = 0;
+            for (String key : keys) {
+                redissonClient.getBucket(key).delete();
+                count++;
+            }
+            
+            log.debug("Cache evicted by pattern: pattern={}, evictedCount={}", fullPattern, count);
+            
+        } catch (Exception e) {
+            log.error("Error evicting cache by pattern: pattern={}", fullPattern, e);
+        }
+    }
+    
+    /**
      * 캐시 TTL 확인 (밀리초 단위)
      * 
      * @param key 캐시 키
@@ -223,7 +249,7 @@ public class RedisCacheAdapter implements CachePort {
         
         try {
             RBucket<Object> bucket = redissonClient.getBucket(cacheKey);
-            long ttl = bucket.remaiㄴnTimeToLive();
+            long ttl = bucket.remainTimeToLive();
             log.debug("Cache TTL check: key={}, ttl={}ms", cacheKey, ttl);
             return ttl;
             
