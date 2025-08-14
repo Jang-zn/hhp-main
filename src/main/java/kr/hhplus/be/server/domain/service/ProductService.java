@@ -4,6 +4,8 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class ProductService {
     private final GetProductUseCase getProductUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
     private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
 
 
     /**
@@ -38,21 +41,31 @@ public class ProductService {
         log.debug("상품 조회 요청: productId={}", productId);
         
         try {
-            String cacheKey = "product_" + productId;
-            Optional<Product> result = Optional.ofNullable(
-                cachePort.get(cacheKey, Product.class, () -> {
-                    Optional<Product> productOpt = getProductUseCase.execute(productId);
-                    return productOpt.orElse(null);
-                })
-            );
+            String cacheKey = keyGenerator.generateProductCacheKey(productId);
             
-            if (result.isPresent()) {
-                log.debug("상품 조회 성공: productId={}", productId);
-            } else {
-                log.debug("상품 조회 결과 없음: productId={}", productId);
+            // 캐시에서 조회 시도
+            Product cachedProduct = cachePort.get(cacheKey, Product.class, () -> null);
+            
+            if (cachedProduct != null) {
+                log.debug("캐시에서 상품 조회 성공: productId={}", productId);
+                return Optional.of(cachedProduct);
             }
             
-            return result;
+            // 캐시 미스 - 데이터베이스에서 조회
+            Optional<Product> productOpt = getProductUseCase.execute(productId);
+            
+            if (productOpt.isPresent()) {
+                Product product = productOpt.get();
+                log.debug("데이터베이스에서 상품 조회 성공: productId={}", productId);
+                
+                // TTL과 함께 캐시에 저장
+                cachePort.put(cacheKey, product, CacheTTL.PRODUCT_DETAIL.getSeconds());
+                
+                return Optional.of(product);
+            } else {
+                log.debug("상품 조회 결과 없음: productId={}", productId);
+                return Optional.empty();
+            }
         } catch (Exception e) {
             log.error("상품 조회 중 오류 발생: productId={}", productId, e);
             return getProductUseCase.execute(productId);
@@ -70,12 +83,24 @@ public class ProductService {
         log.debug("상품 목록 조회 요청: limit={}, offset={}", limit, offset);
         
         try {
-            String cacheKey = "product_list_" + limit + "_" + offset;
-            return cachePort.getList(cacheKey, () -> {
-                List<Product> products = getProductUseCase.execute(limit, offset);
-                log.debug("데이터베이스에서 상품 목록 조회: count={}", products.size());
-                return products;
-            });
+            String cacheKey = keyGenerator.generateProductListCacheKey(limit, offset);
+            
+            // 캐시에서 조회 시도
+            List<Product> cachedProducts = cachePort.getList(cacheKey, () -> null);
+            
+            if (cachedProducts != null) {
+                log.debug("캐시에서 상품 목록 조회 성공: count={}", cachedProducts.size());
+                return cachedProducts;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            List<Product> products = getProductUseCase.execute(limit, offset);
+            log.debug("데이터베이스에서 상품 목록 조회: count={}", products.size());
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, products, CacheTTL.PRODUCT_LIST.getSeconds());
+            
+            return products;
         } catch (Exception e) {
             log.error("상품 목록 조회 중 오류 발생: limit={}, offset={}", limit, offset, e);
             return getProductUseCase.execute(limit, offset);
@@ -92,12 +117,25 @@ public class ProductService {
         log.debug("인기 상품 목록 조회 요청: period={}", period);
         
         try {
-            String cacheKey = "popular_products_" + period;
-            return cachePort.getList(cacheKey, () -> {
-                List<Product> products = getPopularProductListUseCase.execute(period);
-                log.debug("데이터베이스에서 인기 상품 목록 조회: count={}", products.size());
-                return products;
-            });
+            String cacheKey = keyGenerator.generatePopularProductListCacheKey(period);
+            
+            // 캐시에서 조회 시도
+            List<Product> cachedProducts = cachePort.getList(cacheKey, () -> null);
+            
+            if (cachedProducts != null) {
+                log.debug("캐시에서 인기 상품 목록 조회 성공: period={}, count={}", period, cachedProducts.size());
+                return cachedProducts;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            List<Product> products = getPopularProductListUseCase.execute(period);
+            log.debug("데이터베이스에서 인기 상품 목록 조회: period={}, count={}", period, products.size());
+            
+            // 동적 TTL과 함께 캐시에 저장
+            int ttlSeconds = CacheTTL.getPopularProductTTLSeconds(period);
+            cachePort.put(cacheKey, products, ttlSeconds);
+            
+            return products;
         } catch (Exception e) {
             log.error("인기 상품 목록 조회 중 오류 발생: period={}", period, e);
             return getPopularProductListUseCase.execute(period);
@@ -111,7 +149,7 @@ public class ProductService {
      */
     public void invalidateProductCache(Long productId) {
         try {
-            String cacheKey = "product_" + productId;
+            String cacheKey = keyGenerator.generateProductCacheKey(productId);
             cachePort.evict(cacheKey);
             log.debug("상품 캐시 무효화: productId={}", productId);
         } catch (Exception e) {

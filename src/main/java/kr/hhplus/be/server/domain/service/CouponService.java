@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.domain.service;
 
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
@@ -9,7 +10,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class CouponService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
-    private final KeyGenerator lockKeyGenerator;
+    private final KeyGenerator keyGenerator;
     
     /**
      * 사용자의 쿠폰 히스토리 목록 조회 (캐시 적용)
@@ -52,12 +53,24 @@ public class CouponService {
         }
         
         try {
-            String cacheKey = lockKeyGenerator.generateCouponListCacheKey(userId, limit, offset);
-            return cachePort.getList(cacheKey, () -> {
-                List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
-                log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
-                return couponHistories;
-            });
+            String cacheKey = keyGenerator.generateCouponListCacheKey(userId, limit, offset);
+            
+            // 캐시에서 조회 시도
+            List<CouponHistory> cachedCoupons = cachePort.getList(cacheKey, () -> null);
+            
+            if (cachedCoupons != null) {
+                log.debug("캐시에서 쿠폰 목록 조회 성공: userId={}, count={}", userId, cachedCoupons.size());
+                return cachedCoupons;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
+            log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, couponHistories, CacheTTL.USER_COUPON_LIST.getSeconds());
+            
+            return couponHistories;
         } catch (Exception e) {
             log.error("쿠폰 목록 조회 중 오류 발생: userId={}, limit={}, offset={}", userId, limit, offset, e);
             return getCouponListUseCase.execute(userId, limit, offset);
@@ -75,7 +88,7 @@ public class CouponService {
      * @return 발급된 쿠폰 히스토리
      */
     public CouponHistory issueCoupon(Long couponId, Long userId) {
-        String lockKey = lockKeyGenerator.generateCouponKey(couponId);
+        String lockKey = keyGenerator.generateCouponKey(couponId);
         
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();

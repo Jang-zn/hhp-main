@@ -2,6 +2,7 @@ package kr.hhplus.be.server.domain.service;
 
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
@@ -18,7 +19,7 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class OrderService {
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
     private final CachePort cachePort;
-    private final KeyGenerator lockKeyGenerator;
+    private final KeyGenerator keyGenerator;
     
 
     /**
@@ -70,7 +71,7 @@ public class OrderService {
             .sorted()
             .toArray(Long[]::new);
         
-        String lockKey = lockKeyGenerator.generateOrderCreateMultiProductKey(userId, productIds);
+        String lockKey = keyGenerator.generateOrderCreateMultiProductKey(userId, productIds);
         
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
@@ -101,17 +102,24 @@ public class OrderService {
         log.debug("주문 조회 요청: orderId={}, userId={}", orderId, userId);
         
         try {
-            String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
-            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
-                return findOrderWithAuthCheck(orderId, userId);
-            });
+            String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
+            
+            // 캐시에서 조회 시도
+            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> null);
             
             if (cachedOrder != null) {
-                log.debug("주문 조회 성공: orderId={}, userId={}", orderId, userId);
+                log.debug("캐시에서 주문 조회 성공: orderId={}, userId={}", orderId, userId);
                 return cachedOrder;
-            } else {
-                return findOrderWithAuthCheck(orderId, userId);
             }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            Order order = findOrderWithAuthCheck(orderId, userId);
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
+            
+            log.debug("데이터베이스에서 주문 조회 성공: orderId={}, userId={}", orderId, userId);
+            return order;
         } catch (Exception e) {
             log.error("주문 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
             return findOrderWithAuthCheck(orderId, userId);
@@ -128,12 +136,24 @@ public class OrderService {
         log.debug("주문 목록 조회 요청: userId={}", userId);
         
         try {
-            String cacheKey = lockKeyGenerator.generateOrderListCacheKey(userId, 50, 0);
-            return cachePort.getList(cacheKey, () -> {
-                List<Order> orders = getOrderListUseCase.execute(userId);
-                log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
-                return orders;
-            });
+            String cacheKey = keyGenerator.generateOrderListCacheKey(userId, 50, 0);
+            
+            // 캐시에서 조회 시도
+            List<Order> cachedOrders = cachePort.getList(cacheKey, () -> null);
+            
+            if (cachedOrders != null) {
+                log.debug("캐시에서 주문 목록 조회 성공: userId={}, count={}", userId, cachedOrders.size());
+                return cachedOrders;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            List<Order> orders = getOrderListUseCase.execute(userId);
+            log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, orders, CacheTTL.ORDER_LIST.getSeconds());
+            
+            return orders;
         } catch (Exception e) {
             log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
             return getOrderListUseCase.execute(userId);
@@ -158,20 +178,32 @@ public class OrderService {
         }
         
         try {
-            String cacheKey = lockKeyGenerator.generateOrderListCacheKey(userId, limit, offset);
-            return cachePort.getList(cacheKey, () -> {
-                // TODO: UseCase에서 limit, offset 지원하도록 수정 필요
-                List<Order> allOrders = getOrderListUseCase.execute(userId);
-                
-                // 임시로 메모리에서 페이징 처리 (성능상 비효율적, 추후 개선 필요)
-                int fromIndex = Math.min(offset, allOrders.size());
-                int toIndex = Math.min(offset + limit, allOrders.size());
-                List<Order> paginatedOrders = allOrders.subList(fromIndex, toIndex);
-                
-                log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, total={}, returned={}", 
-                    userId, allOrders.size(), paginatedOrders.size());
-                return paginatedOrders;
-            });
+            String cacheKey = keyGenerator.generateOrderListCacheKey(userId, limit, offset);
+            
+            // 캐시에서 조회 시도
+            List<Order> cachedOrders = cachePort.getList(cacheKey, () -> null);
+            
+            if (cachedOrders != null) {
+                log.debug("캐시에서 주문 목록 조회 성공 (페이징): userId={}, count={}", userId, cachedOrders.size());
+                return cachedOrders;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            // TODO: UseCase에서 limit, offset 지원하도록 수정 필요
+            List<Order> allOrders = getOrderListUseCase.execute(userId);
+            
+            // 임시로 메모리에서 페이징 처리 (성능상 비효율적, 추후 개선 필요)
+            int fromIndex = Math.min(offset, allOrders.size());
+            int toIndex = Math.min(offset + limit, allOrders.size());
+            List<Order> paginatedOrders = allOrders.subList(fromIndex, toIndex);
+            
+            log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, total={}, returned={}", 
+                userId, allOrders.size(), paginatedOrders.size());
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, paginatedOrders, CacheTTL.ORDER_LIST.getSeconds());
+            
+            return paginatedOrders;
         } catch (Exception e) {
             log.error("주문 목록 조회 중 오류 발생 (페이징): userId={}, limit={}, offset={}", userId, limit, offset, e);
             
@@ -194,17 +226,24 @@ public class OrderService {
         log.debug("주문 상세 정보 조회 요청: orderId={}, userId={}", orderId, userId);
         
         try {
-            String cacheKey = lockKeyGenerator.generateOrderCacheKey(orderId);
-            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> {
-                return findOrderWithAuthCheck(orderId, userId);
-            });
+            String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
+            
+            // 캐시에서 조회 시도
+            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> null);
             
             if (cachedOrder != null) {
-                log.debug("주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
+                log.debug("캐시에서 주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
                 return cachedOrder;
-            } else {
-                return findOrderWithAuthCheck(orderId, userId);
             }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            Order order = findOrderWithAuthCheck(orderId, userId);
+            
+            // TTL과 함께 캐시에 저장
+            cachePort.put(cacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
+            
+            log.debug("데이터베이스에서 주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
+            return order;
         } catch (Exception e) {
             log.error("주문 상세 정보 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
             return findOrderWithAuthCheck(orderId, userId);
@@ -231,8 +270,8 @@ public class OrderService {
      * @return 결제 정보
      */
     public Payment payOrder(Long orderId, Long userId, Long couponId) {
-        String paymentLockKey = lockKeyGenerator.generateOrderPaymentKey(orderId);
-        String balanceLockKey = lockKeyGenerator.generateBalanceKey(userId);
+        String paymentLockKey = keyGenerator.generateOrderPaymentKey(orderId);
+        String balanceLockKey = keyGenerator.generateBalanceKey(userId);
         
         if (!lockingPort.acquireLock(paymentLockKey)) {
             throw new CommonException.ConcurrencyConflict();

@@ -8,7 +8,8 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class BalanceService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
-    private final KeyGenerator lockKeyGenerator;
+    private final KeyGenerator keyGenerator;
     
     /**
      * 사용자 잔액 조회 (캐시 적용)
@@ -50,23 +51,28 @@ public class BalanceService {
         }
         
         try {
-            String cacheKey = lockKeyGenerator.generateBalanceCacheKey(userId);
-            Balance cachedBalance = cachePort.get(cacheKey, Balance.class, () -> {
-                Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
-                if (balanceOpt.isPresent()) {
-                    Balance balance = balanceOpt.get();
-                    log.debug("데이터베이스에서 잔액 조회: userId={}, amount={}", userId, balance.getAmount());
-                    return balance;
-                } else {
-                    log.debug("잔액 정보 없음: userId={}", userId);
-                    return null;
-                }
-            });
+            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
+            
+            // 캐시에서 조회 시도
+            Balance cachedBalance = cachePort.get(cacheKey, Balance.class, () -> null);
             
             if (cachedBalance != null) {
-                log.debug("잔액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
+                log.debug("캐시에서 잔액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
                 return cachedBalance;
+            }
+            
+            // 캐시 미스 - 데이터베이스에서 조회
+            Optional<Balance> balanceOpt = getBalanceUseCase.execute(userId);
+            if (balanceOpt.isPresent()) {
+                Balance balance = balanceOpt.get();
+                log.debug("데이터베이스에서 잔액 조회: userId={}, amount={}", userId, balance.getAmount());
+                
+                // TTL과 함께 캐시에 저장
+                cachePort.put(cacheKey, balance, CacheTTL.USER_BALANCE.getSeconds());
+                
+                return balance;
             } else {
+                log.debug("잔액 정보 없음: userId={}", userId);
                 throw new RuntimeException("Balance not found");
             }
         } catch (Exception e) {
@@ -88,7 +94,7 @@ public class BalanceService {
      * @return 충전 후 잔액 정보
      */
     public Balance chargeBalance(Long userId, BigDecimal chargeAmount) {
-        String lockKey = lockKeyGenerator.generateBalanceKey(userId);
+        String lockKey = keyGenerator.generateBalanceKey(userId);
         
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
@@ -119,7 +125,7 @@ public class BalanceService {
      */
     private void invalidateBalanceCache(Long userId) {
         try {
-            String cacheKey = lockKeyGenerator.generateBalanceCacheKey(userId);
+            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
             cachePort.evict(cacheKey);
             log.debug("잔액 캐시 무효화: userId={}", userId);
         } catch (Exception e) {
