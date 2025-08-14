@@ -111,13 +111,15 @@ public class ProductService {
      * 인기 상품 목록 조회 (캐시 적용)
      * 
      * @param period 기간 (일)
+     * @param limit 조회할 상품 개수
+     * @param offset 건너뛸 상품 개수
      * @return 인기 상품 목록
      */
-    public List<Product> getPopularProductList(int period) {
-        log.debug("인기 상품 목록 조회 요청: period={}", period);
+    public List<Product> getPopularProductList(int period, int limit, int offset) {
+        log.debug("인기 상품 목록 조회 요청: period={}, limit={}, offset={}", period, limit, offset);
         
         try {
-            String cacheKey = keyGenerator.generatePopularProductListCacheKey(period);
+            String cacheKey = keyGenerator.generatePopularProductListCacheKey(period, limit, offset);
             
             // 캐시에서 조회 시도
             List<Product> cachedProducts = cachePort.getList(cacheKey);
@@ -128,7 +130,7 @@ public class ProductService {
             }
             
             // 캐시 미스 - 데이터베이스에서 조회
-            List<Product> products = getPopularProductListUseCase.execute(period);
+            List<Product> products = getPopularProductListUseCase.execute(period, limit, offset);
             log.debug("데이터베이스에서 인기 상품 목록 조회: period={}, count={}", period, products.size());
             
             // 동적 TTL과 함께 캐시에 저장
@@ -137,8 +139,8 @@ public class ProductService {
             
             return products;
         } catch (Exception e) {
-            log.error("인기 상품 목록 조회 중 오류 발생: period={}", period, e);
-            return getPopularProductListUseCase.execute(period);
+            log.error("인기 상품 목록 조회 중 오류 발생: period={}, limit={}, offset={}", period, limit, offset, e);
+            return getPopularProductListUseCase.execute(period, limit, offset);
         }
     }
     

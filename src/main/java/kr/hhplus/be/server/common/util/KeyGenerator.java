@@ -177,10 +177,13 @@ public class KeyGenerator {
     }
     
     /**
+     * @param period 기간 (일)
      * @param limit 조회 개수
+     * @param offset 오프셋
      */
-    public String generatePopularProductListCacheKey(int limit) {
-        return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, "limit_" + limit);
+    public String generatePopularProductListCacheKey(int period, int limit, int offset) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, 
+            "period_" + period + "_limit_" + limit + "_offset_" + offset);
     }
     
     /**

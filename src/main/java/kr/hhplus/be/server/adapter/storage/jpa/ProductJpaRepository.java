@@ -57,10 +57,12 @@ public class ProductJpaRepository implements ProductRepositoryPort {
     }
 
     @Override
-    public List<Product> findPopularProducts(int period) {
+    public List<Product> findPopularProducts(int period, int limit, int offset) {
         return entityManager.createQuery(
             "SELECT p FROM Product p WHERE p.createdAt >= :periodDate ORDER BY p.createdAt DESC", Product.class)
             .setParameter("periodDate", java.time.LocalDateTime.now().minusDays(period))
+            .setMaxResults(limit)
+            .setFirstResult(offset)
             .getResultList();
     }
 
