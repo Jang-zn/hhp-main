@@ -83,6 +83,7 @@ class IssueCouponTest {
             return callback.doInTransaction(null);
         });
         when(issueCouponUseCase.execute(userId, couponId)).thenReturn(expectedHistory);
+        when(keyGenerator.generateCouponListCachePattern(userId)).thenReturn("coupon:list:user_1_*");
         
         // when
         CouponHistory result = couponService.issueCoupon(couponId, userId);
@@ -96,6 +97,7 @@ class IssueCouponTest {
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate).execute(any());
         verify(issueCouponUseCase).execute(userId, couponId);
+        verify(keyGenerator).generateCouponListCachePattern(userId);
         verify(cachePort).evictByPattern("coupon:list:user_1_*");
         verify(lockingPort).releaseLock(lockKey);
     }
@@ -197,6 +199,8 @@ class IssueCouponTest {
             return callback.doInTransaction(null);
         });
         when(issueCouponUseCase.execute(anyLong(), eq(couponId))).thenReturn(expectedHistory);
+        when(keyGenerator.generateCouponListCachePattern(userId1)).thenReturn("coupon:list:user_1_*");
+        when(keyGenerator.generateCouponListCachePattern(userId2)).thenReturn("coupon:list:user_2_*");
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
@@ -264,6 +268,8 @@ class IssueCouponTest {
         });
         when(issueCouponUseCase.execute(userId1, couponId1)).thenReturn(expectedHistory1);
         when(issueCouponUseCase.execute(userId2, couponId2)).thenReturn(expectedHistory2);
+        when(keyGenerator.generateCouponListCachePattern(userId1)).thenReturn("coupon:list:user_1_*");
+        when(keyGenerator.generateCouponListCachePattern(userId2)).thenReturn("coupon:list:user_2_*");
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(

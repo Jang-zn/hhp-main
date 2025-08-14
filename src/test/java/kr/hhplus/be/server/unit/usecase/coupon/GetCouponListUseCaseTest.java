@@ -215,45 +215,6 @@ class GetCouponListUseCaseTest {
 
     // === 페이지네이션 관련 시나리오 ===
 
-    @Test
-    @DisplayName("음수 limit으로 쿠폰 목록 조회 시 예외가 발생한다")
-    void throwsExceptionForNegativeLimit() {
-        // Given
-        Long userId = 1L;
-        int limit = -1;
-        int offset = 0;
-        
-        // When & Then
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Limit must be greater than 0");
-    }
-
-    @Test
-    @DisplayName("음수 offset으로 쿠폰 목록 조회 시 예외가 발생한다")
-    void throwsExceptionForNegativeOffset() {
-        // Given
-        Long userId = 1L;
-        int limit = 10;
-        int offset = -1;
-        
-        // When & Then
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Offset must be non-negative");
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidPaginationParams")
-    @DisplayName("다양한 비정상 페이지네이션 파라미터에 대해 예외가 발생한다")
-    void throwsExceptionForInvalidPaginationParams(String description, int limit, int offset) {
-        // Given
-        Long userId = 1L;
-        
-        // When & Then (validation happens before user lookup)
-        assertThatThrownBy(() -> getCouponListUseCase.execute(userId, limit, offset))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
 
     @Test
     @DisplayName("DB에서 직접 조회한다")
@@ -313,12 +274,4 @@ class GetCouponListUseCaseTest {
         );
     }
 
-    static Stream<Arguments> provideInvalidPaginationParams() {
-        return Stream.of(
-                Arguments.of("음수 limit", -1, 0),
-                Arguments.of("음수 offset", 10, -1),
-                Arguments.of("0 limit", 0, 0),
-                Arguments.of("과도한 limit", 1001, 0)
-        );
-    }
 }

@@ -114,10 +114,7 @@ class GetCouponListTest {
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             String cacheKey = "coupon:list:user_1:limit_10:offset_0";
             when(keyGenerator.generateCouponListCacheKey(userId, limit, offset)).thenReturn(cacheKey);
-            when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-                java.util.function.Supplier<List<CouponHistory>> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
+            when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(testCouponHistories);
             
             // when
@@ -131,7 +128,8 @@ class GetCouponListTest {
             
             verify(userRepositoryPort).existsById(userId);
             verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey), any());
+            verify(cachePort).getList(eq(cacheKey));
+            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -146,10 +144,7 @@ class GetCouponListTest {
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             String cacheKey = "coupon:list:user_1:limit_10:offset_0";
             when(keyGenerator.generateCouponListCacheKey(userId, limit, offset)).thenReturn(cacheKey);
-            when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-                java.util.function.Supplier<List<CouponHistory>> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
+            when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(List.of());
             
             // when
@@ -161,7 +156,8 @@ class GetCouponListTest {
             
             verify(userRepositoryPort).existsById(userId);
             verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey), any());
+            verify(cachePort).getList(eq(cacheKey));
+            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -194,10 +190,7 @@ class GetCouponListTest {
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
             String cacheKey = "coupon:list:user_1:limit_5:offset_10";
             when(keyGenerator.generateCouponListCacheKey(userId, limit, offset)).thenReturn(cacheKey);
-            when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-                java.util.function.Supplier<List<CouponHistory>> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
+            when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
             when(getCouponListUseCase.execute(userId, limit, offset)).thenReturn(List.of(testCouponHistories.get(0)));
             
             // when
@@ -209,7 +202,8 @@ class GetCouponListTest {
             
             verify(userRepositoryPort).existsById(userId);
             verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey), any());
+            verify(cachePort).getList(eq(cacheKey));
+            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
     }
