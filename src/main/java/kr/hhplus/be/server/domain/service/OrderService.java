@@ -153,7 +153,7 @@ public class OrderService {
             }
             
             // 캐시 미스 - 데이터베이스에서 조회
-            List<Order> orders = getOrderListUseCase.execute(userId);
+            List<Order> orders = getOrderListUseCase.execute(userId, limit, offset);
             log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
             
             // TTL과 함께 캐시에 저장
@@ -162,7 +162,7 @@ public class OrderService {
             return orders;
         } catch (Exception e) {
             log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
-            return getOrderListUseCase.execute(userId);
+            return getOrderListUseCase.execute(userId, 50, 0);
         }
     }
     
@@ -195,16 +195,10 @@ public class OrderService {
             }
             
             // 캐시 미스 - 데이터베이스에서 조회
-            // TODO: UseCase에서 limit, offset 지원하도록 수정 필요
-            List<Order> allOrders = getOrderListUseCase.execute(userId);
+            List<Order> paginatedOrders = getOrderListUseCase.execute(userId, limit, offset);
             
-            // 임시로 메모리에서 페이징 처리 (성능상 비효율적, 추후 개선 필요)
-            int fromIndex = Math.min(offset, allOrders.size());
-            int toIndex = Math.min(offset + limit, allOrders.size());
-            List<Order> paginatedOrders = allOrders.subList(fromIndex, toIndex);
-            
-            log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, total={}, returned={}", 
-                userId, allOrders.size(), paginatedOrders.size());
+            log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, returned={}", 
+                userId, paginatedOrders.size());
             
             // TTL과 함께 캐시에 저장
             cachePort.put(cacheKey, paginatedOrders, CacheTTL.ORDER_LIST.getSeconds());
@@ -213,11 +207,8 @@ public class OrderService {
         } catch (Exception e) {
             log.error("주문 목록 조회 중 오류 발생 (페이징): userId={}, limit={}, offset={}", userId, limit, offset, e);
             
-            // 예외 발생 시 전체 목록에서 페이징 처리
-            List<Order> allOrders = getOrderListUseCase.execute(userId);
-            int fromIndex = Math.min(offset, allOrders.size());
-            int toIndex = Math.min(offset + limit, allOrders.size());
-            return allOrders.subList(fromIndex, toIndex);
+            // 예외 발생 시 데이터베이스에서 직접 조회
+            return getOrderListUseCase.execute(userId, limit, offset);
         }
     }
 
@@ -332,21 +323,11 @@ public class OrderService {
      * @throws OrderException.Unauthorized 다른 사용자의 주문인 경우
      */
     private Order findOrderWithAuthCheck(Long orderId, Long userId) {
-        // 1. 주문이 존재하는지 확인
-        Order order = orderRepositoryPort.findById(orderId)
+        return getOrderUseCase.execute(userId, orderId)
             .orElseThrow(() -> {
-                log.warn("존재하지 않는 주문: orderId={}", orderId);
+                log.warn("존재하지 않는 주문 또는 접근 권한 없음: orderId={}, userId={}", orderId, userId);
                 return new OrderException.NotFound();
             });
-        
-        // 2. 주문 소유권 확인
-        if (!order.getUserId().equals(userId)) {
-            log.warn("주문 접근 권한 없음: orderId={}, requestUserId={}, orderUserId={}", 
-                orderId, userId, order.getUserId());
-            throw new OrderException.Unauthorized();
-        }
-        
-        return order;
     }
     
 }

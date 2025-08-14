@@ -17,12 +17,10 @@ public class GetOrderListUseCase {
     
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+
     
-    public List<Order> execute(Long userId) {
-        log.debug("주문 목록 조회 요청: userId={}", userId);
-        
-        // 파라미터 검증
-        validateParameters(userId);
+    public List<Order> execute(Long userId, int limit, int offset) {
+        log.debug("주문 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
         
         // 사용자 존재 확인
         if (!userRepositoryPort.existsById(userId)) {
@@ -30,24 +28,15 @@ public class GetOrderListUseCase {
             throw new UserException.NotFound();
         }
         
-        // 데이터베이스에서 주문 목록 조회
-        List<Order> orders = orderRepositoryPort.findByUserId(userId);
+        // 데이터베이스에서 주문 목록 조회 (페이징 지원)
+        List<Order> paginatedOrders = orderRepositoryPort.findByUserId(userId, limit, offset);
         
-        if (!orders.isEmpty()) {
-            log.debug("주문 목록 조회 성공: userId={}, count={}", userId, orders.size());
+        if (!paginatedOrders.isEmpty()) {
+            log.debug("주문 목록 조회 성공: userId={}, returned={}", userId, paginatedOrders.size());
         } else {
             log.debug("주문 목록 조회 결과 없음: userId={}", userId);
         }
         
-        return orders;
-    }
-    
-    private void validateParameters(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("UserId cannot be null");
-        }
-        if (userId <= 0) {
-            throw new IllegalArgumentException("UserId must be positive");
-        }
+        return paginatedOrders;
     }
 }

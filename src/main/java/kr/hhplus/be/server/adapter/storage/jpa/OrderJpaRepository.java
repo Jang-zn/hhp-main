@@ -36,6 +36,16 @@ public class OrderJpaRepository implements OrderRepositoryPort {
     }
 
     @Override
+    public List<Order> findByUserId(Long userId, int limit, int offset) {
+        return entityManager.createQuery(
+            "SELECT o FROM Order o WHERE o.userId = :userId ORDER BY o.createdAt DESC", Order.class)
+            .setParameter("userId", userId)
+            .setFirstResult(offset)
+            .setMaxResults(limit)
+            .getResultList();
+    }
+
+    @Override
     public Optional<Order> findByIdAndUserId(Long orderId, Long userId) {
         try {
             Order order = entityManager.createQuery(
