@@ -63,14 +63,8 @@ public class GetProductUseCase {
     }
     
     private void validatePaginationParams(int limit, int offset) {
-        if (limit <= 0) {
-            throw new IllegalArgumentException("Limit must be greater than 0");
-        }
         if (limit > MAX_LIMIT) {
             throw new IllegalArgumentException("Limit exceeds maximum allowed (" + MAX_LIMIT + ")");
-        }
-        if (offset < 0) {
-            throw new IllegalArgumentException("Offset must be non-negative");
         }
     }
 } 

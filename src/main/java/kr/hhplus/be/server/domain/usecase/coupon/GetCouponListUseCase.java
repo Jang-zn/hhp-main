@@ -42,10 +42,6 @@ public class GetCouponListUseCase {
             log.error("쿠폰 목록 조회 실패: userId={}, limit={}, offset={}, error={}", 
                     userId, limit, offset, e.getMessage());
             throw e;
-        } catch (IllegalArgumentException e) {
-            log.error("쿠폰 목록 조회 실패: userId={}, limit={}, offset={}, error={}", 
-                    userId, limit, offset, e.getMessage());
-            throw e;
         } catch (Exception e) {
             log.error("쿠폰 목록 조회 중 예상치 못한 오류: userId={}, limit={}, offset={}", 
                     userId, limit, offset, e);
@@ -57,14 +53,8 @@ public class GetCouponListUseCase {
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }
-        if (limit <= 0) {
-            throw new IllegalArgumentException("Limit must be greater than 0");
-        }
         if (limit > MAX_LIMIT) {
             throw new IllegalArgumentException("Limit cannot exceed " + MAX_LIMIT);
-        }
-        if (offset < 0) {
-            throw new IllegalArgumentException("Offset must be non-negative");
         }
     }
     

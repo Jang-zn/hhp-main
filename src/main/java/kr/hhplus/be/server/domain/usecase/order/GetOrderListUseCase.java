@@ -18,6 +18,9 @@ public class GetOrderListUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
 
+    public List<Order> execute(Long userId) {
+        return execute(userId, 50, 0); // 기본값으로 호출
+    }
     
     public List<Order> execute(Long userId, int limit, int offset) {
         log.debug("주문 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
