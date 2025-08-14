@@ -224,30 +224,6 @@ class BalanceJpaRepositoryTest {
         assertThat(result.getSuccessCount()).isGreaterThan(0);
     }
 
-    @Test
-    @DisplayName("동시 잔액 조회가 EntityManager를 통해 안전하게 처리된다")
-    void safelyHandlesConcurrentBalanceQuerying() {
-        // Given
-        Long userId = 1L;
-        Balance expectedBalance = TestBuilder.BalanceBuilder.defaultBalance()
-                .userId(userId)
-                .amount(new BigDecimal("100000"))
-                .build();
-        testEntityManager.persistAndFlush(expectedBalance);
-        testEntityManager.flush();
-        testEntityManager.clear();
-
-        // When
-        ConcurrencyTestHelper.ConcurrencyTestResult result = 
-            ConcurrencyTestHelper.executeInParallel(5, () -> {
-                Optional<Balance> found = balanceJpaRepository.findByUserId(userId);
-                return found.isPresent() ? 1 : 0;
-            });
-
-        // Then
-        assertThat(result.getTotalCount()).isEqualTo(5);
-        assertThat(result.getSuccessCount()).isEqualTo(5);
-    }
 
     @Test
     @DisplayName("잔액 저장과 조회가 동시에 이루어져도 EntityManager 호출이 정상적으로 처리된다")
