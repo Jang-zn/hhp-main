@@ -131,41 +131,6 @@ public class OrderService {
             return findOrderWithAuthCheck(orderId, userId);
         }
     }
-
-    /**
-     * 사용자 주문 목록 조회 (캐시 적용)
-     * 
-     * @param userId 사용자 ID
-     * @return 주문 목록
-     */
-    public List<Order> getOrderList(Long userId) {
-        log.debug("주문 목록 조회 요청: userId={}", userId);
-        
-        try {
-            String cacheKey = keyGenerator.generateOrderListCacheKey(userId, 50, 0);
-            
-            // 캐시에서 조회 시도
-            List<Order> cachedOrders = cachePort.getList(cacheKey);
-            
-            if (cachedOrders != null) {
-                log.debug("캐시에서 주문 목록 조회 성공: userId={}, count={}", userId, cachedOrders.size());
-                return cachedOrders;
-            }
-            
-            // 캐시 미스 - 데이터베이스에서 조회
-            List<Order> orders = getOrderListUseCase.execute(userId, limit, offset);
-            log.debug("데이터베이스에서 주문 목록 조회: userId={}, count={}", userId, orders.size());
-            
-            // TTL과 함께 캐시에 저장
-            cachePort.put(cacheKey, orders, CacheTTL.ORDER_LIST.getSeconds());
-            
-            return orders;
-        } catch (Exception e) {
-            log.error("주문 목록 조회 중 오류 발생: userId={}", userId, e);
-            return getOrderListUseCase.execute(userId, 50, 0);
-        }
-    }
-    
     /**
      * 사용자 주문 목록 조회 (페이징 지원, 캐시 적용)
      * 

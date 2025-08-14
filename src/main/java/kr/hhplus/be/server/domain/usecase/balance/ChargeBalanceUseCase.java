@@ -37,8 +37,8 @@ public class ChargeBalanceUseCase {
     public Balance execute(Long userId, BigDecimal amount) {
         log.info("잔액 충전 요청: userId={}, amount={}", userId, amount);
         
-        validateUserId(userId);
         validateAmount(amount);
+        
         Balance balance = balanceRepositoryPort.findByUserId(userId)
                 .orElse(Balance.builder().userId(userId).amount(BigDecimal.ZERO).build());
         
@@ -51,6 +51,13 @@ public class ChargeBalanceUseCase {
                 userId, originalAmount, amount, savedBalance.getAmount());
         
         return savedBalance;
+    }
+    
+    // 비즈니스 로직 검증: 최소/최대 충전 금액 체크
+    private void validateAmount(BigDecimal amount) {
+        if (amount.compareTo(MIN_CHARGE_AMOUNT) < 0 || amount.compareTo(MAX_CHARGE_AMOUNT) > 0) {
+            throw new BalanceException.InvalidAmount();
+        }
     }
     
     /**
@@ -67,29 +74,5 @@ public class ChargeBalanceUseCase {
         log.error("잔액 충전 재시도 모두 실패: userId={}, amount={}, error={}", 
                 userId, amount, ex.getMessage());
         throw new BalanceException.ConcurrencyConflict();
-    }
-    
-    private void validateUserId(Long userId) {
-        if (userId == null) {
-            throw new UserException.UserIdCannotBeNull();
-        }
-        
-        if (userId <= 0) {
-            throw new IllegalArgumentException("UserId must be positive");
-        }
-    }
-    
-    private void validateAmount(BigDecimal amount) {
-        if (amount == null) {
-            throw new BalanceException.InvalidAmount();
-        }
-        
-        if (amount.compareTo(MIN_CHARGE_AMOUNT) < 0 || amount.compareTo(MAX_CHARGE_AMOUNT) > 0) {
-            throw new BalanceException.InvalidAmount();
-        }
-        
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BalanceException.InvalidAmount();
-        }
     }
 } 

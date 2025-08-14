@@ -4,6 +4,7 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.OrderException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -30,16 +31,25 @@ public class GetOrderUseCase {
             throw new UserException.NotFound();
         }
         
-        // 주문 조회
-        Optional<Order> result = orderRepositoryPort.findByIdAndUserId(orderId, userId);
+        // 먼저 주문이 존재하는지 확인
+        Optional<Order> orderOpt = orderRepositoryPort.findById(orderId);
         
-        if (result.isPresent()) {
-            log.debug("주문 조회 성공: userId={}, orderId={}", userId, orderId);
-        } else {
-            log.debug("주문 조회 결과 없음: userId={}, orderId={}", userId, orderId);
+        if (orderOpt.isEmpty()) {
+            log.debug("주문이 존재하지 않음: orderId={}", orderId);
+            return Optional.empty(); // OrderService에서 OrderException.NotFound(404)로 변환됨
         }
         
-        return result;
+        Order order = orderOpt.get();
+        
+        // 주문이 해당 사용자의 것인지 확인
+        if (!order.getUserId().equals(userId)) {
+            log.warn("주문 접근 권한 없음: orderId={}, requestUserId={}, orderUserId={}", 
+                orderId, userId, order.getUserId());
+            throw new OrderException.Unauthorized(); // 403 Forbidden
+        }
+        
+        log.debug("주문 조회 성공: userId={}, orderId={}", userId, orderId);
+        return Optional.of(order);
     }
     
     private void validateParameters(Long userId, Long orderId) {

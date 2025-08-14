@@ -34,9 +34,6 @@ public class DeductBalanceUseCase {
     public Balance execute(Long userId, BigDecimal amount) {
         log.debug("잔액 차감: userId={}, amount={}", userId, amount);
         
-        // 차감 금액 검증
-        validateAmount(amount);
-        
         // 잔액 조회
         Balance balance = balanceRepositoryPort.findByUserId(userId)
                 .orElseThrow(() -> {
@@ -78,15 +75,5 @@ public class DeductBalanceUseCase {
         log.error("잔액 차감 재시도 모두 실패: userId={}, amount={}, error={}", 
                 userId, amount, ex.getMessage());
         throw new BalanceException.ConcurrencyConflict();
-    }
-    
-    private void validateAmount(BigDecimal amount) {
-        if (amount == null) {
-            throw new BalanceException.InvalidAmount();
-        }
-        
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BalanceException.InvalidAmount();
-        }
     }
 }
