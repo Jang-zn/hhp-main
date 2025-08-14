@@ -54,7 +54,7 @@ public class BalanceService {
             String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
             
             // 캐시에서 조회 시도
-            Balance cachedBalance = cachePort.get(cacheKey, Balance.class, () -> null);
+            Balance cachedBalance = cachePort.get(cacheKey, Balance.class);
             
             if (cachedBalance != null) {
                 log.debug("캐시에서 잔액 조회 성공: userId={}, amount={}", userId, cachedBalance.getAmount());
@@ -109,27 +109,13 @@ public class BalanceService {
                 return chargeBalanceUseCase.execute(userId, chargeAmount);
             });
             
-            // 트랜잭션 커밋 후 캐시 무효화
-            invalidateBalanceCache(userId);
+            // 트랜잭션 커밋 후 Write-Through: 새로운 잔액을 캐시에 즉시 업데이트
+            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
+            cachePort.put(cacheKey, result, CacheTTL.USER_BALANCE.getSeconds());
             
             return result;
         } finally {
             lockingPort.releaseLock(lockKey);
-        }
-    }
-    
-    /**
-     * 잔액 캐시 무효화
-     * 
-     * @param userId 사용자 ID
-     */
-    private void invalidateBalanceCache(Long userId) {
-        try {
-            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
-            cachePort.evict(cacheKey);
-            log.debug("잔액 캐시 무효화: userId={}", userId);
-        } catch (Exception e) {
-            log.warn("잔액 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

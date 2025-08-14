@@ -56,7 +56,7 @@ public class CouponService {
             String cacheKey = keyGenerator.generateCouponListCacheKey(userId, limit, offset);
             
             // 캐시에서 조회 시도
-            List<CouponHistory> cachedCoupons = cachePort.getList(cacheKey, () -> null);
+            List<CouponHistory> cachedCoupons = cachePort.getList(cacheKey);
             
             if (cachedCoupons != null) {
                 log.debug("캐시에서 쿠폰 목록 조회 성공: userId={}, count={}", userId, cachedCoupons.size());
@@ -104,27 +104,12 @@ public class CouponService {
             });
             
             // 트랜잭션 커밋 후 캐시 무효화
-            invalidateUserCouponCache(userId);
+            String cacheKeyPattern = keyGenerator.generateCouponListCachePattern(userId);
+            cachePort.evictByPattern(cacheKeyPattern);
             
             return result;
         } finally {
             lockingPort.releaseLock(lockKey);
-        }
-    }
-    
-    /**
-     * 사용자 쿠폰 캐시 무효화
-     * 
-     * @param userId 사용자 ID
-     */
-    private void invalidateUserCouponCache(Long userId) {
-        try {
-            String cacheKeyPattern = "coupon:list:user_" + userId + "_*";
-            cachePort.evictByPattern(cacheKeyPattern);
-            
-            log.debug("사용자 쿠폰 캐시 무효화: userId={}, pattern={}", userId, cacheKeyPattern);
-        } catch (Exception e) {
-            log.warn("사용자 쿠폰 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

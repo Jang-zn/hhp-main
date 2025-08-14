@@ -5,16 +5,22 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public interface CachePort {
-    <T> T get(String key, Class<T> type, Supplier<T> supplier);
-    
     /**
-     * List 타입 전용 캐시 조회 메서드
+     * 캐시에서 값을 조회 (저장하지 않음)
      * 
      * @param key 캐시 키
-     * @param supplier 캐시 미스 시 데이터를 공급하는 함수
-     * @return List 타입의 캐시된 값 또는 새로 생성된 값
+     * @param type 반환 타입
+     * @return 캐시된 값 또는 null
      */
-    <T> List<T> getList(String key, Supplier<List<T>> supplier);
+    <T> T get(String key, Class<T> type);
+    
+    /**
+     * List 타입 캐시 조회 (저장하지 않음)
+     * 
+     * @param key 캐시 키
+     * @return 캐시된 List 또는 null
+     */
+    <T> List<T> getList(String key);
     
     void put(String key, Object value, int ttlSeconds);
     void evict(String key);

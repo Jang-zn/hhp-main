@@ -82,8 +82,14 @@ public class OrderService {
                 return createOrderUseCase.execute(userId, productQuantities);
             });
             
-            // 트랜잭션 커밋 후 캐시 무효화
-            invalidateUserRelatedCache(userId);
+            // 트랜잭션 커밋 후 캐시 처리
+            // 1. 생성된 주문을 개별 캐시에 Write-Through
+            String orderCacheKey = keyGenerator.generateOrderCacheKey(order.getId());
+            cachePort.put(orderCacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
+            
+            // 2. 주문 목록 캐시는 무효화 (페이징/정렬 복잡성)
+            String cacheKeyPattern = keyGenerator.generateOrderListCachePattern(userId);
+            cachePort.evictByPattern(cacheKeyPattern);
             
             return order;
         } finally {
@@ -105,7 +111,7 @@ public class OrderService {
             String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
             
             // 캐시에서 조회 시도
-            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> null);
+            Order cachedOrder = cachePort.get(cacheKey, Order.class);
             
             if (cachedOrder != null) {
                 log.debug("캐시에서 주문 조회 성공: orderId={}, userId={}", orderId, userId);
@@ -139,7 +145,7 @@ public class OrderService {
             String cacheKey = keyGenerator.generateOrderListCacheKey(userId, 50, 0);
             
             // 캐시에서 조회 시도
-            List<Order> cachedOrders = cachePort.getList(cacheKey, () -> null);
+            List<Order> cachedOrders = cachePort.getList(cacheKey);
             
             if (cachedOrders != null) {
                 log.debug("캐시에서 주문 목록 조회 성공: userId={}, count={}", userId, cachedOrders.size());
@@ -181,7 +187,7 @@ public class OrderService {
             String cacheKey = keyGenerator.generateOrderListCacheKey(userId, limit, offset);
             
             // 캐시에서 조회 시도
-            List<Order> cachedOrders = cachePort.getList(cacheKey, () -> null);
+            List<Order> cachedOrders = cachePort.getList(cacheKey);
             
             if (cachedOrders != null) {
                 log.debug("캐시에서 주문 목록 조회 성공 (페이징): userId={}, count={}", userId, cachedOrders.size());
@@ -229,7 +235,7 @@ public class OrderService {
             String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
             
             // 캐시에서 조회 시도
-            Order cachedOrder = cachePort.get(cacheKey, Order.class, () -> null);
+            Order cachedOrder = cachePort.get(cacheKey, Order.class);
             
             if (cachedOrder != null) {
                 log.debug("캐시에서 주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
@@ -283,7 +289,7 @@ public class OrderService {
         }
         
         try {
-            return transactionTemplate.execute(status -> {
+            Payment result = transactionTemplate.execute(status -> {
                 if (!userRepositoryPort.existsById(userId)) {
                     throw new UserException.NotFound();
                 }
@@ -295,6 +301,20 @@ public class OrderService {
                 
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
+            
+            // 트랜잭션 커밋 후 캐시 처리
+            // 1. 결제 완료된 주문을 개별 캐시에 Write-Through (상태가 변경됨)
+            Order updatedOrder = orderRepositoryPort.findById(orderId).orElse(null);
+            if (updatedOrder != null) {
+                String orderCacheKey = keyGenerator.generateOrderCacheKey(orderId);
+                cachePort.put(orderCacheKey, updatedOrder, CacheTTL.ORDER_DETAIL.getSeconds());
+            }
+            
+            // 2. 주문 목록 캐시는 무효화 (상태 변경 반영)
+            String listCacheKeyPattern = keyGenerator.generateOrderListCachePattern(userId);
+            cachePort.evictByPattern(listCacheKeyPattern);
+            
+            return result;
             
         } finally {
             lockingPort.releaseLock(balanceLockKey);
@@ -329,20 +349,4 @@ public class OrderService {
         return order;
     }
     
-    /**
-     * 사용자 관련 캐시 무효화
-     * 
-     * @param userId 사용자 ID
-     */
-    private void invalidateUserRelatedCache(Long userId) {
-        try {
-            // 사용자의 모든 주문 목록 캐시를 패턴으로 무효화
-            String cacheKeyPattern = "order:list:user_" + userId + "_*";
-            cachePort.evictByPattern(cacheKeyPattern);
-            
-            log.debug("사용자 관련 캐시 무효화 완료: userId={}, pattern={}", userId, cacheKeyPattern);
-        } catch (Exception e) {
-            log.warn("사용자 관련 캐시 무효화 실패: userId={}, error={}", userId, e.getMessage());
-        }
-    }
 }

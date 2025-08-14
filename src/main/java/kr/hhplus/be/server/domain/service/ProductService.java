@@ -44,7 +44,7 @@ public class ProductService {
             String cacheKey = keyGenerator.generateProductCacheKey(productId);
             
             // 캐시에서 조회 시도
-            Product cachedProduct = cachePort.get(cacheKey, Product.class, () -> null);
+            Product cachedProduct = cachePort.get(cacheKey, Product.class);
             
             if (cachedProduct != null) {
                 log.debug("캐시에서 상품 조회 성공: productId={}", productId);
@@ -86,7 +86,7 @@ public class ProductService {
             String cacheKey = keyGenerator.generateProductListCacheKey(limit, offset);
             
             // 캐시에서 조회 시도
-            List<Product> cachedProducts = cachePort.getList(cacheKey, () -> null);
+            List<Product> cachedProducts = cachePort.getList(cacheKey);
             
             if (cachedProducts != null) {
                 log.debug("캐시에서 상품 목록 조회 성공: count={}", cachedProducts.size());
@@ -120,7 +120,7 @@ public class ProductService {
             String cacheKey = keyGenerator.generatePopularProductListCacheKey(period);
             
             // 캐시에서 조회 시도
-            List<Product> cachedProducts = cachePort.getList(cacheKey, () -> null);
+            List<Product> cachedProducts = cachePort.getList(cacheKey);
             
             if (cachedProducts != null) {
                 log.debug("캐시에서 인기 상품 목록 조회 성공: period={}, count={}", period, cachedProducts.size());
@@ -148,12 +148,7 @@ public class ProductService {
      * @param productId 상품 ID
      */
     public void invalidateProductCache(Long productId) {
-        try {
-            String cacheKey = keyGenerator.generateProductCacheKey(productId);
-            cachePort.evict(cacheKey);
-            log.debug("상품 캐시 무효화: productId={}", productId);
-        } catch (Exception e) {
-            log.warn("상품 캐시 무효화 실패: productId={}, error={}", productId, e.getMessage());
-        }
+        String cacheKey = keyGenerator.generateProductCacheKey(productId);
+        cachePort.evict(cacheKey);
     }
 }
