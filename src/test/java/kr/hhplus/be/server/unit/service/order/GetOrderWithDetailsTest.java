@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.unit.service.order;
 
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.service.OrderService;
 import kr.hhplus.be.server.domain.usecase.order.*;
@@ -9,7 +10,6 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,7 +67,7 @@ class GetOrderWithDetailsTest {
     private CachePort cachePort;
     
     @Mock
-    private KeyGenerator lockKeyGenerator;
+    private KeyGenerator keyGenerator;
     
     private OrderService orderService;
     
@@ -77,7 +77,7 @@ class GetOrderWithDetailsTest {
         orderService = new OrderService(
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
-            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, lockKeyGenerator
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
         );
     }
 
@@ -93,7 +93,7 @@ class GetOrderWithDetailsTest {
                 .build();
         
         String cacheKey = "order:info:order_1";
-        when(lockKeyGenerator.generateOrderCacheKey(orderId)).thenReturn(cacheKey);
+        when(keyGenerator.generateOrderCacheKey(orderId)).thenReturn(cacheKey);
         when(cachePort.get(eq(cacheKey), eq(Order.class), any())).thenAnswer(invocation -> {
             // 캐시 miss 시 supplier를 호출
             java.util.function.Supplier<Order> supplier = invocation.getArgument(2);
@@ -109,7 +109,7 @@ class GetOrderWithDetailsTest {
         assertThat(result.getId()).isEqualTo(orderId);
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(lockKeyGenerator).generateOrderCacheKey(orderId);
+        verify(keyGenerator).generateOrderCacheKey(orderId);
         verify(cachePort).get(eq(cacheKey), eq(Order.class), any());
         verify(orderRepositoryPort).findById(orderId);
     }

@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.unit.service.order;
 
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.service.OrderService;
@@ -10,7 +11,6 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -74,7 +74,7 @@ class PayOrderTest {
     private CachePort cachePort;
     
     @Mock
-    private KeyGenerator lockKeyGenerator;
+    private KeyGenerator keyGenerator;
     
     private OrderService orderService;
     
@@ -84,7 +84,7 @@ class PayOrderTest {
         orderService = new OrderService(
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
-            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, lockKeyGenerator
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
         );
     }
 
@@ -111,8 +111,8 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_1";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
         when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
@@ -133,8 +133,8 @@ class PayOrderTest {
         assertThat(result.getUserId()).isEqualTo(userId);
         assertThat(result.getAmount()).isEqualTo(finalAmount);
         
-        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
-        verify(lockKeyGenerator).generateBalanceKey(userId);
+        verify(keyGenerator).generateOrderPaymentKey(orderId);
+        verify(keyGenerator).generateBalanceKey(userId);
         verify(lockingPort).acquireLock(paymentLockKey);
         verify(lockingPort).acquireLock(balanceLockKey);
         verify(transactionTemplate).execute(any());
@@ -170,8 +170,8 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_1";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
         when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
@@ -203,15 +203,15 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_1";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> orderService.payOrder(orderId, userId, couponId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
+        verify(keyGenerator).generateOrderPaymentKey(orderId);
         verify(lockingPort).acquireLock(paymentLockKey);
         verify(lockingPort, never()).acquireLock(balanceLockKey);
         verify(userRepositoryPort, never()).existsById(any());
@@ -227,8 +227,8 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_1";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
         when(lockingPort.acquireLock(balanceLockKey)).thenReturn(false);
         
@@ -236,8 +236,8 @@ class PayOrderTest {
         assertThatThrownBy(() -> orderService.payOrder(orderId, userId, couponId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(lockKeyGenerator).generateOrderPaymentKey(orderId);
-        verify(lockKeyGenerator).generateBalanceKey(userId);
+        verify(keyGenerator).generateOrderPaymentKey(orderId);
+        verify(keyGenerator).generateBalanceKey(userId);
         verify(lockingPort).acquireLock(paymentLockKey);
         verify(lockingPort).acquireLock(balanceLockKey);
         verify(lockingPort).releaseLock(paymentLockKey);
@@ -254,8 +254,8 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_999";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
         when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
@@ -291,8 +291,8 @@ class PayOrderTest {
         
         String paymentLockKey = "order:payment:order_1";
         String balanceLockKey = "balance:user_1";
-        when(lockKeyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
-        when(lockKeyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
+        when(keyGenerator.generateOrderPaymentKey(orderId)).thenReturn(paymentLockKey);
+        when(keyGenerator.generateBalanceKey(userId)).thenReturn(balanceLockKey);
         when(lockingPort.acquireLock(paymentLockKey)).thenReturn(true);
         when(lockingPort.acquireLock(balanceLockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
