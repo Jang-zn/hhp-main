@@ -9,16 +9,6 @@ import java.util.Optional;
 
 public interface CouponRepositoryPort {
     Optional<Coupon> findById(Long id);
-    
-    /**
-     * 비관적 락을 사용하여 쿠폰을 조회합니다.
-     * SELECT ... FOR UPDATE로 배타 락을 획득하여 동시 발급 시 경합을 방지합니다.
-     * 
-     * @param id 쿠폰 ID
-     * @return 락이 걸린 쿠폰 엔티티
-     */
-    Optional<Coupon> findByIdWithLock(Long id);
-    
     Coupon save(Coupon coupon);
     
     /**

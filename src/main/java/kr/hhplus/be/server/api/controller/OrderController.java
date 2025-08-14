@@ -2,25 +2,17 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.api.dto.response.OrderResponse;
 import kr.hhplus.be.server.api.dto.response.PaymentResponse;
 import kr.hhplus.be.server.api.docs.annotation.OrderApiDocs;
 import kr.hhplus.be.server.domain.entity.Order;
-import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Payment;
-import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.exception.CommonException;
-import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.exception.ProductException;
-import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.facade.order.CreateOrderFacade;
-import kr.hhplus.be.server.domain.facade.order.GetOrderFacade;
-import kr.hhplus.be.server.domain.facade.order.GetOrderListFacade;
-import kr.hhplus.be.server.domain.facade.order.GetOrderWithDetailsFacade;
-import kr.hhplus.be.server.domain.facade.order.PayOrderFacade;
-import kr.hhplus.be.server.domain.dto.OrderWithDetailsDto;
+
+import kr.hhplus.be.server.domain.service.OrderService;
 
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.util.stream.Collectors;
@@ -28,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -42,18 +35,12 @@ import java.util.List;
 @Validated
 public class OrderController {
 
-    private final CreateOrderFacade createOrderFacade;
-    private final PayOrderFacade payOrderFacade;
-    private final GetOrderWithDetailsFacade getOrderWithDetailsFacade;
+    private final OrderService orderService;
 
     @OrderApiDocs(summary = "주문 생성", description = "새로운 주문을 생성합니다")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-  
     public OrderResponse createOrder(@Valid @RequestBody OrderRequest request) {
-        
-        
-        // 상품 수량 정보를 타입 안전한 DTO로 변환
         List<ProductQuantityDto> productQuantities;
         
         if (request.getProducts() != null && !request.getProducts().isEmpty()) {
@@ -67,16 +54,20 @@ public class OrderController {
                     .map(productId -> new ProductQuantityDto(productId, 1))
                     .collect(Collectors.toList());
         } else {
-            // 상품 정보가 없는 경우 예외 처리
-            throw new OrderException.EmptyItems();
+            // Bean Validation으로 이미 검증되었으므로 여기까지 오면 안됨
+            productQuantities = List.of();
         }
         
-        Order order = createOrderFacade.createOrder(request.getUserId(), productQuantities);
+        Order order = orderService.createOrder(request.getUserId(), productQuantities);
         
-        // 파사드를 통해 상세 정보 조회
-        OrderWithDetailsDto orderDetails = getOrderWithDetailsFacade.getOrderWithDetails(order.getId(), order.getUserId());
-        
-        return convertToOrderResponse(orderDetails);
+        return new OrderResponse(
+                order.getId(),
+                order.getUserId(),
+                order.getStatus().name(),
+                order.getTotalAmount(),
+                order.getCreatedAt(),
+                List.of()
+        );
     }
 
     @OrderApiDocs(summary = "주문 결제", description = "주문을 결제 처리합니다")
@@ -84,16 +75,14 @@ public class OrderController {
     public PaymentResponse payOrder(
             @PathVariable @Positive Long orderId,
             @Valid @RequestBody OrderRequest request) {
-        
-        
-        Payment payment = payOrderFacade.payOrder(orderId, request.getUserId(), request.getCouponId());
+        Payment payment = orderService.payOrder(orderId, request.getUserId(), request.getCouponId());
         
         return new PaymentResponse(
                 payment.getId(),
                 payment.getOrderId(),
                 payment.getStatus().name(),
                 payment.getAmount(),
-                payment.getCreatedAt()  // paidAt 대신 createdAt 사용
+                payment.getCreatedAt()
         );
     }
 
@@ -102,47 +91,36 @@ public class OrderController {
     public OrderResponse getOrder(
             @PathVariable @Positive Long orderId,
             @RequestParam @Positive Long userId) {
+        Order orderDetails = orderService.getOrderWithDetails(orderId, userId);
         
-        
-        // 파사드를 통해 상세 정보 조회
-        OrderWithDetailsDto orderDetails = getOrderWithDetailsFacade.getOrderWithDetails(orderId, userId);
-        
-        return convertToOrderResponse(orderDetails);
+        return new OrderResponse(
+                orderDetails.getId(),
+                orderDetails.getUserId(),
+                orderDetails.getStatus().name(),
+                orderDetails.getTotalAmount(),
+                orderDetails.getCreatedAt(),
+                List.of()
+        );
     }
 
     @OrderApiDocs(summary = "사용자 주문 목록 조회", description = "사용자의 모든 주문 목록을 조회합니다")
     @GetMapping("/user/{userId}")
-    public List<OrderResponse> getUserOrders(@PathVariable @Positive Long userId) {
+    public List<OrderResponse> getUserOrders(
+            @PathVariable @Positive Long userId,
+            @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
+            @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
+        List<Order> orders = orderService.getOrderList(userId, limit, offset);
         
-        
-        // 파사드를 통해 상세 정보 조회
-        List<OrderWithDetailsDto> ordersWithDetails = getOrderWithDetailsFacade.getUserOrdersWithDetails(userId);
-        
-        return ordersWithDetails.stream()
-                .map(this::convertToOrderResponse)
+        return orders.stream()
+                .map(order -> new OrderResponse(
+                        order.getId(),
+                        order.getUserId(),
+                        order.getStatus().name(),
+                        order.getTotalAmount(),
+                        order.getCreatedAt(),
+                        List.of()
+                ))
                 .collect(Collectors.toList());
     }
     
-    /**
-     * OrderWithDetailsDto를 OrderResponse로 변환하는 helper 메소드
-     */
-    private OrderResponse convertToOrderResponse(OrderWithDetailsDto orderDetails) {
-        List<OrderResponse.OrderItemResponse> itemResponses = orderDetails.getItems().stream()
-                .map(item -> new OrderResponse.OrderItemResponse(
-                        item.getProductId(),
-                        item.getProductName(),
-                        item.getQuantity(),
-                        item.getPrice()
-                ))
-                .collect(Collectors.toList());
-        
-        return new OrderResponse(
-                orderDetails.getOrderId(),
-                orderDetails.getUserId(),
-                orderDetails.getStatus(),
-                orderDetails.getTotalAmount(),
-                orderDetails.getCreatedAt(),
-                itemResponses
-        );
-    }
 } 

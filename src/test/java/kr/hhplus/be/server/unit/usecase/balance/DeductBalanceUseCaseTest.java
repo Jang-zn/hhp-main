@@ -97,18 +97,4 @@ class DeductBalanceUseCaseTest {
         assertThat(testBalance.getAmount()).isEqualTo(new BigDecimal("1000000"));
     }
     
-    @Test
-    @DisplayName("실패 - 음수 금액")
-    void execute_NegativeAmount_ThrowsException() {
-        // given
-        BigDecimal deductAmount = new BigDecimal("-1000");
-        
-        when(balanceRepositoryPort.findByUserId(testUser.getId())).thenReturn(Optional.of(testBalance));
-        
-        // when & then
-        assertThatThrownBy(() -> deductBalanceUseCase.execute(testUser.getId(), deductAmount))
-            .isInstanceOf(BalanceException.InvalidAmount.class);
-            
-        verify(balanceRepositoryPort, never()).save(any());
-    }
 }

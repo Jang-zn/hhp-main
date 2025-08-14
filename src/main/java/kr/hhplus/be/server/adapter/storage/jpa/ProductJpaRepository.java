@@ -31,17 +31,7 @@ public class ProductJpaRepository implements ProductRepositoryPort {
     }
 
     @Override
-    public Optional<Product> findByIdWithLock(Long id) {
-        try {
-            Product product = entityManager.find(Product.class, id, LockModeType.PESSIMISTIC_WRITE);
-            return Optional.ofNullable(product);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
-
-    @Override
-    public List<Product> findByIdsWithLock(List<Long> ids) {
+    public List<Product> findByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return new ArrayList<>();
         }
@@ -50,9 +40,6 @@ public class ProductJpaRepository implements ProductRepositoryPort {
             TypedQuery<Product> query = entityManager.createQuery(
                 "SELECT p FROM Product p WHERE p.id IN :ids ORDER BY p.id", Product.class);
             query.setParameter("ids", ids);
-            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
-            // 락 타임아웃 3초 설정
-            query.setHint("javax.persistence.lock.timeout", 3000);
             return query.getResultList();
         } catch (Exception e) {
             return new ArrayList<>();
@@ -70,10 +57,12 @@ public class ProductJpaRepository implements ProductRepositoryPort {
     }
 
     @Override
-    public List<Product> findPopularProducts(int period) {
+    public List<Product> findPopularProducts(int period, int limit, int offset) {
         return entityManager.createQuery(
             "SELECT p FROM Product p WHERE p.createdAt >= :periodDate ORDER BY p.createdAt DESC", Product.class)
             .setParameter("periodDate", java.time.LocalDateTime.now().minusDays(period))
+            .setMaxResults(limit)
+            .setFirstResult(offset)
             .getResultList();
     }
 

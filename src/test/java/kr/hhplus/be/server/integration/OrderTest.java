@@ -1,13 +1,11 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.TestcontainersConfiguration;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.entity.User;
-import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
@@ -15,22 +13,15 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import kr.hhplus.be.server.api.ErrorCode;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -44,13 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 주문 생성부터 조회까지의 전체 플로우가 비즈니스 요구사항을 만족하는지 검증
  * How: 실제 고객의 주문 시나리오를 반영한 API 레벨 테스트
  */
-@SpringBootTest
-@ActiveProfiles("integration-test")
-@Import(TestcontainersConfiguration.class)
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("주문 API 통합 시나리오")
-public class OrderTest {
+public class OrderTest extends IntegrationTestBase {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -59,10 +45,6 @@ public class OrderTest {
     @Autowired private CouponRepositoryPort couponRepositoryPort;
     @Autowired private OrderRepositoryPort orderRepositoryPort;
 
-    @BeforeEach
-    void setUp() {
-        // 각 테스트마다 개별 데이터를 생성하여 OptimisticLocking 충돌 회피
-    }
 
     @Test
     @DisplayName("고객이 복수 상품과 쿠폰으로 주문을 생성할 수 있다")

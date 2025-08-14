@@ -29,7 +29,7 @@ public class UseCouponUseCase {
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     private final LockingPort lockingPort;
     
-    @Transactional
+    
     public void execute(Long userId, List<Long> couponHistoryIds, Order order) {
         // 입력 값 검증
         validateInputs(userId, couponHistoryIds, order);

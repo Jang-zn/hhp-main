@@ -50,4 +50,34 @@ public class BalanceRequest implements DocumentedDto {
                 .field("amount", "충전 금액", "10000")
                 .build();
     }
+    
+    /**
+     * 잔액 충전 요청
+     */
+    @Schema(description = "잔액 충전 요청")
+    public static class ChargeBalanceRequest {
+        @Schema(description = "사용자 ID", example = "1", required = true)
+        @NotNull
+        @Positive
+        private Long userId;
+        
+        @Schema(description = "충전 금액", example = "10000", required = true)
+        @NotNull
+        @DecimalMin(value = "1000")
+        @DecimalMax(value = "1000000")
+        @Positive
+        private BigDecimal amount;
+        
+        public ChargeBalanceRequest() {}
+        
+        public ChargeBalanceRequest(Long userId, BigDecimal amount) {
+            this.userId = userId;
+            this.amount = amount;
+        }
+        
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
+    }
 }

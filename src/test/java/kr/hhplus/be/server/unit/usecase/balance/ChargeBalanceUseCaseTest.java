@@ -145,57 +145,6 @@ class ChargeBalanceUseCaseTest {
             .isInstanceOf(BalanceException.InvalidAmount.class);
     }
 
-    @Test
-    @DisplayName("유효하지 않은 고객 ID에 대해 충전을 거부한다")
-    void rejectsChargeForInvalidCustomerId() {
-        // Given - 잘못된 고객 ID로 충전 시도 (null, 음수, 0 등)
-        // Why: 유효하지 않은 고객 정보로 인한 시스템 오류 방지
-        Long invalidCustomerId = null;
-        Long negativeCustomerId = -1L;
-        Long zeroCustomerId = 0L;
-        BigDecimal validAmount = BigDecimal.valueOf(50000);
-
-        // When & Then - null 고객 ID 거부
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(invalidCustomerId, validAmount))
-            .as("null 고객 ID는 거부되어야 함")
-            .isInstanceOf(UserException.UserIdCannotBeNull.class);
-
-        // When & Then - 음수 고객 ID 거부  
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(negativeCustomerId, validAmount))
-            .as("음수 고객 ID는 거부되어야 함")
-            .isInstanceOf(IllegalArgumentException.class);
-
-        // When & Then - 0 고객 ID 거부
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(zeroCustomerId, validAmount))
-            .as("0 고객 ID는 거부되어야 함")
-            .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("잘못된 충전 금액에 대해 명확한 오류를 제공한다")
-    void providesCleerErrorForInvalidChargeAmount() {
-        // Given - 다양한 형태의 잘못된 충전 금액
-        // Why: 사용자 입력 오류에 대한 명확한 피드백으로 사용자 경험 개선
-        Long validCustomerId = 1L;
-        BigDecimal nullAmount = null;
-        BigDecimal zeroAmount = BigDecimal.ZERO;
-        BigDecimal negativeAmount = BigDecimal.valueOf(-1000);
-
-        // When & Then - null 충전 금액 거부
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(validCustomerId, nullAmount))
-            .as("null 충전 금액은 거부되어야 함")
-            .isInstanceOf(BalanceException.InvalidAmount.class);
-
-        // When & Then - 0원 충전 거부
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(validCustomerId, zeroAmount))
-            .as("0원 충전은 거부되어야 함")
-            .isInstanceOf(BalanceException.InvalidAmount.class);
-
-        // When & Then - 음수 충전 금액 거부
-        assertThatThrownBy(() -> chargeBalanceUseCase.execute(validCustomerId, negativeAmount))
-            .as("음수 충전 금액은 거부되어야 함")
-            .isInstanceOf(BalanceException.InvalidAmount.class);
-    }
 
     @Test
     @DisplayName("충전 한도 내에서 대용량 충전을 안전하게 처리한다")

@@ -7,12 +7,9 @@ import kr.hhplus.be.server.api.docs.annotation.BalanceApiDocs;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.response.BalanceResponse;
 import kr.hhplus.be.server.domain.entity.Balance;
-import kr.hhplus.be.server.domain.exception.*;
-import kr.hhplus.be.server.domain.facade.balance.ChargeBalanceFacade;
-import kr.hhplus.be.server.domain.facade.balance.GetBalanceFacade;
+import kr.hhplus.be.server.domain.service.BalanceService;
 
-import java.math.BigDecimal;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -29,16 +26,13 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 public class BalanceController {
 
-    private final ChargeBalanceFacade chargeBalanceFacade;
-    private final GetBalanceFacade getBalanceFacade;
+    private final BalanceService balanceService;
 
     @BalanceApiDocs(summary = "잔액 충전", description = "사용자의 잔액을 충전합니다")
     @PostMapping("/charge")
     @ResponseStatus(HttpStatus.OK)
     public BalanceResponse chargeBalance(@Valid @RequestBody BalanceRequest request) {
-        
-        
-        Balance balance = chargeBalanceFacade.chargeBalance(request.getUserId(), request.getAmount());
+        Balance balance = balanceService.chargeBalance(request.getUserId(), request.getAmount());
         return new BalanceResponse(
                 balance.getUserId(),
                 balance.getAmount(),
@@ -49,15 +43,7 @@ public class BalanceController {
     @BalanceApiDocs(summary = "잔액 조회", description = "사용자의 현재 잔액을 조회합니다")
     @GetMapping("/{userId}")
     public BalanceResponse getBalance(@PathVariable @Positive Long userId) {
-        
-        
-        Optional<Balance> balanceOpt = getBalanceFacade.getBalance(userId);
-        
-        if (balanceOpt.isEmpty()) {
-            throw new UserException.InvalidUser();
-        }
-        
-        Balance balance = balanceOpt.get();
+        Balance balance = balanceService.getBalance(userId);
         return new BalanceResponse(
                 balance.getUserId(),
                 balance.getAmount(),

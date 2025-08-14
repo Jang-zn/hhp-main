@@ -62,14 +62,12 @@ public class CouponHistory extends BaseEntity {
     }
 
     /**
-     * 쿠폰을 사용 처리합니다.
+     * 쿠폰 사용 처리.
      */
     public void useCoupon(Order order) {
         if (!this.status.isUsable()) {
             throw new CouponException.CouponNotUsable();
         }
-        
-        // 쿠폰 만료 여부 확인은 서비스 층에서 처리
         
         updateStatus(CouponHistoryStatus.USED);
         this.usedAt = LocalDateTime.now();
@@ -77,27 +75,19 @@ public class CouponHistory extends BaseEntity {
     }
 
     /**
-     * 쿠폰이 사용 가능한지 확인합니다 (상태 변경 없이 순수 조회).
+     * 쿠폰이 사용 가능한지 확인
      */
     public boolean canUse() {
-        // 현재 상태가 발급됨인지 확인
         if (this.status != CouponHistoryStatus.ISSUED) {
             return false;
         }
         
-        // 쿠폰 만료 여부 확인은 서비스 층에서 처리
         return true;
     }
 
-    /**
-     * 만료된 쿠폰의 상태를 업데이트합니다.
-     */
-    public void updateStatusIfExpired() {
-        // 만료 처리는 서비스 층에서 처리
-    }
 
     /**
-     * 만료 처리합니다.
+     * 쿠폰 만료 처리
      */
     public void expire() {
         if (this.status == CouponHistoryStatus.ISSUED) {

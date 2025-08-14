@@ -30,15 +30,6 @@ public class CouponJpaRepository implements CouponRepositoryPort {
         }
     }
 
-    @Override
-    public Optional<Coupon> findByIdWithLock(Long id) {
-        try {
-            Coupon coupon = entityManager.find(Coupon.class, id, LockModeType.PESSIMISTIC_WRITE);
-            return Optional.ofNullable(coupon);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
 
     @Override
     public Coupon save(Coupon coupon) {

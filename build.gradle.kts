@@ -39,13 +39,16 @@ dependencies {
     // Spring Retry (낙관적 락 충돌 재시도)
 	implementation("org.springframework.retry:spring-retry")
 	implementation("org.springframework:spring-aspects")
+	
+    // Redis (락, 캐싱)
+	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+	implementation("org.redisson:redisson-spring-boot-starter:3.25.2")
 
     // Swagger/OpenAPI
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 
     // DB
 	runtimeOnly("com.mysql:mysql-connector-j")
-	runtimeOnly("com.h2database:h2")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 
@@ -54,6 +57,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:mysql")
+	testImplementation("com.redis.testcontainers:testcontainers-redis-junit:1.6.4")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
 	testImplementation("io.kotest:kotest-assertions-core:5.9.1")

@@ -15,8 +15,7 @@ import java.time.LocalDateTime;
 public class PopularProductStats {
 
     @Id
-    @NotBlank
-    private String productId;
+    private Long productId;
 
     @PositiveOrZero
     private int salesCount;

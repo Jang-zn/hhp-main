@@ -142,10 +142,15 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
@@ -224,10 +229,15 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
@@ -307,13 +317,56 @@ public class ConcurrencyTestHelper {
         } finally {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor가 정상적으로 종료되지 않았습니다. 강제 종료합니다.");
                     executor.shutdownNow();
+                    if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        log.error("Executor 강제 종료 실패");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.warn("Executor 종료 대기 중 인터럽트 발생");
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+    
+    /**
+     * Runnable 작업을 동시에 실행 (void 반환)
+     */
+    public static void executeParallel(int threadCount, Runnable task) {
+        executeInParallel(threadCount, () -> {
+            task.run();
+            return null;
+        });
+    }
+    
+    /**
+     * 동시 실행 (예외 허용)
+     */
+    public static void executeConcurrently(int threadCount, Runnable task) {
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        
+        for (int i = 0; i < threadCount; i++) {
+            executor.submit(() -> {
+                try {
+                    task.run();
+                } catch (Exception e) {
+                    // 예외를 무시하고 계속 진행
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        try {
+            latch.await(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            executor.shutdown();
         }
     }
 }

@@ -1,7 +1,6 @@
 package kr.hhplus.be.server.domain.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Positive;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import kr.hhplus.be.server.domain.exception.ProductException;
@@ -39,37 +38,27 @@ public class Product extends BaseEntity {
 
     public void decreaseStock(int quantity) {
         if (this.stock - quantity < 0) {
-            throw new RuntimeException("상품 재고가 부족합니다");
+            throw new ProductException.OutOfStock();
         }
         this.stock -= quantity;
     }
     
     /**
-     * 재고를 예약합니다. 실제 재고는 차감하지 않고 예약 재고만 증가시킵니다.
-     * DB @Check 제약조건으로 추가 무결성 보장:
-     * - stock >= 0: 재고는 음수가 될 수 없음
-     * - reserved_stock >= 0: 예약 재고는 음수가 될 수 없음  
-     * - reserved_stock <= stock: 예약 재고는 실제 재고를 초과할 수 없음
+     * 실제 재고 차감 없이 예약만으로 재고 관리
+     * @param quantity 예약할 수량
      */
     public void reserveStock(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
-        }
         if (!hasAvailableStock(quantity)) {
             throw new ProductException.OutOfStock();
         }
         
         this.reservedStock += quantity;
-        // DB @Check 제약 조건이 추가 검증 수행하여 데이터 무결성 보장
     }
     
     /**
-     * 예약된 재고를 확정합니다. 실제 재고를 차감하고 예약 재고를 감소시킵니다.
+     * @param quantity 확정할 수량
      */
     public void confirmReservation(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
-        }
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("예약된 수량보다 많은 수량을 확정할 수 없습니다");
         }
@@ -83,12 +72,9 @@ public class Product extends BaseEntity {
     }
     
     /**
-     * 예약된 재고를 취소합니다. 예약 재고만 감소시킵니다.
+     * @param quantity 취소할 수량
      */
     public void cancelReservation(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
-        }
         if (this.reservedStock < quantity) {
             throw new ProductException.InvalidReservation("예약된 수량보다 많은 수량을 취소할 수 없습니다");
         }
@@ -97,21 +83,18 @@ public class Product extends BaseEntity {
     }
     
     /**
-     * 확정된 재고를 다시 예약 상태로 복원합니다. (보상 처리용)
-     * 실제 재고를 증가시키고 예약 재고도 증가시킵니다.
+     * 보상 트랜잭션에서 확정된 재고를 되돌려야 함
+     * @param quantity 복원할 수량
      */
     public void restoreReservation(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
-        }
         
         this.stock += quantity;
         this.reservedStock += quantity;
     }
     
     /**
-     * 이용 가능한 재고가 있는지 확인합니다.
-     * 이용 가능한 재고 = 전체 재고 - 예약된 재고
+     * 전체 재고 - 예약된 재고로 계산
+     * @param quantity 확인할 수량
      */
     public boolean hasAvailableStock(int quantity) {
         return (this.stock - this.reservedStock) >= quantity;

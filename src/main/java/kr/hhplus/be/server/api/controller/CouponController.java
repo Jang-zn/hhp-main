@@ -10,11 +10,8 @@ import kr.hhplus.be.server.api.dto.response.CouponResponse;
 import kr.hhplus.be.server.api.docs.annotation.CouponApiDocs;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
-import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.exception.UserException;
-import kr.hhplus.be.server.domain.facade.coupon.GetCouponListFacade;
-import kr.hhplus.be.server.domain.facade.coupon.IssueCouponFacade;
+import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
 import java.util.stream.Collectors;
@@ -39,19 +36,14 @@ import java.util.Optional;
 @Validated
 public class CouponController {
     
-    private final IssueCouponFacade issueCouponFacade;
-    private final GetCouponListFacade getCouponListFacade;
+    private final CouponService couponService;
     private final CouponRepositoryPort couponRepositoryPort;
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
     @ResponseStatus(HttpStatus.CREATED)
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
-
-
-        CouponHistory couponHistory = issueCouponFacade.issueCoupon(request.getUserId(), request.getCouponId());
-        
-        // Coupon 정보 조회
+        CouponHistory couponHistory = couponService.issueCoupon(request.getCouponId(), request.getUserId());
         Coupon coupon = couponRepositoryPort.findById(couponHistory.getCouponId())
                 .orElseThrow(() -> new CouponException.NotFound());
         
@@ -76,9 +68,7 @@ public class CouponController {
             @PathVariable @Positive Long userId,
             @RequestParam(defaultValue = "10") @Positive @Max(100) int limit,
             @RequestParam(defaultValue = "0") @PositiveOrZero int offset) {
-
-
-        List<CouponHistory> couponHistories = getCouponListFacade.getCouponList(userId, limit, offset);
+        List<CouponHistory> couponHistories = couponService.getCouponList(userId, limit, offset);
         return couponHistories.stream()
                 .map(history -> safeCouponLookup(history))
                 .filter(Optional::isPresent)
@@ -95,7 +85,6 @@ public class CouponController {
      */
     private Optional<CouponResponse> safeCouponLookup(CouponHistory history) {
         try {
-            // Coupon 정보 조회
             Optional<Coupon> couponOpt = couponRepositoryPort.findById(history.getCouponId());
             
             if (couponOpt.isEmpty()) {
