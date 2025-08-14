@@ -1,8 +1,5 @@
-package kr.hhplus.be.server.domain.service;
+package kr.hhplus.be.server.domain.enums;
 
-/**
- * 모든 TTL 값은 초(seconds) 단위입니다.
- */
 public enum CacheTTL {
     
     // === 상품 관련 캐시 ===

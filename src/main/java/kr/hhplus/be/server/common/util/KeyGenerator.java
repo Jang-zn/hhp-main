@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.domain.service;
+package kr.hhplus.be.server.common.util;
 
 import org.springframework.stereotype.Component;
 
