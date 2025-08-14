@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.service.ProductService;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,12 +33,15 @@ class GetProductListTest {
     @Mock
     private CachePort cachePort;
     
+    @Mock
+    private KeyGenerator keyGenerator;
+    
     private ProductService productService;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, cachePort);
+        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, cachePort, keyGenerator);
     }
 
     @Test
@@ -53,10 +57,8 @@ class GetProductListTest {
         );
         
         String cacheKey = "product_list_10_0";
-        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
-            return supplier.get();
-        });
+        when(keyGenerator.generateProductListCacheKey(limit, offset)).thenReturn(cacheKey);
+        when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
         when(getProductUseCase.execute(limit, offset)).thenReturn(expectedProducts);
         
         // when
@@ -68,7 +70,9 @@ class GetProductListTest {
         assertThat(result.get(0).getName()).isEqualTo("Product 1");
         assertThat(result.get(1).getName()).isEqualTo("Product 2");
         
-        verify(cachePort).getList(eq(cacheKey), any());
+        verify(keyGenerator).generateProductListCacheKey(limit, offset);
+        verify(cachePort).getList(eq(cacheKey));
+        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -80,10 +84,8 @@ class GetProductListTest {
         int offset = 0;
         
         String cacheKey = "product_list_10_0";
-        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
-            return supplier.get();
-        });
+        when(keyGenerator.generateProductListCacheKey(limit, offset)).thenReturn(cacheKey);
+        when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
         when(getProductUseCase.execute(limit, offset)).thenReturn(List.of());
         
         // when
@@ -93,7 +95,9 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
-        verify(cachePort).getList(eq(cacheKey), any());
+        verify(keyGenerator).generateProductListCacheKey(limit, offset);
+        verify(cachePort).getList(eq(cacheKey));
+        verify(cachePort).put(eq(cacheKey), eq(List.of()), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -109,10 +113,8 @@ class GetProductListTest {
         );
         
         String cacheKey = "product_list_5_10";
-        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-            java.util.function.Supplier<List<Product>> supplier = invocation.getArgument(1);
-            return supplier.get();
-        });
+        when(keyGenerator.generateProductListCacheKey(limit, offset)).thenReturn(cacheKey);
+        when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
         when(getProductUseCase.execute(limit, offset)).thenReturn(expectedProducts);
         
         // when
@@ -122,7 +124,9 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         
-        verify(cachePort).getList(eq(cacheKey), any());
+        verify(keyGenerator).generateProductListCacheKey(limit, offset);
+        verify(cachePort).getList(eq(cacheKey));
+        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
 }

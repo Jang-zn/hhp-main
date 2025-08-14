@@ -55,17 +55,20 @@ class GetPopularProductListUseCaseTest {
                         .build()
         );
         
-        when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
+        int limit = 10;
+        int offset = 0;
+        
+        when(productRepositoryPort.findPopularProducts(period, limit, offset)).thenReturn(popularProducts);
 
         // when
-        List<Product> result = getPopularProductListUseCase.execute(period);
+        List<Product> result = getPopularProductListUseCase.execute(period, limit, offset);
 
         // then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getName()).isEqualTo("인기 노트북");
         assertThat(result.get(1).getName()).isEqualTo("인기 스마트폰");
-        verify(productRepositoryPort, times(1)).findPopularProducts(period);
+        verify(productRepositoryPort, times(1)).findPopularProducts(period, limit, offset);
     }
 
     @ParameterizedTest
@@ -82,18 +85,21 @@ class GetPopularProductListUseCaseTest {
                         .build()
         );
         
-        // cachePort.get이 람다식을 실행하도록 Mocking
-        when(productRepositoryPort.findPopularProducts(period)).thenReturn(popularProducts);
+        // Repository mocking
+        int limit = 5;
+        int offset = 0;
+        
+        when(productRepositoryPort.findPopularProducts(period, limit, offset)).thenReturn(popularProducts);
 
         // when
-        List<Product> result = getPopularProductListUseCase.execute(period);
+        List<Product> result = getPopularProductListUseCase.execute(period, limit, offset);
 
         // then
         assertThat(result).isNotNull();
         assertThat(result).isNotEmpty();
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("상품1");
-        verify(productRepositoryPort, times(1)).findPopularProducts(period);
+        verify(productRepositoryPort, times(1)).findPopularProducts(period, limit, offset);
     }
 
     private static Stream<Arguments> providePeriodData() {

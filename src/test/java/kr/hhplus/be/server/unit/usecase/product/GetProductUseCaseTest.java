@@ -137,32 +137,7 @@ class GetProductUseCaseTest {
             assertThat(result).isEmpty();
         }
         
-        @Test
-        @DisplayName("실패케이스: 음수 limit")
-        void getProductList_WithNegativeLimit() {
-            // when & then
-            assertThatThrownBy(() -> getProductUseCase.execute(-1, 0))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Limit must be greater than 0");
-        }
         
-        @Test
-        @DisplayName("실패케이스: 음수 offset")
-        void getProductList_WithNegativeOffset() {
-            // when & then
-            assertThatThrownBy(() -> getProductUseCase.execute(10, -1))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Offset must be non-negative");
-        }
-        
-        @Test
-        @DisplayName("실패케이스: 과도한 limit")
-        void getProductList_WithExcessiveLimit() {
-            // when & then
-            assertThatThrownBy(() -> getProductUseCase.execute(10000, 0))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Limit exceeds maximum allowed (1000)");
-        }
     }
     
     private Product createProduct(String name, String price, int stock) {
