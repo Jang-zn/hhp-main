@@ -27,15 +27,14 @@ public class RedisCacheAdapter implements CachePort {
     private static final String CACHE_KEY_PREFIX = "cache:";
     
     /**
-     * 캐시에서 값을 조회하고, 없으면 supplier로부터 값을 가져와 캐시에 저장
+     * 캐시에서 값을 조회 (저장하지 않음)
      * 
      * @param key 캐시 키
      * @param type 반환 타입
-     * @param supplier 캐시 미스 시 값을 공급하는 함수
-     * @return 캐시된 값 또는 새로 생성된 값
+     * @return 캐시된 값 또는 null
      */
     @Override
-    public <T> T get(String key, Class<T> type, Supplier<T> supplier) {
+    public <T> T get(String key, Class<T> type) {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
         try {
@@ -44,22 +43,15 @@ public class RedisCacheAdapter implements CachePort {
             
             if (cachedValue != null) {
                 log.debug("Cache hit: key={}, type={}", cacheKey, type.getSimpleName());
-                return cachedValue;
-            }
-
-            log.debug("Cache miss: key={}, type={}", cacheKey, type.getSimpleName());
-            T suppliedValue = supplier.get();
-            
-            if (suppliedValue != null) {
-                bucket.set(suppliedValue);
-                log.debug("Cache stored: key={}, type={}", cacheKey, type.getSimpleName());
+            } else {
+                log.debug("Cache miss: key={}, type={}", cacheKey, type.getSimpleName());
             }
             
-            return suppliedValue;
+            return cachedValue;
             
         } catch (Exception e) {
             log.error("Error accessing cache: key={}, type={}", cacheKey, type.getSimpleName(), e);
-            return supplier.get();
+            return null;
         }
     }
     
@@ -137,14 +129,13 @@ public class RedisCacheAdapter implements CachePort {
     }
     
     /**
-     * List 타입 전용 캐시 조회 메서드 (unchecked 경고 방지)
+     * List 타입 캐시 조회 (저장하지 않음)
      * 
      * @param key 캐시 키
-     * @param supplier 캐시 미스 시 데이터를 공급하는 함수
-     * @return List 타입의 캐시된 값 또는 새로 생성된 값
+     * @return 캐시된 List 또는 null
      */
     @Override
-    public <T> List<T> getList(String key, Supplier<List<T>> supplier) {
+    public <T> List<T> getList(String key) {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
         try {
@@ -152,23 +143,16 @@ public class RedisCacheAdapter implements CachePort {
             List<T> cachedValue = bucket.get();
             
             if (cachedValue != null) {
-                log.debug("Cache hit (List): key={}", cacheKey);
-                return cachedValue;
-            }
-
-            log.debug("Cache miss (List): key={}", cacheKey);
-            List<T> suppliedValue = supplier.get();
-            
-            if (suppliedValue != null) {
-                bucket.set(suppliedValue);
-                log.debug("Cache stored (List): key={}, size={}", cacheKey, suppliedValue.size());
+                log.debug("Cache hit (List): key={}, size={}", cacheKey, cachedValue.size());
+            } else {
+                log.debug("Cache miss (List): key={}", cacheKey);
             }
             
-            return suppliedValue;
+            return cachedValue;
             
         } catch (Exception e) {
             log.error("Error accessing cache (List): key={}", cacheKey, e);
-            return supplier.get();
+            return null;
         }
     }
     

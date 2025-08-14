@@ -271,4 +271,41 @@ public class KeyGenerator {
         String[] parts = cacheKey.split(SEPARATOR);
         return parts.length >= 3;
     }
+    
+    // ========================= 캐시 무효화 패턴 생성 메서드들 =========================
+    
+    /**
+     * 사용자 주문 목록 캐시 무효화 패턴
+     * @param userId 사용자 ID
+     * @return 무효화 패턴 (예: "order:list:user_1_*")
+     */
+    public String generateOrderListCachePattern(Long userId) {
+        return String.join(SEPARATOR, ORDER_DOMAIN, LIST_TYPE, "user_" + userId + "_*");
+    }
+    
+    /**
+     * 사용자 쿠폰 목록 캐시 무효화 패턴
+     * @param userId 사용자 ID
+     * @return 무효화 패턴 (예: "coupon:list:user_1_*")
+     */
+    public String generateCouponListCachePattern(Long userId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, LIST_TYPE, "user_" + userId + "_*");
+    }
+    
+    /**
+     * 상품 관련 모든 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "product:*:product_1*")
+     */
+    public String generateProductCachePattern(Long productId) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, "*", "product_" + productId + "*");
+    }
+    
+    /**
+     * 인기 상품 목록 캐시 무효화 패턴
+     * @return 무효화 패턴 (예: "product:popular:*")
+     */
+    public String generatePopularProductCachePattern() {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, "*");
+    }
 }
