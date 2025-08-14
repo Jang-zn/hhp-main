@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -32,7 +32,7 @@ class GetPopularProductListControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ProductService productService;
 
     @Test
@@ -54,7 +54,7 @@ class GetPopularProductListControllerTest {
                         .build()
         );
 
-        when(productService.getPopularProductList(days)).thenReturn(popularProducts);
+        when(productService.getPopularProductList(eq(days), anyInt(), anyInt())).thenReturn(popularProducts);
 
         // when & then
         mockMvc.perform(get("/api/product/popular")
@@ -77,7 +77,7 @@ class GetPopularProductListControllerTest {
         // given
         int days = 7;
 
-        when(productService.getPopularProductList(days)).thenReturn(List.of());
+        when(productService.getPopularProductList(eq(days), anyInt(), anyInt())).thenReturn(List.of());
 
         // when & then
         mockMvc.perform(get("/api/product/popular")
@@ -116,7 +116,7 @@ class GetPopularProductListControllerTest {
                 TestBuilder.ProductBuilder.defaultProduct().id(1L).name("인기 상품 1").build()
         );
 
-        when(productService.getPopularProductList(anyInt())).thenReturn(popularProducts);
+        when(productService.getPopularProductList(anyInt(), anyInt(), anyInt())).thenReturn(popularProducts);
 
         // when & then
         mockMvc.perform(get("/api/product/popular"))
