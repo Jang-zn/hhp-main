@@ -4,12 +4,14 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBucket;
+import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Redis(Redisson)를 이용한 캐시 구현체
@@ -23,11 +25,12 @@ import java.util.List;
 public class RedisCacheAdapter implements CachePort {
     
     private final RedissonClient redissonClient;
+    private final Random random = new Random();
     
     private static final String CACHE_KEY_PREFIX = "cache:";
     
     /**
-     * 캐시에서 값을 조회 (저장하지 않음)
+     * 캐시에서 값을 조회 (Cache Stampede 방어 포함)
      * 
      * @param key 캐시 키
      * @param type 반환 타입
@@ -38,16 +41,47 @@ public class RedisCacheAdapter implements CachePort {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
         try {
+            // 1. 첫 번째 캐시 확인
             RBucket<T> bucket = redissonClient.getBucket(cacheKey);
             T cachedValue = bucket.get();
             
             if (cachedValue != null) {
                 log.debug("Cache hit: key={}, type={}", cacheKey, type.getSimpleName());
-            } else {
-                log.debug("Cache miss: key={}, type={}", cacheKey, type.getSimpleName());
+                return cachedValue;
             }
             
-            return cachedValue;
+            // 2. Cache Miss - Cache Stampede 방어
+            String lockKey = cacheKey + ":load";
+            RLock lock = redissonClient.getLock(lockKey);
+            
+            try {
+                // 3. Redisson pub/sub 대기 메커니즘 활용 (200ms 대기)
+                if (lock.tryLock(200, TimeUnit.MILLISECONDS)) {
+                    try {
+                        // 4. Double-check (다른 스레드가 이미 로드했을 수 있음)
+                        cachedValue = bucket.get();
+                        if (cachedValue != null) {
+                            log.debug("Cache hit after lock (double-check): key={}, type={}", cacheKey, type.getSimpleName());
+                            return cachedValue;
+                        }
+                        
+                        // 5. 여전히 없으면 null 반환 (서비스가 DB 조회 후 put() 호출하도록)
+                        log.debug("Cache miss after lock: key={}, type={}", cacheKey, type.getSimpleName());
+                        return null;
+                        
+                    } finally {
+                        lock.unlock();
+                    }
+                } else {
+                    // 6. 200ms 대기했는데도 락 획득 실패 - DB 폴백
+                    log.debug("Lock acquisition timeout, fallback to DB: key={}", cacheKey);
+                    return null;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Thread interrupted during lock wait: key={}", cacheKey);
+                return null;
+            }
             
         } catch (Exception e) {
             log.error("Error accessing cache: key={}, type={}", cacheKey, type.getSimpleName(), e);
@@ -56,7 +90,7 @@ public class RedisCacheAdapter implements CachePort {
     }
     
     /**
-     * 캐시에 값을 저장 (TTL 설정)
+     * 캐시에 값을 저장 (TTL 설정 + Cache Stampede 방지용 랜덤화)
      * 
      * @param key 캐시 키
      * @param value 저장할 값
@@ -70,8 +104,13 @@ public class RedisCacheAdapter implements CachePort {
             RBucket<Object> bucket = redissonClient.getBucket(cacheKey);
             
             if (ttlSeconds > 0) {
-                bucket.set(value, ttlSeconds, TimeUnit.SECONDS);
-                log.debug("Cache put with TTL: key={}, ttl={}s", cacheKey, ttlSeconds);
+                // Cache Stampede 방지: TTL에 ±10% 랜덤 지터 추가
+                int jitter = (int) (ttlSeconds * 0.1 * (random.nextDouble() * 2 - 1)); // -10% ~ +10%
+                int randomizedTTL = ttlSeconds + jitter;
+                
+                bucket.set(value, randomizedTTL, TimeUnit.SECONDS);
+                log.debug("Cache put with randomized TTL: key={}, originalTTL={}s, actualTTL={}s", 
+                         cacheKey, ttlSeconds, randomizedTTL);
             } else {
                 bucket.set(value);
                 log.debug("Cache put without TTL: key={}", cacheKey);
@@ -129,7 +168,7 @@ public class RedisCacheAdapter implements CachePort {
     }
     
     /**
-     * List 타입 캐시 조회 (저장하지 않음)
+     * List 타입 캐시 조회 (Cache Stampede 방어 포함)
      * 
      * @param key 캐시 키
      * @return 캐시된 List 또는 null
@@ -139,16 +178,47 @@ public class RedisCacheAdapter implements CachePort {
         String cacheKey = CACHE_KEY_PREFIX + key;
         
         try {
+            // 1. 첫 번째 캐시 확인
             RBucket<List<T>> bucket = redissonClient.getBucket(cacheKey);
             List<T> cachedValue = bucket.get();
             
             if (cachedValue != null) {
                 log.debug("Cache hit (List): key={}, size={}", cacheKey, cachedValue.size());
-            } else {
-                log.debug("Cache miss (List): key={}", cacheKey);
+                return cachedValue;
             }
             
-            return cachedValue;
+            // 2. Cache Miss - Cache Stampede 방어
+            String lockKey = cacheKey + ":load";
+            RLock lock = redissonClient.getLock(lockKey);
+            
+            try {
+                // 3. Redisson pub/sub 대기 메커니즘 활용 (200ms 대기)
+                if (lock.tryLock(200, TimeUnit.MILLISECONDS)) {
+                    try {
+                        // 4. Double-check (다른 스레드가 이미 로드했을 수 있음)
+                        cachedValue = bucket.get();
+                        if (cachedValue != null) {
+                            log.debug("Cache hit (List) after lock (double-check): key={}, size={}", cacheKey, cachedValue.size());
+                            return cachedValue;
+                        }
+                        
+                        // 5. 여전히 없으면 null 반환 (서비스가 DB 조회 후 put() 호출하도록)
+                        log.debug("Cache miss (List) after lock: key={}", cacheKey);
+                        return null;
+                        
+                    } finally {
+                        lock.unlock();
+                    }
+                } else {
+                    // 6. 200ms 대기했는데도 락 획득 실패 - DB 폴백
+                    log.debug("Lock acquisition timeout, fallback to DB (List): key={}", cacheKey);
+                    return null;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Thread interrupted during lock wait (List): key={}", cacheKey);
+                return null;
+            }
             
         } catch (Exception e) {
             log.error("Error accessing cache (List): key={}", cacheKey, e);
