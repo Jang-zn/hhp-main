@@ -114,46 +114,6 @@ public class RedisCacheAdapter implements CachePort {
         }
     }
     
-    /**
-     * TTL이 있는 캐시 조회 및 저장
-     * 
-     * @param key 캐시 키
-     * @param type 반환 타입
-     * @param supplier 캐시 미스 시 값을 공급하는 함수
-     * @param ttlSeconds TTL (초 단위)
-     * @return 캐시된 값 또는 새로 생성된 값
-     */
-    public <T> T getWithTTL(String key, Class<T> type, Supplier<T> supplier, int ttlSeconds) {
-        String cacheKey = CACHE_KEY_PREFIX + key;
-        
-        try {
-            RBucket<T> bucket = redissonClient.getBucket(cacheKey);
-            T cachedValue = bucket.get();
-            
-            if (cachedValue != null) {
-                log.debug("Cache hit with TTL: key={}, type={}", cacheKey, type.getSimpleName());
-                return cachedValue;
-            }
-
-            log.debug("Cache miss with TTL: key={}, type={}, ttl={}s", cacheKey, type.getSimpleName(), ttlSeconds);
-            T suppliedValue = supplier.get();
-            
-            if (suppliedValue != null) {
-                if (ttlSeconds > 0) {
-                    bucket.set(suppliedValue, ttlSeconds, TimeUnit.SECONDS);
-                } else {
-                    bucket.set(suppliedValue);
-                }
-                log.debug("Cache stored with TTL: key={}, type={}, ttl={}s", cacheKey, type.getSimpleName(), ttlSeconds);
-            }
-            
-            return suppliedValue;
-            
-        } catch (Exception e) {
-            log.error("Error accessing cache with TTL: key={}, type={}, ttl={}s", cacheKey, type.getSimpleName(), ttlSeconds, e);
-            return supplier.get();
-        }
-    }
     
     /**
      * 캐시 키 존재 여부 확인
