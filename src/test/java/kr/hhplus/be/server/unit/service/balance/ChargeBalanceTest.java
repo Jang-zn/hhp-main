@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.unit.service.balance;
 
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.service.BalanceService;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
@@ -7,7 +8,6 @@ import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;

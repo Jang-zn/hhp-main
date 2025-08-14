@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.unit.service.coupon;
 
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
@@ -7,7 +8,6 @@ import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;

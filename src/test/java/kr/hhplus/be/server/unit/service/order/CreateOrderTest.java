@@ -2,6 +2,7 @@ package kr.hhplus.be.server.unit.service.order;
 
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.service.OrderService;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import kr.hhplus.be.server.domain.usecase.order.*;
 import kr.hhplus.be.server.domain.usecase.balance.DeductBalanceUseCase;
@@ -10,7 +11,6 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
-import kr.hhplus.be.server.domain.service.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
