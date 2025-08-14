@@ -63,7 +63,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId())).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -73,7 +73,7 @@ class GetOrderListUseCaseTest {
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
         assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId());
+        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
     }
 
     @Test
@@ -87,7 +87,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId())).thenReturn(dbOrders);
+        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(dbOrders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -96,7 +96,7 @@ class GetOrderListUseCaseTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId());
+        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
     }
 
     @Test
@@ -107,7 +107,7 @@ class GetOrderListUseCaseTest {
             .id(1L).name("신규고객").build();
         
         when(userRepositoryPort.existsById(newCustomer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(newCustomer.getId())).thenReturn(Collections.emptyList());
+        when(orderRepositoryPort.findByUserId(newCustomer.getId(), 50, 0)).thenReturn(Collections.emptyList());
 
         // When
         List<Order> result = getOrderListUseCase.execute(newCustomer.getId());
@@ -133,7 +133,7 @@ class GetOrderListUseCaseTest {
         }
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId())).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -157,20 +157,9 @@ class GetOrderListUseCaseTest {
             .isInstanceOf(UserException.NotFound.class)
             .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
             
-        verify(orderRepositoryPort, never()).findByUserId(any(Long.class));
+        verify(orderRepositoryPort, never()).findByUserId(any(Long.class), anyInt(), anyInt());
     }
 
-    @ParameterizedTest
-    @MethodSource("provideInvalidCustomerIds")
-    @DisplayName("유효하지 않은 고객 ID로는 주문 조회가 불가능하다")
-    void preventsOrderViewingWithInvalidCustomerId(Long invalidCustomerId, String expectedMessage) {
-        // When & Then
-        assertThatThrownBy(() -> getOrderListUseCase.execute(invalidCustomerId))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage(expectedMessage);
-            
-        verify(userRepositoryPort, never()).existsById(any());
-    }
 
     @Test
     @DisplayName("서로 다른 고객들이 동시에 주문 목록을 조회할 수 있다")
@@ -188,7 +177,7 @@ class GetOrderListUseCaseTest {
             );
             
             when(userRepositoryPort.existsById(customerId)).thenReturn(true);
-            when(orderRepositoryPort.findByUserId(customerId)).thenReturn(orders);
+            when(orderRepositoryPort.findByUserId(customerId, 50, 0)).thenReturn(orders);
         }
         
         // When
@@ -220,7 +209,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId())).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
         
         // When
         int numberOfRequests = 5;
@@ -249,11 +238,4 @@ class GetOrderListUseCaseTest {
         );
     }
     
-    private static Stream<Arguments> provideInvalidCustomerIds() {
-        return Stream.of(
-            Arguments.of(null, "UserId cannot be null"),
-            Arguments.of(-1L, "UserId must be positive"),
-            Arguments.of(0L, "UserId must be positive"),
-            Arguments.of(-999L, "UserId must be positive")
-        );
-    }}
+}

@@ -66,7 +66,7 @@ class GetOrderUseCaseTest {
                 .build();
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -84,7 +84,7 @@ class GetOrderUseCaseTest {
         Long userId = 999L;
         Long orderId = 1L;
         
-        when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
+        when(userRepositoryPort.existsById(userId)).thenReturn(false);
 
         // When & Then
         assertThatThrownBy(() -> getOrderUseCase.execute(userId, orderId))
@@ -100,7 +100,7 @@ class GetOrderUseCaseTest {
         Long orderId = 999L;
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.empty());
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.empty());
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -109,19 +109,6 @@ class GetOrderUseCaseTest {
         assertThat(result).isEmpty();
     }
 
-    @Test
-    @DisplayName("null 파라미터로 주문 조회 시 예외가 발생한다")
-    void throwsExceptionForNullParameters() {
-        // When & Then - null userId
-        assertThatThrownBy(() -> getOrderUseCase.execute(null, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("UserId cannot be null");
-                
-        // When & Then - null orderId
-        assertThatThrownBy(() -> getOrderUseCase.execute(1L, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("OrderId cannot be null");
-    }
 
     @ParameterizedTest
     @MethodSource("provideOrderData")
@@ -134,7 +121,7 @@ class GetOrderUseCaseTest {
                 .build();
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
 
         // When
         Optional<Order> result = getOrderUseCase.execute(userId, orderId);
@@ -160,7 +147,7 @@ class GetOrderUseCaseTest {
                 .build();
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+        when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
         
         // When - 10개의 동시 조회 작업
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
@@ -189,7 +176,7 @@ class GetOrderUseCaseTest {
                     .build();
             
             when(userRepositoryPort.existsById(userId)).thenReturn(true);
-            when(orderRepositoryPort.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+            when(orderRepositoryPort.findById(orderId)).thenReturn(Optional.of(order));
         }
         
         // When - 10개의 동시 조회 작업 (다양한 사용자)

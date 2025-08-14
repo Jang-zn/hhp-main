@@ -99,11 +99,8 @@ class GetOrderListTest {
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         String cacheKey = "order:list:user_1:limit_10:offset_0";
         when(keyGenerator.generateOrderListCacheKey(userId, limit, offset)).thenReturn(cacheKey);
-        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-            java.util.function.Supplier<List<Order>> supplier = invocation.getArgument(1);
-            return supplier.get();
-        });
-        when(getOrderListUseCase.execute(userId)).thenReturn(expectedOrders);
+        when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
+        when(getOrderListUseCase.execute(userId, limit, offset)).thenReturn(expectedOrders);
         
         // when
         List<Order> result = orderService.getOrderList(userId, limit, offset);
@@ -116,8 +113,9 @@ class GetOrderListTest {
         
         verify(userRepositoryPort).existsById(userId);
         verify(keyGenerator).generateOrderListCacheKey(userId, limit, offset);
-        verify(cachePort).getList(eq(cacheKey), any());
-        verify(getOrderListUseCase).execute(userId);
+        verify(cachePort).getList(eq(cacheKey));
+        verify(cachePort).put(eq(cacheKey), eq(expectedOrders), anyInt());
+        verify(getOrderListUseCase).execute(userId, limit, offset);
     }
     
     @Test
@@ -131,11 +129,8 @@ class GetOrderListTest {
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
         String cacheKey = "order:list:user_1:limit_10:offset_0";
         when(keyGenerator.generateOrderListCacheKey(userId, limit, offset)).thenReturn(cacheKey);
-        when(cachePort.getList(eq(cacheKey), any())).thenAnswer(invocation -> {
-            java.util.function.Supplier<List<Order>> supplier = invocation.getArgument(1);
-            return supplier.get();
-        });
-        when(getOrderListUseCase.execute(userId)).thenReturn(List.of());
+        when(cachePort.getList(eq(cacheKey))).thenReturn(null); // Cache miss
+        when(getOrderListUseCase.execute(userId, limit, offset)).thenReturn(List.of());
         
         // when
         List<Order> result = orderService.getOrderList(userId, limit, offset);
@@ -146,7 +141,8 @@ class GetOrderListTest {
         
         verify(userRepositoryPort).existsById(userId);
         verify(keyGenerator).generateOrderListCacheKey(userId, limit, offset);
-        verify(cachePort).getList(eq(cacheKey), any());
-        verify(getOrderListUseCase).execute(userId);
+        verify(cachePort).getList(eq(cacheKey));
+        verify(cachePort).put(eq(cacheKey), eq(List.of()), anyInt());
+        verify(getOrderListUseCase).execute(userId, limit, offset);
     }
 }

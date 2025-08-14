@@ -67,12 +67,8 @@ class GetOrderTest {
         
         String cacheKey = "order:info:order_1";
         when(keyGenerator.generateOrderCacheKey(orderId)).thenReturn(cacheKey);
-        when(cachePort.get(eq(cacheKey), eq(Order.class), any())).thenAnswer(invocation -> {
-            // 캐시 miss 시 supplier를 호출
-            java.util.function.Supplier<Order> supplier = invocation.getArgument(2);
-            return supplier.get();
-        });
-        when(orderRepositoryPort.findById(orderId)).thenReturn(java.util.Optional.of(expectedOrder));
+        when(cachePort.get(eq(cacheKey), eq(Order.class))).thenReturn(null); // Cache miss
+        when(getOrderUseCase.execute(orderId, userId)).thenReturn(java.util.Optional.of(expectedOrder));
         
         // when
         Order result = orderService.getOrder(orderId, userId);
@@ -83,7 +79,8 @@ class GetOrderTest {
         assertThat(result.getUserId()).isEqualTo(userId);
         
         verify(keyGenerator).generateOrderCacheKey(orderId);
-        verify(cachePort).get(eq(cacheKey), eq(Order.class), any());
-        verify(orderRepositoryPort).findById(orderId);
+        verify(cachePort).get(eq(cacheKey), eq(Order.class));
+        verify(cachePort).put(eq(cacheKey), eq(expectedOrder), anyInt());
+        verify(getOrderUseCase).execute(orderId, userId);
     }
 }
