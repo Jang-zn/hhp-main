@@ -17,7 +17,6 @@ import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -47,13 +46,13 @@ public class CreateOrderUseCase {
 
             List<Long> productIds = productQuantities.stream()
                     .map(ProductQuantityDto::getProductId)
-                    .collect(Collectors.toList());
+                    .toList();
             
             List<Product> products = productRepositoryPort.findByIds(productIds);
             Map<Long, Product> productMap = products.stream()
-                    .collect(Collectors.toMap(Product::getId, product -> product));
+                    .collect(java.util.stream.Collectors.toMap(Product::getId, product -> product));
             
-            List<OrderItem> orderItems = productQuantities.stream()
+            var orderItems = productQuantities.stream()
                     .map(productQuantity -> {
                         Long productId = productQuantity.getProductId();
                         Integer quantity = productQuantity.getQuantity();
@@ -75,7 +74,7 @@ public class CreateOrderUseCase {
                                 .quantity(quantity)
                                 .price(product.getPrice())
                                 .build();
-                    }).collect(Collectors.toList());
+                    }).toList();
 
             BigDecimal totalAmount = orderItems.stream()
                     .map(item -> item.getPrice().multiply(new BigDecimal(item.getQuantity())))
@@ -90,7 +89,7 @@ public class CreateOrderUseCase {
             
             List<OrderItem> orderItemsWithOrderId = orderItems.stream()
                     .map(item -> item.withOrderId(savedOrder.getId()))
-                    .collect(Collectors.toList());
+                    .toList();
             
             orderItemRepositoryPort.saveAll(orderItemsWithOrderId);
             

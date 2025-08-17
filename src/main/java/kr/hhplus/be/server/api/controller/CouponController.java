@@ -14,7 +14,6 @@ import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -73,7 +72,7 @@ public class CouponController {
                 .map(history -> safeCouponLookup(history))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(Collectors.toList());
+                .toList();
     }
     
     /**
