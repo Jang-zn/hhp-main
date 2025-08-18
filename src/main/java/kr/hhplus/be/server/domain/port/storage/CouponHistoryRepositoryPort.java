@@ -19,14 +19,8 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
     @Query("SELECT ch FROM CouponHistory ch WHERE ch.userId = :userId")
     List<CouponHistory> findByUserIdWithPagination(@Param("userId") Long userId, Pageable pageable);
     
-    /**
-     * 사용자의 특정 상태 쿠폰 히스토리를 조회합니다.
-     */
     List<CouponHistory> findByUserIdAndStatus(Long userId, CouponHistoryStatus status);
     
-    /**
-     * 만료되었지만 특정 상태인 쿠폰 히스토리들을 조회합니다.
-     */
     @Query("SELECT ch FROM CouponHistory ch " +
            "WHERE EXISTS (SELECT 1 FROM Coupon c WHERE c.id = ch.couponId AND c.endDate < :now) " +
            "AND ch.status = :status")
@@ -34,9 +28,6 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
                                                      @Param("status") CouponHistoryStatus status);
     
     /**
-     * 사용자의 사용 가능한 쿠폰 개수를 조회합니다.
-     * 특정 상태이면서 만료되지 않은 쿠폰만 카운트합니다.
-     * 
      * @param userId 사용자 ID
      * @param status 쿠폰 히스토리 상태
      * @param now 현재 시간 (만료 기준)
@@ -50,9 +41,6 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
                                    @Param("now") LocalDateTime now);
     
     /**
-     * 사용자의 발급된 상태에서 사용 가능한 쿠폰 개수를 조회합니다.
-     * 기본적으로 ISSUED 상태이면서 현재 시간 기준으로 만료되지 않은 쿠폰을 카운트합니다.
-     * 
      * @param userId 사용자 ID
      * @return 사용 가능한 쿠폰 개수
      */
