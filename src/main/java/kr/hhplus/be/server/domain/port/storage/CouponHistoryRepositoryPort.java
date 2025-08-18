@@ -34,7 +34,27 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
     
     /**
      * 사용자의 사용 가능한 쿠폰 개수를 조회합니다.
+     * 특정 상태이면서 만료되지 않은 쿠폰만 카운트합니다.
+     * 
+     * @param userId 사용자 ID
+     * @param status 쿠폰 히스토리 상태
+     * @param now 현재 시간 (만료 기준)
+     * @return 사용 가능한 쿠폰 개수
      */
-    @Query("SELECT COUNT(ch) FROM CouponHistory ch WHERE ch.userId = :userId AND ch.status = 'ISSUED'")
-    long countUsableCouponsByUserId(@Param("userId") Long userId);
+    @Query("SELECT COUNT(ch) FROM CouponHistory ch JOIN Coupon c ON ch.couponId = c.id " +
+           "WHERE ch.userId = :userId AND ch.status = :status AND c.endDate > :now")
+    long countUsableCouponsByUserId(@Param("userId") Long userId, 
+                                   @Param("status") CouponHistoryStatus status,
+                                   @Param("now") LocalDateTime now);
+    
+    /**
+     * 사용자의 발급된 상태에서 사용 가능한 쿠폰 개수를 조회합니다.
+     * 기본적으로 ISSUED 상태이면서 현재 시간 기준으로 만료되지 않은 쿠폰을 카운트합니다.
+     * 
+     * @param userId 사용자 ID
+     * @return 사용 가능한 쿠폰 개수
+     */
+    default long countUsableCouponsByUserId(Long userId) {
+        return countUsableCouponsByUserId(userId, CouponHistoryStatus.ISSUED, LocalDateTime.now());
+    }
 } 
