@@ -1,7 +1,9 @@
 package kr.hhplus.be.server.domain.port.storage;
 
 import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.util.OffsetBasedPageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,15 +24,41 @@ public interface ProductRepositoryPort extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p ORDER BY p.createdAt DESC")
     List<Product> findAllWithPagination(Pageable pageable);
     
-    // 기존 메서드 시그니처 유지를 위한 대체 메서드
+    /**
+     * @param period 조회 기간 (일 단위)
+     * @param limit 가져올 레코드 수
+     * @param offset 건너뛸 레코드 수
+     * @return 인기 상품 목록
+     * @throws IllegalArgumentException offset이 음수이거나 limit이 1보다 작은 경우
+     */
     default List<Product> findPopularProducts(int period, int limit, int offset) {
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset must not be negative!");
+        }
+        if (limit < 1) {
+            throw new IllegalArgumentException("Limit must be greater than zero!");
+        }
+        
         LocalDateTime periodDate = LocalDateTime.now().minusDays(period);
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(offset / limit, limit);
+        Pageable pageable = new OffsetBasedPageRequest(offset, limit, Sort.unsorted());
         return findPopularProducts(periodDate, pageable);
     }
     
+    /**
+     * @param limit
+     * @param offset
+     * @return 상품 목록
+     * @throws IllegalArgumentException offset이 음수이거나 limit이 1보다 작은 경우
+     */
     default List<Product> findAllWithPagination(int limit, int offset) {
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(offset / limit, limit);
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset must not be negative!");
+        }
+        if (limit < 1) {
+            throw new IllegalArgumentException("Limit must be greater than zero!");
+        }
+        
+        Pageable pageable = new OffsetBasedPageRequest(offset, limit, Sort.unsorted());
         return findAllWithPagination(pageable);
     }
 } 
