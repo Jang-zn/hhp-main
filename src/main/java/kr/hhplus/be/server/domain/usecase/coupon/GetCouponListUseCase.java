@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,7 +33,8 @@ public class GetCouponListUseCase {
                 throw new UserException.NotFound();
             }
             
-            List<CouponHistory> result = couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset);
+            PageRequest pageable = PageRequest.of(offset / limit, limit);
+            List<CouponHistory> result = couponHistoryRepositoryPort.findByUserIdWithPagination(userId, pageable);
             
             log.debug("쿠폰 목록 조회 완료: userId={}, count={}", userId, result.size());
             

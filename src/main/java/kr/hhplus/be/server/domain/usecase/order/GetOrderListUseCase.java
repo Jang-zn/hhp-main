@@ -6,6 +6,7 @@ import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.exception.UserException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,7 +33,8 @@ public class GetOrderListUseCase {
         }
         
         // 데이터베이스에서 주문 목록 조회 (페이징 지원)
-        List<Order> paginatedOrders = orderRepositoryPort.findByUserId(userId, limit, offset);
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        List<Order> paginatedOrders = orderRepositoryPort.findByUserId(userId, pageable);
         
         if (!paginatedOrders.isEmpty()) {
             log.debug("주문 목록 조회 성공: userId={}, returned={}", userId, paginatedOrders.size());

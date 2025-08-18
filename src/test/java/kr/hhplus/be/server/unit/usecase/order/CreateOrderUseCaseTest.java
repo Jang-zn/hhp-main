@@ -138,9 +138,10 @@ class CreateOrderUseCaseTest {
             assertThat(result).isNotNull();
             verify(productRepositoryPort).save(testProduct);
             verify(productRepositoryPort).save(secondProduct);
-            verify(orderItemRepositoryPort).saveAll(argThat(items -> 
-                items.size() == 2
-            ));
+            verify(orderItemRepositoryPort).saveAll(argThat(items -> {
+                List<OrderItem> itemList = (List<OrderItem>) items;
+                return itemList.size() == 2;
+            }));
         }
     }
     
@@ -325,8 +326,9 @@ class CreateOrderUseCaseTest {
             
             // then
             verify(orderItemRepositoryPort).saveAll(argThat(items -> {
-                if (items.size() != 1) return false;
-                OrderItem item = items.get(0);
+                List<OrderItem> itemList = (List<OrderItem>) items;
+                if (itemList.size() != 1) return false;
+                OrderItem item = itemList.get(0);
                 return item.getProductId().equals(1L) &&
                        item.getQuantity() == quantity &&
                        item.getPrice().equals(testProduct.getPrice()) &&
