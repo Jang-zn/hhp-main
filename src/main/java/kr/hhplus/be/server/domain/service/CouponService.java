@@ -5,11 +5,13 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.GetCouponByIdUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
+import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class CouponService {
     private final TransactionTemplate transactionTemplate;
     private final GetCouponListUseCase getCouponListUseCase;
     private final IssueCouponUseCase issueCouponUseCase;
+    private final GetCouponByIdUseCase getCouponByIdUseCase;
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final CachePort cachePort;
@@ -111,5 +114,16 @@ public class CouponService {
         } finally {
             lockingPort.releaseLock(lockKey);
         }
+    }
+    
+    /**
+     * 쿠폰 ID로 쿠폰 정보 조회
+     * 
+     * @param couponId 쿠폰 ID
+     * @return 쿠폰 정보
+     * @throws CouponException.NotFound 쿠폰을 찾을 수 없는 경우
+     */
+    public Coupon getCouponById(Long couponId) {
+        return getCouponByIdUseCase.execute(couponId);
     }
 }
