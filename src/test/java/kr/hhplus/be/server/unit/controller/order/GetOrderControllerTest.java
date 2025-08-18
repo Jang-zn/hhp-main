@@ -10,10 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import kr.hhplus.be.server.util.ControllerTestBase;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.stream.Stream;
@@ -25,12 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * OrderController.getOrder 메서드 테스트
  */
-@WebMvcTest(OrderController.class)
+@Transactional
 @DisplayName("주문 조회 컨트롤러 API")
-class GetOrderControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class GetOrderControllerTest extends ControllerTestBase {
 
     @MockitoBean
     private OrderService orderService;
