@@ -1,6 +1,6 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.balance;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.BalanceJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * BalanceJpaRepository 비즈니스 시나리오 테스트
+ * BalanceRepositoryPort 비즈니스 시나리오 테스트
  * 
  * Why: JPA 잔액 저장소의 핵심 기능이 비즈니스 요구사항을 충족하는지 검증
  * How: JPA 기반 잔액 관리 시나리오를 반영한 단위 테스트로 구성
@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DisplayName("JPA 잔액 저장소 비즈니스 시나리오")
-class BalanceJpaRepositoryTest {
+class BalanceRepositoryTest {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
@@ -63,12 +63,8 @@ class BalanceJpaRepositoryTest {
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private BalanceJpaRepository balanceJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        balanceJpaRepository = new BalanceJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private BalanceRepositoryPort balanceRepositoryPort;
 
     // === 잔액 저장 시나리오 ===
 
@@ -77,19 +73,19 @@ class BalanceJpaRepositoryTest {
     void canSaveNewCustomerBalance() {
         // Given - ID가 null인 새로운 엔티티
         Balance newBalance = TestBuilder.BalanceBuilder.defaultBalance()
-                .userId(1L)
+                .userId(101L)
                 .amount(new BigDecimal("100000"))
                 .build();
 
         // When
-        Balance savedBalance = balanceJpaRepository.save(newBalance);
+        Balance savedBalance = balanceRepositoryPort.save(newBalance);
         testEntityManager.flush();
         testEntityManager.clear();
 
         // Then
         Balance foundBalance = testEntityManager.find(Balance.class, savedBalance.getId());
         assertThat(foundBalance).isNotNull();
-        assertThat(foundBalance.getUserId()).isEqualTo(1L);
+        assertThat(foundBalance.getUserId()).isEqualTo(101L);
         assertThat(foundBalance.getAmount()).isEqualByComparingTo(new BigDecimal("100000"));
     }
 
@@ -98,17 +94,17 @@ class BalanceJpaRepositoryTest {
     void canUpdateExistingCustomerBalance() {
         // Given - 먼저 새로운 잔액을 저장
         Balance newBalance = TestBuilder.BalanceBuilder.defaultBalance()
-                .userId(1L)
+                .userId(102L)
                 .amount(new BigDecimal("100000"))
                 .build();
-        Balance savedBalance = balanceJpaRepository.save(newBalance);
+        Balance savedBalance = balanceRepositoryPort.save(newBalance);
         testEntityManager.flush();
         testEntityManager.clear();
         
         // When - 저장된 잔액을 조회하여 수정 (금액 추가)
         Balance existingBalance = testEntityManager.find(Balance.class, savedBalance.getId());
         existingBalance.addAmount(new BigDecimal("100000")); // 100000 추가하여 200000으로 만들기
-        Balance updatedBalance = balanceJpaRepository.save(existingBalance);
+        Balance updatedBalance = balanceRepositoryPort.save(existingBalance);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -124,12 +120,12 @@ class BalanceJpaRepositoryTest {
     void canSaveBalanceWithVariousAmounts(BigDecimal amount) {
         // Given - 새로운 엔티티 (ID가 null)
         Balance balance = TestBuilder.BalanceBuilder.defaultBalance()
-                .userId(1L)
+                .userId(Thread.currentThread().getId() + 200L) // Unique userId for each test
                 .amount(amount)
                 .build();
 
         // When
-        Balance savedBalance = balanceJpaRepository.save(balance);
+        Balance savedBalance = balanceRepositoryPort.save(balance);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -143,7 +139,7 @@ class BalanceJpaRepositoryTest {
     @DisplayName("null 잔액 정보 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullBalance() {
         // When & Then
-        assertThatThrownBy(() -> balanceJpaRepository.save(null))
+        assertThatThrownBy(() -> balanceRepositoryPort.save(null))
             .isInstanceOf(Exception.class);
     }
 
@@ -153,7 +149,7 @@ class BalanceJpaRepositoryTest {
     @DisplayName("고객 ID로 잔액 정보를 조회할 수 있다")
     void canFindBalanceByUserId() {
         // Given
-        Long userId = 1L;
+        Long userId = 301L;
         Balance expectedBalance = TestBuilder.BalanceBuilder.defaultBalance()
                 .userId(userId)
                 .amount(new BigDecimal("150000"))
@@ -163,7 +159,7 @@ class BalanceJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(userId);
+        Optional<Balance> foundBalance = balanceRepositoryPort.findByUserId(userId);
 
         // Then
         assertThat(foundBalance).isPresent();
@@ -178,7 +174,7 @@ class BalanceJpaRepositoryTest {
         Long nonExistentUserId = 999L;
         // 다른 사용자의 잔액 저장
         Balance otherBalance = TestBuilder.BalanceBuilder.defaultBalance()
-                .userId(1L)
+                .userId(501L)
                 .amount(new BigDecimal("100000"))
                 .build();
         testEntityManager.persistAndFlush(otherBalance);
@@ -186,7 +182,7 @@ class BalanceJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<Balance> foundBalance = balanceJpaRepository.findByUserId(nonExistentUserId);
+        Optional<Balance> foundBalance = balanceRepositoryPort.findByUserId(nonExistentUserId);
 
         // Then
         assertThat(foundBalance).isEmpty();
@@ -209,7 +205,7 @@ class BalanceJpaRepositoryTest {
                     .amount(new BigDecimal("10000").multiply(BigDecimal.valueOf(userId % 3 + 1)))
                     .build();
                 try {
-                    Balance saved = balanceJpaRepository.save(balance);
+                    Balance saved = balanceRepositoryPort.save(balance);
                     testEntityManager.getEntityManager().flush();
                     return saved != null ? 1 : 0;
                 } catch (Exception e) {
@@ -239,10 +235,10 @@ class BalanceJpaRepositoryTest {
         ConcurrencyTestHelper.ConcurrencyTestResult result = 
             ConcurrencyTestHelper.executeInParallel(6, () -> {
                 if (Math.random() < 0.5) {
-                    Balance saved = balanceJpaRepository.save(saveBalance);
+                    Balance saved = balanceRepositoryPort.save(saveBalance);
                     return saved != null ? 1 : 0;
                 } else {
-                    Optional<Balance> found = balanceJpaRepository.findByUserId(2L);
+                    Optional<Balance> found = balanceRepositoryPort.findByUserId(2L);
                     return found.isPresent() ? 1 : 0;
                 }
             });
@@ -266,7 +262,7 @@ class BalanceJpaRepositoryTest {
 
         // When & Then
         assertThatThrownBy(() -> {
-            balanceJpaRepository.save(invalidBalance);
+            balanceRepositoryPort.save(invalidBalance);
             testEntityManager.flush();  // Force flush to trigger constraint violation
         }).isInstanceOf(Exception.class);
     }
@@ -278,7 +274,7 @@ class BalanceJpaRepositoryTest {
         Long userId = 999999L;
 
         // When
-        Optional<Balance> result = balanceJpaRepository.findByUserId(userId);
+        Optional<Balance> result = balanceRepositoryPort.findByUserId(userId);
 
         // Then - 예외가 발생해도 빈 Optional 반환
         assertThat(result).isEmpty();

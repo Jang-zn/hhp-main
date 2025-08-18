@@ -1,6 +1,6 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.order;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.PaymentJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.PaymentRepositoryPort;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DisplayName("결제 데이터 저장소 비즈니스 시나리오")
-class PaymentJpaRepositoryTest {
+class PaymentRepositoryTest {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
@@ -49,15 +49,11 @@ class PaymentJpaRepositoryTest {
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private PaymentJpaRepository paymentJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        paymentJpaRepository = new PaymentJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private PaymentRepositoryPort paymentRepositoryPort;
 
     @Test
-    @DisplayName("새로운 결제 정보를 저장할 수 있다")
+    @DisplayName("새로운 결제를 저장할 수 있다")
     void canSaveNewPayment() {
         // Given
         Payment payment = TestBuilder.PaymentBuilder.defaultPayment()
@@ -66,7 +62,7 @@ class PaymentJpaRepositoryTest {
                 .build();
 
         // When
-        Payment savedPayment = paymentJpaRepository.save(payment);
+        Payment savedPayment = paymentRepositoryPort.save(payment);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -78,22 +74,42 @@ class PaymentJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("주문 ID로 결제 정보를 조회할 수 있다")
+    @DisplayName("ID로 결제를 조회할 수 있다")
+    void canFindPaymentById() {
+        // Given
+        Payment payment = TestBuilder.PaymentBuilder.defaultPayment()
+                .orderId(1L)
+                .status(PaymentStatus.PAID)
+                .build();
+        Payment savedPayment = testEntityManager.persistAndFlush(payment);
+        testEntityManager.clear();
+
+        // When
+        Optional<Payment> foundPayment = paymentRepositoryPort.findById(savedPayment.getId());
+
+        // Then
+        assertThat(foundPayment).isPresent();
+        assertThat(foundPayment.get().getOrderId()).isEqualTo(1L);
+        assertThat(foundPayment.get().getStatus()).isEqualTo(PaymentStatus.PAID);
+    }
+
+    @Test
+    @DisplayName("주문 ID로 결제를 조회할 수 있다")
     void canFindPaymentByOrderId() {
         // Given
         Long orderId = 1L;
         Payment payment = TestBuilder.PaymentBuilder.defaultPayment()
                 .orderId(orderId)
-                .status(PaymentStatus.PENDING)
+                .status(PaymentStatus.PAID)
                 .build();
         testEntityManager.persistAndFlush(payment);
         testEntityManager.clear();
 
         // When
-        List<Payment> foundPayments = paymentJpaRepository.findByOrderId(orderId);
+        List<Payment> foundPayments = paymentRepositoryPort.findByOrderId(orderId);
 
         // Then
-        assertThat(foundPayments).hasSize(1);
+        assertThat(foundPayments).isNotEmpty();
         assertThat(foundPayments.get(0).getOrderId()).isEqualTo(orderId);
     }
 
@@ -108,7 +124,7 @@ class PaymentJpaRepositoryTest {
                 .build();
 
         // When
-        Payment savedPayment = paymentJpaRepository.save(payment);
+        Payment savedPayment = paymentRepositoryPort.save(payment);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -118,39 +134,23 @@ class PaymentJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("기본 조회 기능만 테스트")
-    void canPerformBasicQueries() {
+    @DisplayName("존재하지 않는 ID로 조회 시 빈 결과를 반환한다")
+    void returnsEmptyWhenPaymentNotFoundById() {
         // Given
-        Payment payment = TestBuilder.PaymentBuilder.defaultPayment()
-                .orderId(1L)
-                .status(PaymentStatus.PENDING)
-                .build();
-        testEntityManager.persistAndFlush(payment);
-        testEntityManager.clear();
-
-        // When & Then - 기본 조회 기능 확인
-        List<Payment> payments = paymentJpaRepository.findByOrderId(1L);
-        assertThat(payments).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 주문 ID로 조회 시 빈 결과를 반환한다")
-    void returnsEmptyWhenPaymentNotFoundByOrderId() {
-        // Given
-        Long nonExistentOrderId = 999L;
+        Long nonExistentId = 999L;
 
         // When
-        List<Payment> foundPayments = paymentJpaRepository.findByOrderId(nonExistentOrderId);
+        Optional<Payment> foundPayment = paymentRepositoryPort.findById(nonExistentId);
 
         // Then
-        assertThat(foundPayments).isEmpty();
+        assertThat(foundPayment).isEmpty();
     }
 
     @Test
-    @DisplayName("null 결제 정보 저장 시도는 예외가 발생한다")
+    @DisplayName("null 결제 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullPayment() {
         // When & Then
-        assertThatThrownBy(() -> paymentJpaRepository.save(null))
+        assertThatThrownBy(() -> paymentRepositoryPort.save(null))
                 .isInstanceOf(Exception.class);
     }
 }
