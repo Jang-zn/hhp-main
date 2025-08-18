@@ -33,8 +33,7 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
                                                      @Param("status") CouponHistoryStatus status);
     
     /**
-     * 사용자의 사용 가능한 쿠폰 개수를 조회합니다.
-     * 특정 상태이면서 만료되지 않은 쿠폰만 카운트합니다.
+     * 사용자의 사용 가능한 쿠폰 개수를 조회.
      * 
      * @param userId 사용자 ID
      * @param status 쿠폰 히스토리 상태
@@ -48,8 +47,7 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
                                    @Param("now") LocalDateTime now);
     
     /**
-     * 사용자의 발급된 상태에서 사용 가능한 쿠폰 개수를 조회합니다.
-     * 기본적으로 ISSUED 상태이면서 현재 시간 기준으로 만료되지 않은 쿠폰을 카운트합니다.
+     * 사용자의 발급된 상태에서 사용 가능한 쿠폰 개수를 조회.
      * 
      * @param userId 사용자 ID
      * @return 사용 가능한 쿠폰 개수
