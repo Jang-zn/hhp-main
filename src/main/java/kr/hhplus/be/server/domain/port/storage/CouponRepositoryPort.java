@@ -2,24 +2,26 @@ package kr.hhplus.be.server.domain.port.storage;
 
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
-public interface CouponRepositoryPort {
-    Optional<Coupon> findById(Long id);
-    Coupon save(Coupon coupon);
-    
-    /**
-     * 특정 상태의 쿠폰들을 조회합니다.
-     */
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface CouponRepositoryPort extends JpaRepository<Coupon, Long> {
     List<Coupon> findByStatus(CouponStatus status);
     
-    /**
-     * 만료되었지만 특정 상태가 아닌 쿠폰들을 조회합니다.
-     */
-    List<Coupon> findExpiredCouponsNotInStatus(LocalDateTime now, CouponStatus... excludeStatuses);
+    @Query("SELECT c FROM Coupon c WHERE c.endDate < :now AND c.status NOT IN (:excludeStatuses)")
+    List<Coupon> findExpiredCouponsNotInStatus(@Param("now") LocalDateTime now, 
+                                               @Param("excludeStatuses") Collection<CouponStatus> excludeStatuses);
+    
+    @Query("SELECT c FROM Coupon c WHERE c.endDate < :now")
+    List<Coupon> findExpiredCoupons(@Param("now") LocalDateTime now);
     
     /**
      * 상태별 쿠폰 수를 조회합니다.

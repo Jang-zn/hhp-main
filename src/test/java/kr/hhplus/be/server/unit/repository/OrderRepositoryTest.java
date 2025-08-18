@@ -1,6 +1,6 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.order;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.OrderJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DisplayName("주문 데이터 저장소 비즈니스 시나리오")
-class OrderJpaRepositoryTest {
+class OrderRepositoryTest {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
@@ -46,12 +46,8 @@ class OrderJpaRepositoryTest {
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private OrderJpaRepository orderJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        orderJpaRepository = new OrderJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private OrderRepositoryPort orderRepositoryPort;
 
     @Test
     @DisplayName("새로운 주문을 저장할 수 있다")
@@ -62,7 +58,7 @@ class OrderJpaRepositoryTest {
                 .build();
 
         // When
-        Order savedOrder = orderJpaRepository.save(order);
+        Order savedOrder = orderRepositoryPort.save(order);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -83,7 +79,7 @@ class OrderJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<Order> foundOrder = orderJpaRepository.findById(savedOrder.getId());
+        Optional<Order> foundOrder = orderRepositoryPort.findById(savedOrder.getId());
 
         // Then
         assertThat(foundOrder).isPresent();
@@ -104,7 +100,7 @@ class OrderJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        List<Order> orders = orderJpaRepository.findByUserId(userId);
+        List<Order> orders = orderRepositoryPort.findByUserId(userId);
 
         // Then
         assertThat(orders).hasSize(3);
@@ -118,7 +114,7 @@ class OrderJpaRepositoryTest {
         Long nonExistentId = 999L;
 
         // When
-        Optional<Order> foundOrder = orderJpaRepository.findById(nonExistentId);
+        Optional<Order> foundOrder = orderRepositoryPort.findById(nonExistentId);
 
         // Then
         assertThat(foundOrder).isEmpty();
@@ -128,7 +124,7 @@ class OrderJpaRepositoryTest {
     @DisplayName("null 주문 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullOrder() {
         // When & Then
-        assertThatThrownBy(() -> orderJpaRepository.save(null))
+        assertThatThrownBy(() -> orderRepositoryPort.save(null))
                 .isInstanceOf(Exception.class);
     }
 }

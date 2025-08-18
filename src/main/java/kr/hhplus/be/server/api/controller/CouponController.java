@@ -12,9 +12,7 @@ import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.exception.CouponException;
 import kr.hhplus.be.server.domain.service.CouponService;
-import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -37,15 +35,13 @@ import java.util.Optional;
 public class CouponController {
     
     private final CouponService couponService;
-    private final CouponRepositoryPort couponRepositoryPort;
 
     @CouponApiDocs(summary = "쿠폰 발급", description = "사용자에게 쿠폰을 발급합니다")
     @PostMapping("/issue")
     @ResponseStatus(HttpStatus.CREATED)
     public CouponResponse issueCoupon(@Valid @RequestBody CouponRequest request) {
         CouponHistory couponHistory = couponService.issueCoupon(request.getCouponId(), request.getUserId());
-        Coupon coupon = couponRepositoryPort.findById(couponHistory.getCouponId())
-                .orElseThrow(() -> new CouponException.NotFound());
+        Coupon coupon = couponService.getCouponById(couponHistory.getCouponId());
         
         return new CouponResponse(
                 couponHistory.getId(),
@@ -73,7 +69,7 @@ public class CouponController {
                 .map(history -> safeCouponLookup(history))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(Collectors.toList());
+                .toList();
     }
     
     /**
@@ -85,15 +81,8 @@ public class CouponController {
      */
     private Optional<CouponResponse> safeCouponLookup(CouponHistory history) {
         try {
-            Optional<Coupon> couponOpt = couponRepositoryPort.findById(history.getCouponId());
+            Coupon coupon = couponService.getCouponById(history.getCouponId());
             
-            if (couponOpt.isEmpty()) {
-                log.warn("쿠폰 정보를 찾을 수 없습니다 - historyId: {}, couponId: {}", 
-                        history.getId(), history.getCouponId());
-                return Optional.empty();
-            }
-            
-            Coupon coupon = couponOpt.get();
             CouponResponse response = new CouponResponse(
                     history.getId(),
                     history.getUserId(),
@@ -110,6 +99,10 @@ public class CouponController {
             
             return Optional.of(response);
             
+        } catch (CouponException.NotFound e) {
+            log.warn("쿠폰 정보를 찾을 수 없습니다 - historyId: {}, couponId: {}", 
+                    history.getId(), history.getCouponId());
+            return Optional.empty();
         } catch (Exception e) {
             log.error("쿠폰 조회 중 예외 발생 - historyId: {}, couponId: {}", 
                     history.getId(), history.getCouponId(), e);

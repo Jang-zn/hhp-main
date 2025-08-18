@@ -1,6 +1,6 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.user;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.UserJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@DisplayName("JPA 사용자 저장소 비즈니스 시나리오")
-class UserJpaRepositoryTest {
+@DisplayName("사용자 Repository 단위 테스트")
+class UserRepositoryTest {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
@@ -47,12 +47,8 @@ class UserJpaRepositoryTest {
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private UserJpaRepository userJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        userJpaRepository = new UserJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private UserRepositoryPort userRepositoryPort;
 
     @Test
     @DisplayName("신규 사용자를 JPA를 통해 저장할 수 있다")
@@ -63,7 +59,7 @@ class UserJpaRepositoryTest {
                 .build();
 
         // When
-        User savedUser = userJpaRepository.save(newUser);
+        User savedUser = userRepositoryPort.save(newUser);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -89,7 +85,7 @@ class UserJpaRepositoryTest {
                 .name("변경된이름")
                 .version(savedUser.getVersion()) // version 필드 추가
                 .build();
-        updatedUser = userJpaRepository.save(updatedUser);
+        updatedUser = userRepositoryPort.save(updatedUser);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -108,7 +104,7 @@ class UserJpaRepositoryTest {
                 .build();
 
         // When
-        User savedUser = userJpaRepository.save(user);
+        User savedUser = userRepositoryPort.save(user);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -121,7 +117,7 @@ class UserJpaRepositoryTest {
     @DisplayName("null 사용자 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullUser() {
         // When & Then
-        assertThatThrownBy(() -> userJpaRepository.save(null))
+        assertThatThrownBy(() -> userRepositoryPort.save(null))
                 .isInstanceOf(Exception.class);
     }
 
@@ -136,7 +132,7 @@ class UserJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<User> foundUser = userJpaRepository.findById(savedUser.getId());
+        Optional<User> foundUser = userRepositoryPort.findById(savedUser.getId());
 
         // Then
         assertThat(foundUser).isPresent();
@@ -150,20 +146,18 @@ class UserJpaRepositoryTest {
         Long nonExistentId = 999L;
 
         // When
-        Optional<User> foundUser = userJpaRepository.findById(nonExistentId);
+        Optional<User> foundUser = userRepositoryPort.findById(nonExistentId);
 
         // Then
         assertThat(foundUser).isEmpty();
     }
 
     @Test
-    @DisplayName("null ID로 조회 시도 시 빈 결과를 반환한다")
-    void returnsEmptyWhenFindingByNullId() {
-        // When
-        Optional<User> result = userJpaRepository.findById(null);
-        
-        // Then
-        assertThat(result).isEmpty();
+    @DisplayName("null ID로 조회 시도 시 예외가 발생한다")
+    void throwsExceptionWhenFindingByNullId() {
+        // When & Then
+        assertThatThrownBy(() -> userRepositoryPort.findById(null))
+                .isInstanceOf(Exception.class);
     }
 
     @Test
@@ -177,7 +171,7 @@ class UserJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        boolean exists = userJpaRepository.existsById(savedUser.getId());
+        boolean exists = userRepositoryPort.existsById(savedUser.getId());
 
         // Then
         assertThat(exists).isTrue();
@@ -190,20 +184,18 @@ class UserJpaRepositoryTest {
         Long nonExistentId = 999L;
 
         // When
-        boolean exists = userJpaRepository.existsById(nonExistentId);
+        boolean exists = userRepositoryPort.existsById(nonExistentId);
 
         // Then
         assertThat(exists).isFalse();
     }
 
     @Test
-    @DisplayName("null ID로 존재 여부 확인 시도 시 false를 반환한다")
-    void returnsFalseWhenCheckingExistenceWithNullId() {
-        // When
-        boolean exists = userJpaRepository.existsById(null);
-        
-        // Then
-        assertThat(exists).isFalse();
+    @DisplayName("null ID로 존재 여부 확인 시도 시 예외가 발생한다")
+    void throwsExceptionWhenCheckingExistenceWithNullId() {
+        // When & Then
+        assertThatThrownBy(() -> userRepositoryPort.existsById(null))
+                .isInstanceOf(Exception.class);
     }
 
     @Test
@@ -213,7 +205,7 @@ class UserJpaRepositoryTest {
         Long nonExistentId = 999999L;
 
         // When
-        Optional<User> result = userJpaRepository.findById(nonExistentId);
+        Optional<User> result = userRepositoryPort.findById(nonExistentId);
         
         // Then
         assertThat(result).isEmpty();
@@ -229,7 +221,7 @@ class UserJpaRepositoryTest {
 
         // When & Then
         assertThatThrownBy(() -> {
-            userJpaRepository.save(invalidUser);
+            userRepositoryPort.save(invalidUser);
             testEntityManager.flush(); // 제약 조건 검증을 위해 flush
         }).isInstanceOf(Exception.class);
     }

@@ -25,6 +25,9 @@ import java.util.Collections;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -63,7 +66,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -73,7 +76,7 @@ class GetOrderListUseCaseTest {
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
         assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
+        verify(orderRepositoryPort).findByUserId(eq(customer.getId()), any(Pageable.class));
     }
 
     @Test
@@ -87,7 +90,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(dbOrders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(dbOrders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -96,7 +99,7 @@ class GetOrderListUseCaseTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
+        verify(orderRepositoryPort).findByUserId(eq(customer.getId()), any(Pageable.class));
     }
 
     @Test
@@ -107,7 +110,7 @@ class GetOrderListUseCaseTest {
             .id(1L).name("신규고객").build();
         
         when(userRepositoryPort.existsById(newCustomer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(newCustomer.getId(), 50, 0)).thenReturn(Collections.emptyList());
+        when(orderRepositoryPort.findByUserId(eq(newCustomer.getId()), any(Pageable.class))).thenReturn(Collections.emptyList());
 
         // When
         List<Order> result = getOrderListUseCase.execute(newCustomer.getId());
@@ -133,7 +136,7 @@ class GetOrderListUseCaseTest {
         }
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -157,7 +160,7 @@ class GetOrderListUseCaseTest {
             .isInstanceOf(UserException.NotFound.class)
             .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
             
-        verify(orderRepositoryPort, never()).findByUserId(any(Long.class), anyInt(), anyInt());
+        verify(orderRepositoryPort, never()).findByUserId(any(Long.class), any(Pageable.class));
     }
 
 
@@ -177,7 +180,7 @@ class GetOrderListUseCaseTest {
             );
             
             when(userRepositoryPort.existsById(customerId)).thenReturn(true);
-            when(orderRepositoryPort.findByUserId(customerId, 50, 0)).thenReturn(orders);
+            when(orderRepositoryPort.findByUserId(eq(customerId), any(Pageable.class))).thenReturn(orders);
         }
         
         // When
@@ -209,7 +212,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
         
         // When
         int numberOfRequests = 5;

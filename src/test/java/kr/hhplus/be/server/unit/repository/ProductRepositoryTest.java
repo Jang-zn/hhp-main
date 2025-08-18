@@ -1,6 +1,6 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.product;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.ProductJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DisplayName("JPA 상품 저장소 비즈니스 시나리오")
-class ProductJpaRepositoryTest {
+class ProductRepositoryTest {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
@@ -51,12 +51,8 @@ class ProductJpaRepositoryTest {
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private ProductJpaRepository productJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        productJpaRepository = new ProductJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private ProductRepositoryPort productRepositoryPort;
 
     @Test
     @DisplayName("새로운 상품을 저장할 수 있다")
@@ -70,7 +66,7 @@ class ProductJpaRepositoryTest {
                 .build();
 
         // When
-        Product savedProduct = productJpaRepository.save(product);
+        Product savedProduct = productRepositoryPort.save(product);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -96,7 +92,7 @@ class ProductJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<Product> foundProduct = productJpaRepository.findById(savedProduct.getId());
+        Optional<Product> foundProduct = productRepositoryPort.findById(savedProduct.getId());
 
         // Then
         assertThat(foundProduct).isPresent();
@@ -117,7 +113,7 @@ class ProductJpaRepositoryTest {
         testEntityManager.clear();
 
         // When & Then - 기본 조회 기능 확인
-        Optional<Product> found = productJpaRepository.findById(product.getId());
+        Optional<Product> found = productRepositoryPort.findById(product.getId());
         assertThat(found).isPresent();
         assertThat(found.get().getName()).isEqualTo("테스트상품");
     }
@@ -135,7 +131,7 @@ class ProductJpaRepositoryTest {
                 .build();
 
         // When
-        Product savedProduct = productJpaRepository.save(product);
+        Product savedProduct = productRepositoryPort.save(product);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -153,7 +149,7 @@ class ProductJpaRepositoryTest {
         Long nonExistentId = 999L;
 
         // When
-        Optional<Product> foundProduct = productJpaRepository.findById(nonExistentId);
+        Optional<Product> foundProduct = productRepositoryPort.findById(nonExistentId);
 
         // Then
         assertThat(foundProduct).isEmpty();
@@ -163,7 +159,7 @@ class ProductJpaRepositoryTest {
     @DisplayName("null 상품 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullProduct() {
         // When & Then
-        assertThatThrownBy(() -> productJpaRepository.save(null))
+        assertThatThrownBy(() -> productRepositoryPort.save(null))
                 .isInstanceOf(Exception.class);
     }
 

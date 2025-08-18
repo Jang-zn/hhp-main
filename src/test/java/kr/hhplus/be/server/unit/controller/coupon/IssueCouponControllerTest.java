@@ -1,11 +1,11 @@
 package kr.hhplus.be.server.unit.controller.coupon;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.hhplus.be.server.api.controller.CouponController;
 import kr.hhplus.be.server.api.dto.request.CouponRequest;
 import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.service.CouponService;
+import kr.hhplus.be.server.util.ControllerTestBase;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
@@ -16,10 +16,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.stream.Stream;
@@ -35,12 +34,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 쿠폰 발급 API 엔드포인트가 비즈니스 요구사항을 올바르게 처리하고 Bean Validation이 작동하는지 검증
  * How: MockMvc를 사용한 통합 테스트로 HTTP 요청/응답 전체 플로우 검증
  */
-@WebMvcTest(CouponController.class)
+@Transactional
 @DisplayName("쿠폰 발급 컨트롤러 API")
-class IssueCouponControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class IssueCouponControllerTest extends ControllerTestBase {
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -48,8 +44,6 @@ class IssueCouponControllerTest {
     @MockitoBean
     private CouponService couponService;
 
-    @MockitoBean
-    private kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort couponRepositoryPort;
 
     @Test
     @DisplayName("고객이 쿠폰을 성공적으로 발급받는다")
@@ -68,14 +62,15 @@ class IssueCouponControllerTest {
 
         when(couponService.issueCoupon(couponId, customerId)).thenReturn(issuedCoupon);
         
-        // Mock the coupon entity
+        // Mock the coupon entity and getCouponById call
         Coupon mockCoupon = TestBuilder.CouponBuilder.defaultCoupon()
                 .id(couponId)
                 .code("DISCOUNT_10")
                 .discountRate(new BigDecimal("0.10"))
                 .status(CouponStatus.ACTIVE)
                 .build();
-        when(couponRepositoryPort.findById(couponId)).thenReturn(java.util.Optional.of(mockCoupon));
+        
+        when(couponService.getCouponById(couponId)).thenReturn(mockCoupon);
 
         // when & then
         mockMvc.perform(post("/api/coupon/issue")

@@ -10,7 +10,6 @@ import kr.hhplus.be.server.domain.service.ProductService;
 import org.springframework.validation.annotation.Validated;
 
 
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +39,7 @@ public class ProductController {
                         product.getPrice(),
                         product.getStock()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @ProductApiDocs(summary = "인기 상품 조회", description = "지정된 기간 동안의 인기 상품을 조회합니다")
@@ -54,6 +53,6 @@ public class ProductController {
                         product.getPrice(),
                         product.getStock()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 } 

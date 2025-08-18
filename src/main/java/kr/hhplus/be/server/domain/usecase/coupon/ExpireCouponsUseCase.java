@@ -9,7 +9,6 @@ import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,9 +48,10 @@ public class ExpireCouponsUseCase {
     
     private int expireCoupons(LocalDateTime now) {
         // 만료되었지만 아직 EXPIRED 상태가 아닌 쿠폰들 조회
-        List<Coupon> expiredCoupons = couponRepositoryPort.findExpiredCouponsNotInStatus(
-                now, CouponStatus.EXPIRED, CouponStatus.DISABLED
-        );
+        List<CouponStatus> excludeStatuses = List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED);
+        List<Coupon> expiredCoupons = excludeStatuses.isEmpty() 
+                ? couponRepositoryPort.findExpiredCoupons(now)
+                : couponRepositoryPort.findExpiredCouponsNotInStatus(now, excludeStatuses);
         
         if (expiredCoupons.isEmpty()) {
             log.debug("만료 처리할 쿠폰이 없습니다");

@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.GetCouponByIdUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -44,6 +45,9 @@ class IssueCouponTest {
     private IssueCouponUseCase issueCouponUseCase;
     
     @Mock
+    private GetCouponByIdUseCase getCouponByIdUseCase;
+    
+    @Mock
     private LockingPort lockingPort;
     
     @Mock
@@ -60,7 +64,7 @@ class IssueCouponTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        couponService = new CouponService(transactionTemplate, getCouponListUseCase, issueCouponUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
+        couponService = new CouponService(transactionTemplate, getCouponListUseCase, issueCouponUseCase, getCouponByIdUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test
