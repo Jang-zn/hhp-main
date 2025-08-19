@@ -10,7 +10,9 @@ import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import org.springframework.context.ApplicationEventPublisher;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -45,8 +47,10 @@ class CreateOrderTest {
     @Mock private LockingPort lockingPort;
     @Mock private UserRepositoryPort userRepositoryPort;
     @Mock private OrderRepositoryPort orderRepositoryPort;
+    @Mock private OrderItemRepositoryPort orderItemRepositoryPort;
     @Mock private CachePort cachePort;
     @Mock private KeyGenerator keyGenerator;
+    @Mock private ApplicationEventPublisher eventPublisher;
     
     private OrderService orderService;
     
@@ -56,7 +60,8 @@ class CreateOrderTest {
         orderService = new OrderService(
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
-            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, 
+            orderItemRepositoryPort, cachePort, keyGenerator, eventPublisher
         );
     }
 
