@@ -103,7 +103,7 @@ public class CouponService {
         String couponUserKey = keyGenerator.generateCouponUserKey(couponId, userId);
         
         // Redis에서 원자적 선착순 처리
-        long issueNumber = cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, coupon.getMaxCount());
+        long issueNumber = cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, coupon.getMaxIssuance());
         
         if (issueNumber == -1) {
             // 중복 발급 또는 한도 초과

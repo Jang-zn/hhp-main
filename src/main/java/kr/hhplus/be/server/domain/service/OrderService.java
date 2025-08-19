@@ -15,6 +15,7 @@ import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
@@ -53,6 +54,7 @@ public class OrderService {
     private final LockingPort lockingPort;
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final CachePort cachePort;
     private final KeyGenerator keyGenerator;
     private final ApplicationEventPublisher eventPublisher;
@@ -274,16 +276,20 @@ public class OrderService {
             cachePort.evictByPattern(listCacheKeyPattern);
             
             // 3. 주문 완료 이벤트 발행 (랭킹 업데이트용)
-            if (updatedOrder != null && updatedOrder.getOrderItems() != null) {
-                List<OrderCompletedEvent.ProductOrderInfo> productOrders = updatedOrder.getOrderItems().stream()
-                        .map(item -> new OrderCompletedEvent.ProductOrderInfo(item.getProductId(), item.getQuantity()))
-                        .toList();
-                
-                OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
-                eventPublisher.publishEvent(event);
-                
-                log.debug("Published order completed event: orderId={}, productCount={}", 
-                         orderId, productOrders.size());
+            if (updatedOrder != null) {
+                // OrderItem 정보를 별도로 조회
+                var orderItems = orderItemRepositoryPort.findByOrderId(orderId);
+                if (!orderItems.isEmpty()) {
+                    List<OrderCompletedEvent.ProductOrderInfo> productOrders = orderItems.stream()
+                            .map(item -> new OrderCompletedEvent.ProductOrderInfo(item.getProductId(), item.getQuantity()))
+                            .toList();
+                    
+                    OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
+                    eventPublisher.publishEvent(event);
+                    
+                    log.debug("Published order completed event: orderId={}, productCount={}", 
+                             orderId, productOrders.size());
+                }
             }
             
             return result;
