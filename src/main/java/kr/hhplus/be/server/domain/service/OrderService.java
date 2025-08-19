@@ -20,10 +20,12 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.enums.CacheTTL;
+import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -53,6 +55,7 @@ public class OrderService {
     private final OrderRepositoryPort orderRepositoryPort;
     private final CachePort cachePort;
     private final KeyGenerator keyGenerator;
+    private final ApplicationEventPublisher eventPublisher;
     
 
     /**
@@ -269,6 +272,19 @@ public class OrderService {
             // 2. 주문 목록 캐시는 무효화 (상태 변경 반영)
             String listCacheKeyPattern = keyGenerator.generateOrderListCachePattern(userId);
             cachePort.evictByPattern(listCacheKeyPattern);
+            
+            // 3. 주문 완료 이벤트 발행 (랭킹 업데이트용)
+            if (updatedOrder != null && updatedOrder.getOrderItems() != null) {
+                List<OrderCompletedEvent.ProductOrderInfo> productOrders = updatedOrder.getOrderItems().stream()
+                        .map(item -> new OrderCompletedEvent.ProductOrderInfo(item.getProductId(), item.getQuantity()))
+                        .toList();
+                
+                OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
+                eventPublisher.publishEvent(event);
+                
+                log.debug("Published order completed event: orderId={}, productCount={}", 
+                         orderId, productOrders.size());
+            }
             
             return result;
             
