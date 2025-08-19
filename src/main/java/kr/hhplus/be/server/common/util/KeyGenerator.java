@@ -34,6 +34,9 @@ public class KeyGenerator {
     private static final String POPULAR_TYPE = "popular";
     private static final String STATS_TYPE = "stats";
     private static final String HISTORY_TYPE = "history";
+    private static final String RANKING_TYPE = "ranking";
+    private static final String COUNTER_TYPE = "counter";
+    private static final String USER_TYPE = "user";
     
     private static final String SEPARATOR = ":";
     
@@ -310,5 +313,33 @@ public class KeyGenerator {
      */
     public String generatePopularProductCachePattern() {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, "*");
+    }
+    
+    // ========================= 랭킹 시스템 키 생성 메서드들 =========================
+    
+    public String generateDailyRankingKey(String date) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "daily", date);
+    }
+    
+    public String generateWeeklyRankingKey(String week) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "weekly", week);
+    }
+    
+    public String generateMonthlyRankingKey(String month) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "monthly", month);
+    }
+    
+    public String generateProductRankingKey(Long productId) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, "key", "product_" + productId);
+    }
+    
+    // ========================= 선착순 쿠폰 키 생성 메서드들 =========================
+    
+    public String generateCouponCounterKey(Long couponId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, COUNTER_TYPE, "coupon_" + couponId);
+    }
+    
+    public String generateCouponUserKey(Long couponId, Long userId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, USER_TYPE, "coupon_" + couponId + "_user_" + userId);
     }
 }
