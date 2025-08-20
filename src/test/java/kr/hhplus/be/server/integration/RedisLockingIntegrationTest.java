@@ -1,12 +1,10 @@
 package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.adapter.locking.RedisLockingAdapter;
-import kr.hhplus.be.server.config.RedisConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -21,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 
  * 실제 Redis 컨테이너를 사용하여 분산 락의 동작을 검증한다.
  */
-@Import(RedisConfig.class)
 @DisplayName("Redis 분산 락 통합 테스트")
 class RedisLockingIntegrationTest extends IntegrationTestBase {
     

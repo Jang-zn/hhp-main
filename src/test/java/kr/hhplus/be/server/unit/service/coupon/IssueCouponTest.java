@@ -78,9 +78,22 @@ class IssueCouponTest {
                 .couponId(couponId)
                 .build();
         
+        // 쿠폰 정보 mock
+        var coupon = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId)
+                .withQuantity(100, 0)
+                .build();
+        
         String lockKey = "coupon:lock:coupon_1";
-        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
+        String couponCounterKey = "coupon:counter:1";
+        String couponUserKey = "coupon:user:1:1";
+        
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
+        when(getCouponByIdUseCase.execute(couponId)).thenReturn(coupon);
+        when(keyGenerator.generateCouponCounterKey(couponId)).thenReturn(couponCounterKey);
+        when(keyGenerator.generateCouponUserKey(couponId, userId)).thenReturn(couponUserKey);
+        when(cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, 100)).thenReturn(1L);
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(lockingPort.acquireLock(lockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
@@ -96,12 +109,12 @@ class IssueCouponTest {
         assertThat(result).isNotNull();
         assertThat(result).isEqualTo(expectedHistory);
         
-        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
+        verify(getCouponByIdUseCase).execute(couponId);
+        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate).execute(any());
         verify(issueCouponUseCase).execute(userId, couponId);
-        verify(keyGenerator).generateCouponListCachePattern(userId);
         verify(cachePort).evictByPattern("coupon:list:user_1_*");
         verify(lockingPort).releaseLock(lockKey);
     }
@@ -113,17 +126,31 @@ class IssueCouponTest {
         Long userId = 1L;
         Long couponId = 1L;
         
+        // 쿠폰 정보 mock
+        var coupon = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId)
+                .withQuantity(100, 0)
+                .build();
+        
         String lockKey = "coupon:lock:coupon_1";
-        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
+        String couponCounterKey = "coupon:counter:1";
+        String couponUserKey = "coupon:user:1:1";
+        
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
+        when(getCouponByIdUseCase.execute(couponId)).thenReturn(coupon);
+        when(keyGenerator.generateCouponCounterKey(couponId)).thenReturn(couponCounterKey);
+        when(keyGenerator.generateCouponUserKey(couponId, userId)).thenReturn(couponUserKey);
+        when(cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, 100)).thenReturn(1L);
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(lockingPort.acquireLock(lockKey)).thenReturn(false);
         
         // when & then
         assertThatThrownBy(() -> couponService.issueCoupon(couponId, userId))
             .isInstanceOf(CommonException.ConcurrencyConflict.class);
             
-        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
+        verify(getCouponByIdUseCase).execute(couponId);
+        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate, never()).execute(any());
         verify(issueCouponUseCase, never()).execute(any(), any());
@@ -137,9 +164,22 @@ class IssueCouponTest {
         Long userId = 1L;
         Long couponId = 1L;
         
+        // 쿠폰 정보 mock
+        var coupon = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId)
+                .withQuantity(100, 0)
+                .build();
+        
         String lockKey = "coupon:lock:coupon_1";
-        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
+        String couponCounterKey = "coupon:counter:1";
+        String couponUserKey = "coupon:user:1:1";
+        
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
+        when(getCouponByIdUseCase.execute(couponId)).thenReturn(coupon);
+        when(keyGenerator.generateCouponCounterKey(couponId)).thenReturn(couponCounterKey);
+        when(keyGenerator.generateCouponUserKey(couponId, userId)).thenReturn(couponUserKey);
+        when(cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, 100)).thenReturn(1L);
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
         when(lockingPort.acquireLock(lockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
@@ -152,8 +192,9 @@ class IssueCouponTest {
         assertThatThrownBy(() -> couponService.issueCoupon(couponId, userId))
             .isInstanceOf(CouponException.NotFound.class);
             
-        verify(keyGenerator).generateCouponKey(couponId);
         verify(userRepositoryPort).existsById(userId);
+        verify(getCouponByIdUseCase).execute(couponId);
+        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate).execute(any());
         verify(issueCouponUseCase).execute(userId, couponId);
@@ -180,31 +221,51 @@ class IssueCouponTest {
     }
     
     @Test
-    @DisplayName("동일 쿠폰에 대한 동시 발급 요청 시 락으로 인한 순차 처리가 보장된다")
-    void issueCoupon_ConcurrentSameCouponRequests_SequentialProcessing() throws InterruptedException {
+    @DisplayName("동일 쿠폰에 대한 동시 발급 요청 시 Redis 원자적 연산으로 선착순 처리가 보장된다")
+    void issueCoupon_ConcurrentSameCouponRequests_RedisAtomicProcessing() throws InterruptedException {
         // given
         Long couponId = 1L;
         Long userId1 = 1L;
         Long userId2 = 2L;
+        
+        // 쿠폰 정보 mock
+        var coupon = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId)
+                .withQuantity(100, 0)
+                .build();
+        
         CouponHistory expectedHistory = TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                 .couponId(couponId)
+                .userId(userId1)
                 .build();
         
         String lockKey = "coupon:lock:coupon_1";
-        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
+        String couponCounterKey = "coupon:counter:1";
+        String couponUserKey1 = "coupon:user:1:1";
+        String couponUserKey2 = "coupon:user:1:2";
+        
+        // 공통 mock 설정
         when(userRepositoryPort.existsById(userId1)).thenReturn(true);
         when(userRepositoryPort.existsById(userId2)).thenReturn(true);
-        // 첫 번째 스레드만 락 획득 성공
-        when(lockingPort.acquireLock(lockKey))
-            .thenReturn(true)  // 첫 번째 호출만 성공
-            .thenReturn(false); // 두 번째는 실패
+        when(getCouponByIdUseCase.execute(couponId)).thenReturn(coupon);
+        when(keyGenerator.generateCouponCounterKey(couponId)).thenReturn(couponCounterKey);
+        when(keyGenerator.generateCouponUserKey(couponId, userId1)).thenReturn(couponUserKey1);
+        when(keyGenerator.generateCouponUserKey(couponId, userId2)).thenReturn(couponUserKey2);
+        when(keyGenerator.generateCouponKey(couponId)).thenReturn(lockKey);
+        when(lockingPort.acquireLock(lockKey)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
         });
         when(issueCouponUseCase.execute(anyLong(), eq(couponId))).thenReturn(expectedHistory);
-        when(keyGenerator.generateCouponListCachePattern(userId1)).thenReturn("coupon:list:user_1_*");
-        when(keyGenerator.generateCouponListCachePattern(userId2)).thenReturn("coupon:list:user_2_*");
+        when(keyGenerator.generateCouponListCachePattern(anyLong())).thenReturn("coupon:list:user_*");
+        
+        // Redis 원자적 연산: 첫 번째는 성공, 두 번째는 실패 (한도 초과)
+        when(cachePort.issueCouponAtomically(couponCounterKey, couponUserKey1, 100))
+            .thenReturn(1L); // 첫 번째 발급 성공
+        when(cachePort.issueCouponAtomically(couponCounterKey, couponUserKey2, 100))
+            .thenReturn(-1L); // 두 번째 발급 실패 (한도 초과)
+        when(cachePort.hasCouponIssued(couponUserKey2)).thenReturn(false); // 중복 발급 아님
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(
@@ -212,29 +273,29 @@ class IssueCouponTest {
                 () -> {
                     try {
                         couponService.issueCoupon(couponId, userId1);
-                    } catch (CommonException.ConcurrencyConflict e) {
-                        throw new RuntimeException("LOCK_FAILED");
                     } catch (Exception e) {
-                        throw new RuntimeException("OTHER_ERROR");
+                        throw new RuntimeException("USER1_FAILED: " + e.getMessage());
                     }
                 },
                 () -> {
                     try {
                         couponService.issueCoupon(couponId, userId2);
-                    } catch (CommonException.ConcurrencyConflict e) {
-                        throw new RuntimeException("LOCK_FAILED");
+                    } catch (CouponException.OutOfStock e) {
+                        throw new RuntimeException("OUT_OF_STOCK"); // 예상된 예외
                     } catch (Exception e) {
-                        throw new RuntimeException("OTHER_ERROR");
+                        throw new RuntimeException("USER2_FAILED: " + e.getMessage());
                     }
                 }
             )
         );
         
         assertThat(result.getSuccessCount()).isEqualTo(1); // 하나만 성공
-        assertThat(result.getFailureCount()).isEqualTo(1); // 하나는 락 실패
+        assertThat(result.getFailureCount()).isEqualTo(1); // 하나는 재고 부족으로 실패
         
-        verify(keyGenerator, atLeast(1)).generateCouponKey(couponId);
-        verify(lockingPort, times(2)).acquireLock(lockKey);
+        verify(getCouponByIdUseCase, times(2)).execute(couponId);
+        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey1, 100);
+        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey2, 100);
+        verify(lockingPort, times(1)).acquireLock(lockKey); // 성공한 요청만 락 획득
         verify(transactionTemplate, times(1)).execute(any());
         verify(issueCouponUseCase, times(1)).execute(anyLong(), eq(couponId));
         verify(lockingPort, times(1)).releaseLock(lockKey);
@@ -249,6 +310,16 @@ class IssueCouponTest {
         Long userId1 = 1L;
         Long userId2 = 2L;
         
+        // 쿠폰 정보 mock
+        var coupon1 = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId1)
+                .withQuantity(100, 0)
+                .build();
+        var coupon2 = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(couponId2)
+                .withQuantity(100, 0)
+                .build();
+        
         CouponHistory expectedHistory1 = TestBuilder.CouponHistoryBuilder.defaultCouponHistory()
                 .userId(userId1)
                 .couponId(couponId1)
@@ -260,10 +331,24 @@ class IssueCouponTest {
         
         String lockKey1 = "coupon:lock:coupon_1";
         String lockKey2 = "coupon:lock:coupon_2";
-        when(keyGenerator.generateCouponKey(couponId1)).thenReturn(lockKey1);
-        when(keyGenerator.generateCouponKey(couponId2)).thenReturn(lockKey2);
+        String couponCounterKey1 = "coupon:counter:1";
+        String couponCounterKey2 = "coupon:counter:2";
+        String couponUserKey1 = "coupon:user:1:1";
+        String couponUserKey2 = "coupon:user:2:2";
+        
+        // Mock 설정
         when(userRepositoryPort.existsById(userId1)).thenReturn(true);
         when(userRepositoryPort.existsById(userId2)).thenReturn(true);
+        when(getCouponByIdUseCase.execute(couponId1)).thenReturn(coupon1);
+        when(getCouponByIdUseCase.execute(couponId2)).thenReturn(coupon2);
+        when(keyGenerator.generateCouponCounterKey(couponId1)).thenReturn(couponCounterKey1);
+        when(keyGenerator.generateCouponCounterKey(couponId2)).thenReturn(couponCounterKey2);
+        when(keyGenerator.generateCouponUserKey(couponId1, userId1)).thenReturn(couponUserKey1);
+        when(keyGenerator.generateCouponUserKey(couponId2, userId2)).thenReturn(couponUserKey2);
+        when(cachePort.issueCouponAtomically(couponCounterKey1, couponUserKey1, 100)).thenReturn(1L);
+        when(cachePort.issueCouponAtomically(couponCounterKey2, couponUserKey2, 100)).thenReturn(1L);
+        when(keyGenerator.generateCouponKey(couponId1)).thenReturn(lockKey1);
+        when(keyGenerator.generateCouponKey(couponId2)).thenReturn(lockKey2);
         when(lockingPort.acquireLock(lockKey1)).thenReturn(true);
         when(lockingPort.acquireLock(lockKey2)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
@@ -297,8 +382,10 @@ class IssueCouponTest {
         
         assertThat(result.getSuccessCount()).isEqualTo(2); // 둘 다 성공해야 함
         
-        verify(keyGenerator).generateCouponKey(couponId1);
-        verify(keyGenerator).generateCouponKey(couponId2);
+        verify(getCouponByIdUseCase).execute(couponId1);
+        verify(getCouponByIdUseCase).execute(couponId2);
+        verify(cachePort).issueCouponAtomically(couponCounterKey1, couponUserKey1, 100);
+        verify(cachePort).issueCouponAtomically(couponCounterKey2, couponUserKey2, 100);
         verify(lockingPort).acquireLock(lockKey1);
         verify(lockingPort).acquireLock(lockKey2);
         verify(transactionTemplate, times(2)).execute(any());

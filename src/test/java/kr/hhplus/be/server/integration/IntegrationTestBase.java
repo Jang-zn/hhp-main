@@ -22,7 +22,7 @@ import org.testcontainers.utility.DockerImageName;
  * 테스트에서는 데이터 격리와 Repository.save() 트랜잭션을 위해 필요
  */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles("integration")
 @AutoConfigureMockMvc
 @Transactional
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
