@@ -70,7 +70,7 @@ spring:
     enabled: false  # 통합 테스트에서는 재시도 비활성화
 
 ---
-# 테스트 환경 (TestContainers 사용)
+# 테스트 환경 (Repository 테스트 - TestContainers 사용)
 spring.config.activate.on-profile: test
 
 spring:
@@ -83,4 +83,55 @@ spring:
         format_sql: true
   retry:
     enabled: false  # 테스트에서는 재시도 비활성화
+
+---
+# 단위 테스트 환경 (Controller, Service 등 - JPA 비활성화)
+spring.config.activate.on-profile: unit
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  jpa:
+    hibernate:
+      ddl-auto: none
+  datasource:
+    enabled: false
+  retry:
+    enabled: false
+
+---
+# Repository 단위 테스트 환경 (TestContainers 사용)
+spring.config.activate.on-profile: unit-repository
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  retry:
+    enabled: false  # 테스트에서는 재시도 비활성화
+
+---
+# 통합 테스트 환경 (TestContainers 사용)
+spring.config.activate.on-profile: integration
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  retry:
+    enabled: false  # 통합 테스트에서는 재시도 비활성화
 
