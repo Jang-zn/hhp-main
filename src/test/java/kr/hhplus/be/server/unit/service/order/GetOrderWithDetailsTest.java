@@ -86,7 +86,7 @@ class GetOrderWithDetailsTest {
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
             applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, 
-            orderItemRepositoryPort, cachePort, keyGenerator, eventPublisher
+            orderItemRepositoryPort, keyGenerator, eventPublisher
         );
     }
 
