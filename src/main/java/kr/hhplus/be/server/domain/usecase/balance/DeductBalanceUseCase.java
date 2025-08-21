@@ -2,6 +2,9 @@ package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.exception.BalanceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,8 @@ import java.math.BigDecimal;
 public class DeductBalanceUseCase {
     
     private final BalanceRepositoryPort balanceRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     /**
      * 잔액을 차감합니다.
@@ -54,6 +59,16 @@ public class DeductBalanceUseCase {
         
         // 저장
         Balance savedBalance = balanceRepositoryPort.save(balance);
+        
+        // Write-Through: 데이터베이스 업데이트 후 캐시도 업데이트
+        try {
+            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
+            cachePort.put(cacheKey, savedBalance, CacheTTL.USER_BALANCE.getSeconds());
+            log.debug("잔액 차감 후 캐시 업데이트 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("잔액 차감 캐시 처리 실패: userId={}, amount={}", userId, amount, e);
+            // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
+        }
         
         log.info("잔액 차감 완료: userId={}, 이전잔액={}, 차감금액={}, 현재잔액={}", 
                 userId, originalAmount, amount, savedBalance.getAmount());
