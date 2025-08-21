@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -48,7 +50,11 @@ class IssueCouponUseCaseTest {
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
     
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private IssueCouponUseCase issueCouponUseCase;
 
@@ -56,7 +62,7 @@ class IssueCouponUseCaseTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         issueCouponUseCase = new IssueCouponUseCase(
-                userRepositoryPort, couponRepositoryPort, couponHistoryRepositoryPort
+                userRepositoryPort, couponRepositoryPort, couponHistoryRepositoryPort, cachePort, keyGenerator
         );
     }
 

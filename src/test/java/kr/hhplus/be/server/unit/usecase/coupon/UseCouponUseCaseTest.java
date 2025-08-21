@@ -11,6 +11,8 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.UseCouponUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,13 +52,19 @@ class UseCouponUseCaseTest {
     
     @Mock
     private LockingPort lockingPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private UseCouponUseCase useCouponUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        useCouponUseCase = new UseCouponUseCase(userRepositoryPort, couponHistoryRepositoryPort, lockingPort);
+        useCouponUseCase = new UseCouponUseCase(userRepositoryPort, couponHistoryRepositoryPort, lockingPort, cachePort, keyGenerator);
     }
 
     @Test

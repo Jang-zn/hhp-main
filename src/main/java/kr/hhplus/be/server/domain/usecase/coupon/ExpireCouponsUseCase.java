@@ -111,8 +111,8 @@ public class ExpireCouponsUseCase {
     
     private void clearExpiredCouponsCache() {
         try {
-            // 쿠폰 목록 캐시 패턴 무효화 (모든 사용자의 쿠폰 목록)
-            String couponListPattern = keyGenerator.generateCouponListCachePattern("*");
+            // 모든 쿠폰 목록 캐시 패턴 무효화 (배치 작업 특성상 전체 무효화)
+            String couponListPattern = "coupon:list:*";
             cachePort.evictByPattern(couponListPattern);
             
             log.info("만료 쿠폰 대량 캐시 무효화 완료");

@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.ExpireCouponsUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,13 +31,19 @@ class ExpireCouponsUseCaseTest {
     
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private ExpireCouponsUseCase expireCouponsUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        expireCouponsUseCase = new ExpireCouponsUseCase(couponRepositoryPort, couponHistoryRepositoryPort);
+        expireCouponsUseCase = new ExpireCouponsUseCase(couponRepositoryPort, couponHistoryRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test

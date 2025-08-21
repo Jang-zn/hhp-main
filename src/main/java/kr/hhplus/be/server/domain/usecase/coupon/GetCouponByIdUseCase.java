@@ -37,7 +37,7 @@ public class GetCouponByIdUseCase {
         }
         
         try {
-            String cacheKey = keyGenerator.generateProductCacheKey(couponId); // 임시로 Product 키 사용
+            String cacheKey = keyGenerator.generateCouponCacheKey(couponId);
             
             // 캐시에서 조회 시도
             Coupon cachedCoupon = cachePort.get(cacheKey, Coupon.class);
@@ -54,7 +54,7 @@ public class GetCouponByIdUseCase {
                     });
             
             // 캐시에 저장
-            cachePort.put(cacheKey, coupon, CacheTTL.PRODUCT_DETAIL.getSeconds()); // 임시로 Product TTL 사용
+            cachePort.put(cacheKey, coupon, CacheTTL.USER_COUPON_LIST.getSeconds());
             log.debug("쿠폰 캐시 저장 완료: couponId={}", couponId);
             
             return coupon;

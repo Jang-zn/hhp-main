@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -49,13 +51,19 @@ class GetCouponListUseCaseTest {
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
 
     private GetCouponListUseCase getCouponListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort);
+        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort, cachePort, keyGenerator);
     }
 
     // === 기본 쿠폰 목록 조회 시나리오 ===

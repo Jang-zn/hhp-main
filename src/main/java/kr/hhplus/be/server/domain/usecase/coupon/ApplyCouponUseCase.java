@@ -64,7 +64,7 @@ public class ApplyCouponUseCase {
                     });
             
             // 캐시에 저장
-            cachePort.put(cacheKey, coupon, CacheTTL.COUPON_DETAIL.getSeconds());
+            cachePort.put(cacheKey, coupon, CacheTTL.USER_COUPON_LIST.getSeconds());
             log.debug("쿠폰 캐시 저장 완료: couponId={}", couponId);
             
             return coupon;

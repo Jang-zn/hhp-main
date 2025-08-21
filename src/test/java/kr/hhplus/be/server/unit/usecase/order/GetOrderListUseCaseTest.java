@@ -4,6 +4,8 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -44,13 +46,15 @@ class GetOrderListUseCaseTest {
 
     @Mock private UserRepositoryPort userRepositoryPort;
     @Mock private OrderRepositoryPort orderRepositoryPort;
+    @Mock private CachePort cachePort;
+    @Mock private KeyGenerator keyGenerator;
     
     private GetOrderListUseCase getOrderListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getOrderListUseCase = new GetOrderListUseCase(userRepositoryPort, orderRepositoryPort);
+        getOrderListUseCase = new GetOrderListUseCase(userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test
