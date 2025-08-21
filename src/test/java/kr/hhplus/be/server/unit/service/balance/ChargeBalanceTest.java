@@ -12,6 +12,8 @@ import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.util.ConcurrencyTestHelper;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.TransactionStatus;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -252,12 +254,15 @@ class ChargeBalanceTest {
         when(keyGenerator.generateBalanceKey(userId2)).thenReturn("balance:user_" + userId2);
         when(lockingPort.acquireLock("balance:user_" + userId1)).thenReturn(true);
         when(lockingPort.acquireLock("balance:user_" + userId2)).thenReturn(true);
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            // userId에 따라 적절한 balance 반환하도록 설정
-            return chargeBalanceUseCase.execute(any(Long.class), eq(chargeAmount));
-        });
         when(chargeBalanceUseCase.execute(userId1, chargeAmount)).thenReturn(testBalance1);
         when(chargeBalanceUseCase.execute(userId2, chargeAmount)).thenReturn(testBalance2);
+        
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            // TransactionCallback을 실제로 실행 - mock TransactionStatus 사용
+            TransactionCallback<Balance> callback = invocation.getArgument(0);
+            TransactionStatus mockStatus = mock(TransactionStatus.class);
+            return callback.doInTransaction(mockStatus);
+        });
         
         // when & then
         ConcurrencyTestHelper.ConcurrencyTestResult result = ConcurrencyTestHelper.executeMultipleTasks(

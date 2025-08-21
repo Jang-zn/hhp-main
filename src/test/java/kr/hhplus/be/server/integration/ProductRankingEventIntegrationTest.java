@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.api.dto.request.BalanceRequest;
 import kr.hhplus.be.server.api.dto.request.OrderRequest;
@@ -88,13 +89,20 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         MvcResult orderResult = mockMvc.perform(post("/api/order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(orderRequest)))
+                .andDo(print())
                 .andExpect(status().isCreated())
                 .andReturn();
         
-        // 주문 ID 추출
+        // 주문 ID 추출 - CommonResponse 구조에 맞게 수정
         String orderResponseJson = orderResult.getResponse().getContentAsString();
-        com.fasterxml.jackson.databind.JsonNode orderNode = objectMapper.readTree(orderResponseJson);
-        Long orderId = orderNode.get("data").get("id").asLong();
+        JsonNode orderNode = objectMapper.readTree(orderResponseJson);
+        
+        // 안전한 JSON 파싱으로 NullPointerException 방지 - orderId 필드 사용
+        JsonNode dataNode = orderNode.get("data");
+        if (dataNode == null || dataNode.get("orderId") == null) {
+            throw new IllegalStateException("Order response does not contain expected data.orderId field: " + orderResponseJson);
+        }
+        Long orderId = dataNode.get("orderId").asLong();
 
         // Redis 랭킹 키 준비
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
@@ -206,7 +214,7 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         Product notebook = productRepositoryPort.save(
             TestBuilder.ProductBuilder.defaultProduct()
                 .name("노트북" + suffix)
-                .price(BigDecimal.valueOf(300000))
+                .price(BigDecimal.valueOf(150000)) // 가격 인하: 15만원
                 .stock(100)
                 .build()
         );
@@ -214,7 +222,7 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         Product smartphone = productRepositoryPort.save(
             TestBuilder.ProductBuilder.defaultProduct()
                 .name("스마트폰" + suffix)
-                .price(BigDecimal.valueOf(200000))
+                .price(BigDecimal.valueOf(80000)) // 가격 인하: 8만원
                 .stock(100)
                 .build()
         );
@@ -222,7 +230,7 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         Product tablet = productRepositoryPort.save(
             TestBuilder.ProductBuilder.defaultProduct()
                 .name("태블릿" + suffix)
-                .price(BigDecimal.valueOf(100000))
+                .price(BigDecimal.valueOf(50000)) // 가격 인하: 5만원
                 .stock(100)
                 .build()
         );
@@ -235,7 +243,7 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         // 잔액 충전
         BalanceRequest chargeRequest = new BalanceRequest();
         chargeRequest.setUserId(customer.getId());
-        chargeRequest.setAmount(BigDecimal.valueOf(1000000)); // 최대 충전 금액으로 설정
+        chargeRequest.setAmount(BigDecimal.valueOf(1000000)); // 최대 충전 금액 (100만원)
         
         mockMvc.perform(post("/api/balance/charge")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -252,13 +260,20 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
         MvcResult orderResult = mockMvc.perform(post("/api/order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(orderRequest)))
+                .andDo(print())
                 .andExpect(status().isCreated())
                 .andReturn();
         
-        // 주문 ID 추출
+        // 주문 ID 추출 - CommonResponse 구조에 맞게 수정
         String orderResponseJson = orderResult.getResponse().getContentAsString();
-        com.fasterxml.jackson.databind.JsonNode orderNode = objectMapper.readTree(orderResponseJson);
-        Long orderId = orderNode.get("data").get("id").asLong();
+        JsonNode orderNode = objectMapper.readTree(orderResponseJson);
+        
+        // 안전한 JSON 파싱으로 NullPointerException 방지 - orderId 필드 사용
+        JsonNode dataNode = orderNode.get("data");
+        if (dataNode == null || dataNode.get("orderId") == null) {
+            throw new IllegalStateException("Order response does not contain expected data.orderId field: " + orderResponseJson);
+        }
+        Long orderId = dataNode.get("orderId").asLong();
         
         // 주문 결제
         OrderRequest paymentRequest = new OrderRequest();
