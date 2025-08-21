@@ -16,11 +16,9 @@ import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
-import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.OrderException;
-import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +32,7 @@ import java.util.List;
 /**
  * 주문 관련 비즈니스 로직을 처리하는 서비스
  * 
- * 주문 생성, 조회, 결제 등의 기능을 제공하며,
+ * UseCase 레이어에 위임하여 주문 생성, 조회, 결제 등의 기능을 제공하며,
  * 복잡한 비즈니스 플로우를 관리합니다.
  */
 @Service
@@ -55,7 +53,6 @@ public class OrderService {
     private final UserRepositoryPort userRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
     private final OrderItemRepositoryPort orderItemRepositoryPort;
-    private final CachePort cachePort;
     private final KeyGenerator keyGenerator;
     private final ApplicationEventPublisher eventPublisher;
     
@@ -71,6 +68,8 @@ public class OrderService {
      * @return 생성된 주문 정보
      */
     public Order createOrder(Long userId, List<ProductQuantityDto> productQuantities) {
+        log.debug("주문 생성 요청: userId={}, productCount={}", userId, productQuantities.size());
+        
         Long[] productIds = productQuantities.stream()
             .map(ProductQuantityDto::getProductId)
             .sorted()
@@ -83,27 +82,19 @@ public class OrderService {
         }
         
         try {
-            Order order = transactionTemplate.execute(status -> {
+            Order result = transactionTemplate.execute(status -> {
                 return createOrderUseCase.execute(userId, productQuantities);
             });
             
-            // 트랜잭션 커밋 후 캐시 처리
-            // 1. 생성된 주문을 개별 캐시에 Write-Through
-            String orderCacheKey = keyGenerator.generateOrderCacheKey(order.getId());
-            cachePort.put(orderCacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
-            
-            // 2. 주문 목록 캐시는 무효화 (페이징/정렬 복잡성)
-            String cacheKeyPattern = keyGenerator.generateOrderListCachePattern(userId);
-            cachePort.evictByPattern(cacheKeyPattern);
-            
-            return order;
+            log.info("주문 생성 완료: orderId={}, userId={}", result.getId(), userId);
+            return result;
         } finally {
             lockingPort.releaseLock(lockKey);
         }
     }
 
     /**
-     * 주문 조회 (캐시 적용)
+     * 주문 조회
      * 
      * @param orderId 주문 ID
      * @param userId 사용자 ID (권한 확인용)
@@ -112,32 +103,14 @@ public class OrderService {
     public Order getOrder(Long orderId, Long userId) {
         log.debug("주문 조회 요청: orderId={}, userId={}", orderId, userId);
         
-        try {
-            String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
-            
-            // 캐시에서 조회 시도
-            Order cachedOrder = cachePort.get(cacheKey, Order.class);
-            
-            if (cachedOrder != null) {
-                log.debug("캐시에서 주문 조회 성공: orderId={}, userId={}", orderId, userId);
-                return cachedOrder;
-            }
-            
-            // 캐시 미스 - 데이터베이스에서 조회
-            Order order = findOrderWithAuthCheck(orderId, userId);
-            
-            // TTL과 함께 캐시에 저장
-            cachePort.put(cacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
-            
-            log.debug("데이터베이스에서 주문 조회 성공: orderId={}, userId={}", orderId, userId);
-            return order;
-        } catch (Exception e) {
-            log.error("주문 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
-            return findOrderWithAuthCheck(orderId, userId);
-        }
+        return getOrderUseCase.execute(userId, orderId)
+            .orElseThrow(() -> {
+                log.warn("존재하지 않는 주문 또는 접근 권한 없음: orderId={}, userId={}", orderId, userId);
+                return new OrderException.NotFound();
+            });
     }
     /**
-     * 사용자 주문 목록 조회 (페이징 지원, 캐시 적용)
+     * 사용자 주문 목록 조회 (페이징 지원)
      * 
      * @param userId 사용자 ID
      * @param limit 페이지 크기
@@ -145,45 +118,18 @@ public class OrderService {
      * @return 주문 목록
      */
     public List<Order> getOrderList(Long userId, int limit, int offset) {
-        log.debug("주문 목록 조회 요청 (페이징): userId={}, limit={}, offset={}", userId, limit, offset);
+        log.debug("주문 목록 조회 요청: userId={}, limit={}, offset={}", userId, limit, offset);
         
-        // 사용자 존재 확인
         if (!userRepositoryPort.existsById(userId)) {
             log.warn("존재하지 않는 사용자: userId={}", userId);
             throw new UserException.NotFound();
         }
         
-        try {
-            String cacheKey = keyGenerator.generateOrderListCacheKey(userId, limit, offset);
-            
-            // 캐시에서 조회 시도
-            List<Order> cachedOrders = cachePort.getList(cacheKey);
-            
-            if (cachedOrders != null) {
-                log.debug("캐시에서 주문 목록 조회 성공 (페이징): userId={}, count={}", userId, cachedOrders.size());
-                return cachedOrders;
-            }
-            
-            // 캐시 미스 - 데이터베이스에서 조회
-            List<Order> paginatedOrders = getOrderListUseCase.execute(userId, limit, offset);
-            
-            log.debug("데이터베이스에서 주문 목록 조회 (페이징): userId={}, returned={}", 
-                userId, paginatedOrders.size());
-            
-            // TTL과 함께 캐시에 저장
-            cachePort.put(cacheKey, paginatedOrders, CacheTTL.ORDER_LIST.getSeconds());
-            
-            return paginatedOrders;
-        } catch (Exception e) {
-            log.error("주문 목록 조회 중 오류 발생 (페이징): userId={}, limit={}, offset={}", userId, limit, offset, e);
-            
-            // 예외 발생 시 데이터베이스에서 직접 조회
-            return getOrderListUseCase.execute(userId, limit, offset);
-        }
+        return getOrderListUseCase.execute(userId, limit, offset);
     }
 
     /**
-     * 주문 상세 정보 조회 (주문 항목 포함, 캐시 적용)
+     * 주문 상세 정보 조회 (주문 항목 포함)
      * 
      * @param orderId 주문 ID
      * @param userId 사용자 ID (권한 확인용)
@@ -192,29 +138,11 @@ public class OrderService {
     public Order getOrderWithDetails(Long orderId, Long userId) {
         log.debug("주문 상세 정보 조회 요청: orderId={}, userId={}", orderId, userId);
         
-        try {
-            String cacheKey = keyGenerator.generateOrderCacheKey(orderId);
-            
-            // 캐시에서 조회 시도
-            Order cachedOrder = cachePort.get(cacheKey, Order.class);
-            
-            if (cachedOrder != null) {
-                log.debug("캐시에서 주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
-                return cachedOrder;
-            }
-            
-            // 캐시 미스 - 데이터베이스에서 조회
-            Order order = findOrderWithAuthCheck(orderId, userId);
-            
-            // TTL과 함께 캐시에 저장
-            cachePort.put(cacheKey, order, CacheTTL.ORDER_DETAIL.getSeconds());
-            
-            log.debug("데이터베이스에서 주문 상세 정보 조회 성공: orderId={}, userId={}", orderId, userId);
-            return order;
-        } catch (Exception e) {
-            log.error("주문 상세 정보 조회 중 오류 발생: orderId={}, userId={}", orderId, userId, e);
-            return findOrderWithAuthCheck(orderId, userId);
-        }
+        return getOrderUseCase.execute(userId, orderId)
+            .orElseThrow(() -> {
+                log.warn("존재하지 않는 주문 또는 접근 권한 없음: orderId={}, userId={}", orderId, userId);
+                return new OrderException.NotFound();
+            });
     }
 
     /**
@@ -263,21 +191,9 @@ public class OrderService {
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
             
-            // 트랜잭션 커밋 후 캐시 처리
-            // 1. 결제 완료된 주문을 개별 캐시에 Write-Through (상태가 변경됨)
+            // 주문 완료 이벤트 발행 (랭킹 업데이트용)
             Order updatedOrder = orderRepositoryPort.findById(orderId).orElse(null);
             if (updatedOrder != null) {
-                String orderCacheKey = keyGenerator.generateOrderCacheKey(orderId);
-                cachePort.put(orderCacheKey, updatedOrder, CacheTTL.ORDER_DETAIL.getSeconds());
-            }
-            
-            // 2. 주문 목록 캐시는 무효화 (상태 변경 반영)
-            String listCacheKeyPattern = keyGenerator.generateOrderListCachePattern(userId);
-            cachePort.evictByPattern(listCacheKeyPattern);
-            
-            // 3. 주문 완료 이벤트 발행 (랭킹 업데이트용)
-            if (updatedOrder != null) {
-                // OrderItem 정보를 별도로 조회
                 var orderItems = orderItemRepositoryPort.findByOrderId(orderId);
                 if (!orderItems.isEmpty()) {
                     List<OrderCompletedEvent.ProductOrderInfo> productOrders = orderItems.stream()
@@ -287,11 +203,12 @@ public class OrderService {
                     OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
                     eventPublisher.publishEvent(event);
                     
-                    log.debug("Published order completed event: orderId={}, productCount={}", 
+                    log.debug("주문 완료 이벤트 발행: orderId={}, productCount={}", 
                              orderId, productOrders.size());
                 }
             }
             
+            log.info("주문 결제 완료: orderId={}, userId={}, amount={}", orderId, userId, result.getAmount());
             return result;
             
         } finally {
@@ -300,21 +217,5 @@ public class OrderService {
         }
     }
     
-    /**
-     * 권한 확인을 포함한 주문 조회
-     * 
-     * @param orderId 주문 ID
-     * @param userId 사용자 ID
-     * @return 주문 정보
-     * @throws OrderException.NotFound 주문이 존재하지 않는 경우
-     * @throws OrderException.Unauthorized 다른 사용자의 주문인 경우
-     */
-    private Order findOrderWithAuthCheck(Long orderId, Long userId) {
-        return getOrderUseCase.execute(userId, orderId)
-            .orElseThrow(() -> {
-                log.warn("존재하지 않는 주문 또는 접근 권한 없음: orderId={}, userId={}", orderId, userId);
-                return new OrderException.NotFound();
-            });
-    }
     
 }

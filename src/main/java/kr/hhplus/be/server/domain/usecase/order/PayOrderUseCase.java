@@ -5,6 +5,9 @@ import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,8 @@ public class PayOrderUseCase {
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final LockingPort lockingPort;
     private final MessagingPort messagingPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     
     public Payment execute(Long orderId, Long userId, Long couponId) {
@@ -109,7 +114,7 @@ public class PayOrderUseCase {
             }
             
             balance.subtractAmount(finalAmount);
-            balanceRepositoryPort.save(balance);
+            Balance savedBalance = balanceRepositoryPort.save(balance);
 
             // 예약된 재고 확정 (재고 차감)
             confirmReservedStock(order);
@@ -127,8 +132,8 @@ public class PayOrderUseCase {
             log.info("결제 완료: paymentId={}, orderId={}, userId={}, amount={}", 
                     savedPayment.getId(), orderId, userId, finalAmount);
             
-            // 캐시 무효화
-            invalidateRelatedCache(userId, orderId);
+            // 캐시 무효화 및 업데이트
+            invalidateRelatedCache(userId, orderId, savedBalance, savedPayment);
             
             return savedPayment;
         } catch (Exception e) {
@@ -262,17 +267,30 @@ public class PayOrderUseCase {
         }
     }
     
-    private void invalidateRelatedCache(Long userId, Long orderId) {
+    private void invalidateRelatedCache(Long userId, Long orderId, Balance balance, Payment payment) {
         try {
-            // 사용자 잔액 캐시 무효화
-            String balanceCacheKey = "balance_" + userId;
-            // 주문 캐시 무효화
-            String orderCacheKey = "order_" + orderId + "_" + userId;
+            // 1. 잔액 캐시 업데이트 (Write-Through)
+            String balanceCacheKey = keyGenerator.generateBalanceCacheKey(userId);
+            cachePort.put(balanceCacheKey, balance, CacheTTL.USER_BALANCE.getSeconds());
             
-            log.debug("캐시 무효화 완료: userId={}, orderId={}", userId, orderId);
+            // 2. 결제 정보 캐시 저장 (Write-Through)
+            String paymentCacheKey = keyGenerator.generatePaymentCacheKey(payment.getId());
+            cachePort.put(paymentCacheKey, payment, CacheTTL.PAYMENT_DETAIL.getSeconds());
+            
+            // 3. 주문 상세 캐시 무효화 (결제 완료로 상태 변경)
+            String orderCacheKey = keyGenerator.generateOrderCacheKey(orderId);
+            cachePort.evict(orderCacheKey);
+            
+            // 4. 주문 목록 캐시 무효화 (결제 상태 반영)
+            String orderListPattern = keyGenerator.generateOrderListCachePattern(userId);
+            cachePort.evictByPattern(orderListPattern);
+            
+            log.debug("결제 완료 캐시 처리 완료: userId={}, orderId={}, paymentId={}", 
+                    userId, orderId, payment.getId());
         } catch (Exception e) {
-            log.warn("캐시 무효화 실패: userId={}, orderId={}", userId, orderId, e);
-            // 캐시 무효화 실패는 비즈니스 로직에 영향 없음
+            log.warn("결제 완료 캐시 처리 실패: userId={}, orderId={}, paymentId={}", 
+                    userId, orderId, payment.getId(), e);
+            // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
         }
     }
 } 

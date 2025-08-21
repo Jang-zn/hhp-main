@@ -8,6 +8,9 @@ import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,8 @@ public class CreateOrderUseCase {
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderRepositoryPort orderRepositoryPort;
     private final OrderItemRepositoryPort orderItemRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
 
     /**
      * 주문을 생성하고 상품 재고를 예약
@@ -95,6 +100,21 @@ public class CreateOrderUseCase {
             
             log.debug("OrderItem 배치 저장 완료: orderId={}, itemCount={}", 
                     savedOrder.getId(), orderItemsWithOrderId.size());
+            
+            // Write-Through: 생성된 주문을 캐시에 저장
+            try {
+                String cacheKey = keyGenerator.generateOrderCacheKey(savedOrder.getId());
+                cachePort.put(cacheKey, savedOrder, CacheTTL.ORDER_DETAIL.getSeconds());
+                log.debug("주문 캐시 저장 완료: orderId={}", savedOrder.getId());
+                
+                // 주문 목록 캐시 무효화
+                String pattern = keyGenerator.generateOrderListCachePattern(userId);
+                cachePort.evictByPattern(pattern);
+                log.debug("주문 목록 캐시 무효화 완료: userId={}", userId);
+            } catch (Exception e) {
+                log.warn("주문 캐시 처리 실패: orderId={}, userId={}", savedOrder.getId(), userId, e);
+                // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
+            }
             
             log.info("주문 생성 완료: orderId={}, userId={}, totalAmount={}, itemCount={}", 
                     savedOrder.getId(), userId, totalAmount, orderItems.size());
