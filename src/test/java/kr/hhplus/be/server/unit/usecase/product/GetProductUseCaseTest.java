@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,13 +34,19 @@ class GetProductUseCaseTest {
     @Mock
     private ProductRepositoryPort productRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
 
     private GetProductUseCase getProductUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getProductUseCase = new GetProductUseCase(productRepositoryPort);
+        getProductUseCase = new GetProductUseCase(productRepositoryPort, cachePort, keyGenerator);
     }
 
     @Nested

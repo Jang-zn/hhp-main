@@ -3,6 +3,9 @@ package kr.hhplus.be.server.domain.service;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import kr.hhplus.be.server.domain.usecase.product.CreateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.UpdateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.DeleteProductUseCase;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.enums.CacheTTL;
@@ -10,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -29,6 +33,9 @@ public class ProductService {
 
     private final GetProductUseCase getProductUseCase;
     private final GetPopularProductListUseCase getPopularProductListUseCase;
+    private final CreateProductUseCase createProductUseCase;
+    private final UpdateProductUseCase updateProductUseCase;
+    private final DeleteProductUseCase deleteProductUseCase;
     private final CachePort cachePort;
     private final KeyGenerator keyGenerator;
 
@@ -164,6 +171,55 @@ public class ProductService {
             log.error("인기 상품 목록 조회 중 오류 발생: period={}, limit={}, offset={}", period, limit, offset, e);
             return getPopularProductListUseCase.execute(period, limit, offset);
         }
+    }
+    
+    // ========================= CRUD 메서드들 =========================
+    
+    /**
+     * 상품 생성
+     * 
+     * @param name 상품명
+     * @param price 가격
+     * @param stock 재고
+     * @return 생성된 상품
+     */
+    public Product createProduct(String name, BigDecimal price, Integer stock) {
+        log.info("상품 생성 요청: name={}, price={}, stock={}", name, price, stock);
+        
+        Product createdProduct = createProductUseCase.execute(name, price, stock);
+        log.info("상품 생성 완료: productId={}", createdProduct.getId());
+        
+        return createdProduct;
+    }
+    
+    /**
+     * 상품 수정
+     * 
+     * @param productId 상품 ID
+     * @param name 상품명 (선택적)
+     * @param price 가격 (선택적)
+     * @param stock 재고 (선택적)
+     * @return 수정된 상품
+     */
+    public Product updateProduct(Long productId, String name, BigDecimal price, Integer stock) {
+        log.info("상품 수정 요청: productId={}, name={}, price={}, stock={}", productId, name, price, stock);
+        
+        Product updatedProduct = updateProductUseCase.execute(productId, name, price, stock);
+        log.info("상품 수정 완료: productId={}", productId);
+        
+        return updatedProduct;
+    }
+    
+    /**
+     * 상품 삭제
+     * 
+     * @param productId 상품 ID
+     */
+    public void deleteProduct(Long productId) {
+        log.info("상품 삭제 요청: productId={}", productId);
+        
+        deleteProductUseCase.execute(productId);
+        log.info("상품 삭제 완료: productId={}", productId);
     }
     
     /**

@@ -4,6 +4,9 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.service.ProductService;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import kr.hhplus.be.server.domain.usecase.product.CreateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.UpdateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.DeleteProductUseCase;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -31,6 +34,15 @@ class GetProductListTest {
     private GetPopularProductListUseCase getPopularProductListUseCase;
     
     @Mock
+    private CreateProductUseCase createProductUseCase;
+    
+    @Mock
+    private UpdateProductUseCase updateProductUseCase;
+    
+    @Mock
+    private DeleteProductUseCase deleteProductUseCase;
+    
+    @Mock
     private CachePort cachePort;
     
     @Mock
@@ -41,7 +53,7 @@ class GetProductListTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, cachePort, keyGenerator);
+        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase, cachePort, keyGenerator);
     }
 
     @Test
