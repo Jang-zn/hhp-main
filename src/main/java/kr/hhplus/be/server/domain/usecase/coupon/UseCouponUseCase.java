@@ -9,6 +9,8 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,6 +30,8 @@ public class UseCouponUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     private final LockingPort lockingPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     
     public void execute(Long userId, List<Long> couponHistoryIds, Order order) {
@@ -48,6 +52,9 @@ public class UseCouponUseCase {
         couponHistoryIds.stream()
                 .sorted()
                 .forEach(couponHistoryId -> useSingleCoupon(user, couponHistoryId, order));
+        
+        // 쿠폰 사용 후 캐시 무효화
+        invalidateCouponCache(userId);
         
         log.info("쿠폰 사용 완료: userId={}, couponHistoryIds={}, orderId={}", 
                 userId, couponHistoryIds, order.getId());
@@ -102,6 +109,19 @@ public class UseCouponUseCase {
         // 중복된 쿠폰 ID 검증
         if (couponHistoryIds.size() != couponHistoryIds.stream().distinct().count()) {
             throw new IllegalArgumentException("Duplicate coupon history IDs found");
+        }
+    }
+    
+    private void invalidateCouponCache(Long userId) {
+        try {
+            // 사용자의 쿠폰 목록 캐시 무효화
+            String pattern = keyGenerator.generateCouponListCachePattern(userId);
+            cachePort.evictByPattern(pattern);
+            
+            log.debug("쿠폰 사용 후 캐시 무효화 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("쿠폰 사용 캐시 처리 실패: userId={}", userId, e);
+            // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
         }
     }
 }

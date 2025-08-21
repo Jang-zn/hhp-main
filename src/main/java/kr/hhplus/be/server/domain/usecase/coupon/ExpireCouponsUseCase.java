@@ -6,6 +6,8 @@ import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,8 @@ public class ExpireCouponsUseCase {
     
     private final CouponRepositoryPort couponRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     
     public void execute() {
@@ -36,6 +40,11 @@ public class ExpireCouponsUseCase {
             
             // 2. 만료된 쿠폰 히스토리들의 상태 업데이트
             int expiredHistoriesCount = expireCouponHistories(now);
+            
+            // 3. 대량 캐시 무효화 (배치 처리 특성상 모든 쿠폰 관련 캐시 클리어)
+            if (expiredCouponsCount > 0 || expiredHistoriesCount > 0) {
+                clearExpiredCouponsCache();
+            }
             
             log.info("만료 쿠폰 처리 완료: 쿠폰 {}개, 히스토리 {}개", 
                     expiredCouponsCount, expiredHistoriesCount);
@@ -98,5 +107,18 @@ public class ExpireCouponsUseCase {
         }
         
         return expiredHistories.size();
+    }
+    
+    private void clearExpiredCouponsCache() {
+        try {
+            // 쿠폰 목록 캐시 패턴 무효화 (모든 사용자의 쿠폰 목록)
+            String couponListPattern = keyGenerator.generateCouponListCachePattern("*");
+            cachePort.evictByPattern(couponListPattern);
+            
+            log.info("만료 쿠폰 대량 캐시 무효화 완료");
+        } catch (Exception e) {
+            log.warn("만료 쿠폰 캐시 무효화 실패", e);
+            // 캐시 오류는 배치 작업에 영향을 주지 않음
+        }
     }
 }
