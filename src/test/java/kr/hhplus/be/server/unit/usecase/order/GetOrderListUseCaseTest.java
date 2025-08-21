@@ -69,6 +69,11 @@ class GetOrderListUseCaseTest {
                 .id(2L).userId(customer.getId()).totalAmount(new BigDecimal("80000")).build()
         );
         
+        // 캐시 설정
+        String cacheKey = "order:list:user_1_limit_50_offset_0";
+        when(keyGenerator.generateOrderListCacheKey(customer.getId(), 50, 0)).thenReturn(cacheKey);
+        when(cachePort.get(cacheKey, List.class)).thenReturn(null); // 캐시 미스
+        
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
         when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
 
@@ -80,6 +85,10 @@ class GetOrderListUseCaseTest {
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
         assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
         
+        // 캐시 검증
+        verify(keyGenerator).generateOrderListCacheKey(customer.getId(), 50, 0);
+        verify(cachePort).get(cacheKey, List.class);
+        verify(cachePort).put(eq(cacheKey), eq(orders), anyInt());
         verify(orderRepositoryPort).findByUserId(eq(customer.getId()), any(Pageable.class));
     }
 

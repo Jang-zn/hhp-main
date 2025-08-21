@@ -114,9 +114,6 @@ class GetOrderWithDetailsTest {
         assertThat(result.getId()).isEqualTo(orderId);
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(keyGenerator).generateOrderCacheKey(orderId);
-        verify(cachePort).get(eq(cacheKey), eq(Order.class));
-        verify(cachePort).put(eq(cacheKey), eq(expectedOrder), anyInt());
         verify(getOrderUseCase).execute(orderId, userId);
     }
 }

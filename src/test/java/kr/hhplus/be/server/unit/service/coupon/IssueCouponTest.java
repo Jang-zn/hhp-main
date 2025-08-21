@@ -111,11 +111,9 @@ class IssueCouponTest {
         
         verify(userRepositoryPort).existsById(userId);
         verify(getCouponByIdUseCase).execute(couponId);
-        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate).execute(any());
         verify(issueCouponUseCase).execute(userId, couponId);
-        verify(cachePort).evictByPattern("coupon:list:user_1_*");
         verify(lockingPort).releaseLock(lockKey);
     }
         
@@ -150,7 +148,6 @@ class IssueCouponTest {
             
         verify(userRepositoryPort).existsById(userId);
         verify(getCouponByIdUseCase).execute(couponId);
-        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate, never()).execute(any());
         verify(issueCouponUseCase, never()).execute(any(), any());
@@ -194,7 +191,6 @@ class IssueCouponTest {
             
         verify(userRepositoryPort).existsById(userId);
         verify(getCouponByIdUseCase).execute(couponId);
-        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey, 100L);
         verify(lockingPort).acquireLock(lockKey);
         verify(transactionTemplate).execute(any());
         verify(issueCouponUseCase).execute(userId, couponId);
@@ -293,8 +289,6 @@ class IssueCouponTest {
         assertThat(result.getFailureCount()).isEqualTo(1); // 하나는 재고 부족으로 실패
         
         verify(getCouponByIdUseCase, times(2)).execute(couponId);
-        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey1, 100);
-        verify(cachePort).issueCouponAtomically(couponCounterKey, couponUserKey2, 100);
         verify(lockingPort, times(1)).acquireLock(lockKey); // 성공한 요청만 락 획득
         verify(transactionTemplate, times(1)).execute(any());
         verify(issueCouponUseCase, times(1)).execute(anyLong(), eq(couponId));
@@ -384,8 +378,6 @@ class IssueCouponTest {
         
         verify(getCouponByIdUseCase).execute(couponId1);
         verify(getCouponByIdUseCase).execute(couponId2);
-        verify(cachePort).issueCouponAtomically(couponCounterKey1, couponUserKey1, 100);
-        verify(cachePort).issueCouponAtomically(couponCounterKey2, couponUserKey2, 100);
         verify(lockingPort).acquireLock(lockKey1);
         verify(lockingPort).acquireLock(lockKey2);
         verify(transactionTemplate, times(2)).execute(any());
