@@ -12,10 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import kr.hhplus.be.server.util.ControllerTestBase;
+import kr.hhplus.be.server.api.controller.OrderController;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 
 import java.math.BigDecimal;
@@ -32,9 +35,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 주문 결제 API 엔드포인트가 비즈니스 요구사항을 올바르게 처리하고 Bean Validation이 작동하는지 검증
  * How: MockMvc를 사용한 통합 테스트로 HTTP 요청/응답 전체 플로우 검증
  */
-@Transactional
+@WebMvcTest(OrderController.class)
+@ActiveProfiles("unit")
 @DisplayName("주문 결제 컨트롤러 API")
-class PayOrderControllerTest extends ControllerTestBase {
+class PayOrderControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;

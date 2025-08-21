@@ -31,4 +31,20 @@ public interface CachePort {
      * @param pattern 캐시 키 패턴 (예: "order:list:user_1_*")
      */
     void evictByPattern(String pattern);
+    
+    // ========================= 상품 랭킹 관련 메서드 =========================
+    
+    void addProductScore(String rankingKey, String productKey, int orderQuantity);
+    
+    List<Long> getTopProductsByOrder(String rankingKey, int limit);
+    
+    List<Long> getProductRanking(String rankingKey, int offset, int limit);
+    
+    // ========================= 선착순 쿠폰 관련 메서드 =========================
+    
+    long issueCouponAtomically(String couponCounterKey, String couponUserKey, long maxCount);
+    
+    long getCouponCount(String couponCounterKey);
+    
+    boolean hasCouponIssued(String couponUserKey);
 } 

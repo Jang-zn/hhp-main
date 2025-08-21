@@ -81,21 +81,41 @@ public class CouponService {
     }
 
     /**
-     * 쿠폰 발급
+     * 쿠폰 발급 (Redis 원자적 연산 기반)
      * 
-     * 동시성 제어를 위해 분산 락을 사용하고, TransactionTemplate으로 명시적 트랜잭션 관리합니다.
-     * 실행 순서: Lock 획득 → Transaction 시작 → Logic 실행 → Transaction 종료 → Lock 해제
+     * RAtomicLong과 RBucket을 사용하여 원자적으로 선착순 쿠폰 발급 처리
+     * Redis에서 먼저 검증 후 DB에 저장하는 방식
      * 
      * @param couponId 쿠폰 ID
      * @param userId 사용자 ID
      * @return 발급된 쿠폰 히스토리
      */
     public CouponHistory issueCoupon(Long couponId, Long userId) {
-        String lockKey = keyGenerator.generateCouponKey(couponId);
-        
         if (!userRepositoryPort.existsById(userId)) {
             throw new UserException.NotFound();
         }
+        
+        // 쿠폰 정보 조회
+        Coupon coupon = getCouponByIdUseCase.execute(couponId);
+        
+        // Redis 키 생성
+        String couponCounterKey = keyGenerator.generateCouponCounterKey(couponId);
+        String couponUserKey = keyGenerator.generateCouponUserKey(couponId, userId);
+        
+        // Redis에서 원자적 선착순 처리
+        long issueNumber = cachePort.issueCouponAtomically(couponCounterKey, couponUserKey, coupon.getMaxIssuance());
+        
+        if (issueNumber == -1) {
+            // 중복 발급 또는 한도 초과
+            if (cachePort.hasCouponIssued(couponUserKey)) {
+                throw new CouponException.AlreadyIssued();
+            } else {
+                throw new CouponException.OutOfStock();
+            }
+        }
+        
+        // Redis 검증 통과 시 DB에 저장 (기존 락 방식 유지)
+        String lockKey = keyGenerator.generateCouponKey(couponId);
         
         if (!lockingPort.acquireLock(lockKey)) {
             throw new CommonException.ConcurrencyConflict();
@@ -109,6 +129,9 @@ public class CouponService {
             // 트랜잭션 커밋 후 캐시 무효화
             String cacheKeyPattern = keyGenerator.generateCouponListCachePattern(userId);
             cachePort.evictByPattern(cacheKeyPattern);
+            
+            log.debug("Coupon issued successfully: couponId={}, userId={}, issueNumber={}", 
+                     couponId, userId, issueNumber);
             
             return result;
         } finally {
