@@ -53,7 +53,7 @@ class GetProductListTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase, cachePort, keyGenerator);
+        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase);
     }
 
     @Test
