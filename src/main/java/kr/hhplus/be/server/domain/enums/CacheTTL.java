@@ -48,7 +48,15 @@ public enum CacheTTL {
     /**
      * 사용자 쿠폰 목록 - 5분, 중간 길이 TTL
      */
-    USER_COUPON_LIST(300);
+    USER_COUPON_LIST(300),
+    
+    // === 결제 관련 캐시 ===
+    
+    /**
+     * 결제 상세 정보 - 30분
+     * 결제 정보는 변경되지 않으므로 긴 TTL 설정
+     */
+    PAYMENT_DETAIL(1800);
     
     private final int seconds;
     

@@ -215,6 +215,20 @@ public class KeyGenerator {
     }
     
     /**
+     * @param paymentId 결제 ID
+     */
+    public String generatePaymentCacheKey(Long paymentId) {
+        return String.join(SEPARATOR, PAYMENT_DOMAIN, INFO_TYPE, "payment_" + paymentId);
+    }
+    
+    /**
+     * @param couponId 쿠폰 ID
+     */
+    public String generateCouponCacheKey(Long couponId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, INFO_TYPE, "coupon_" + couponId);
+    }
+    
+    /**
      * @param userId 사용자 ID
      * @param limit 조회 개수
      * @param offset 오프셋
