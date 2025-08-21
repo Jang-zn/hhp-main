@@ -227,7 +227,7 @@ public class ProductTest extends IntegrationTestBase {
                         .param("days", "7")
                         .param("limit", "2")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.data[0].id").value(testProducts.get(0).getId())); // 노트북이 1위
+                .andExpect(jsonPath("$.data[0].productId").value(testProducts.get(0).getId())); // 노트북이 1위
         
         // Given 2 - 랭킹 업데이트: 스마트폰이 더 인기있게 변경
         cachePort.addProductScore(dailyRankingKey, testProducts.get(1).getId().toString(), 120); // 스마트폰 점수 상승
@@ -237,13 +237,13 @@ public class ProductTest extends IntegrationTestBase {
                         .param("days", "7") 
                         .param("limit", "2")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.data[0].id").value(testProducts.get(1).getId())); // 스마트폰이 1위로 변경
+                .andExpect(jsonPath("$.data[0].productId").value(testProducts.get(1).getId())); // 스마트폰이 1위로 변경
         
     }
     
     @Test
-    @DisplayName("랭킹에 있지만 상품 캐시가 없는 경우 해당 상품은 제외된다")
-    void missingProductCacheIsFilteredFromRanking() throws Exception {
+    @DisplayName("랭킹에 있는 상품은 캐시 미스 시 DB에서 조회하여 포함된다")
+    void missingProductCacheIsRetrievedFromDatabase() throws Exception {
         // Given - 테스트용 상품들 생성
         List<Product> testProducts = setupUniqueTestProductsWithIds();
         
@@ -261,8 +261,8 @@ public class ProductTest extends IntegrationTestBase {
         cachePort.put(productCacheKey1, testProducts.get(0), 300);
         cachePort.put(productCacheKey2, testProducts.get(1), 300);
         // 태블릿은 의도적으로 캐시에서 제외
-
-        // When & Then - 캐시에 있는 상품만 반환되는지 확인
+        
+        // When & Then - Redis 랭킹 순서대로 상품 반환 (캐시 미스는 DB에서 조회)
         mockMvc.perform(get("/api/product/popular")
                         .param("days", "7")
                         .param("limit", "3")
@@ -270,9 +270,10 @@ public class ProductTest extends IntegrationTestBase {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data", hasSize(2))) // 태블릿 제외하고 2개만
-                .andExpect(jsonPath("$.data[0].id").value(testProducts.get(0).getId())) // 노트북
-                .andExpect(jsonPath("$.data[1].id").value(testProducts.get(1).getId())); // 스마트폰
+                .andExpect(jsonPath("$.data", hasSize(3))) // Redis 랭킹의 3개 상품 모두 반환
+                .andExpect(jsonPath("$.data[0].productId").value(testProducts.get(0).getId())) // 랭킹 1위 (점수 100)
+                .andExpect(jsonPath("$.data[1].productId").value(testProducts.get(1).getId())) // 랭킹 2위 (점수 80)  
+                .andExpect(jsonPath("$.data[2].productId").value(testProducts.get(2).getId())); // 랭킹 3위 (점수 60, 캐시에서 누락되어 DB 조회)
         
     }
     

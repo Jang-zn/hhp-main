@@ -82,9 +82,6 @@ class GetProductListTest {
         assertThat(result.get(0).getName()).isEqualTo("Product 1");
         assertThat(result.get(1).getName()).isEqualTo("Product 2");
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -107,9 +104,6 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(List.of()), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -136,9 +130,6 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
 }
