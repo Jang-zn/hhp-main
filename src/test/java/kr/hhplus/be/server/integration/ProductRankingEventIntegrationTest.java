@@ -119,8 +119,6 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
             assertThat(updatedRanking).contains(products.get(0).getId(), products.get(1).getId());
         });
         
-        System.out.println("===== 주문 완료 이벤트 기반 랭킹 업데이트 테스트 완료 =====");
-        System.out.println("주문한 상품들이 실시간 랭킹에 반영됨");
     }
 
     @Test
@@ -152,7 +150,6 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
             assertThat(ranking.get(0)).isEqualTo(popularProduct.getId());
         });
         
-        System.out.println("===== 다중 고객 주문 누적 랭킹 테스트 완료 =====");
     }
     
     @Test
@@ -187,7 +184,6 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
             assertThat(ranking.get(0)).isEqualTo(products.get(0).getId()); // 노트북 (5개)
         });
         
-        System.out.println("===== 개별 상품 독립적 랭킹 업데이트 테스트 완료 =====");
     }
 
     // === 헬퍼 메서드 ===

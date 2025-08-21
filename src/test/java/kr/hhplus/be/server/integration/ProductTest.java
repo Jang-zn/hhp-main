@@ -179,7 +179,6 @@ public class ProductTest extends IntegrationTestBase {
                 // Redis 랭킹 데이터 유무에 관계없이 응답이 성공하는지 확인
                 // 순서 검증은 실제 랭킹 로직에 따라 달라질 수 있음
         
-        System.out.println("===== Redis 랭킹 조회 테스트 완료 =====");
     }
     
     @Test
@@ -202,8 +201,6 @@ public class ProductTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.code").value(ErrorCode.SUCCESS.getCode()))
                 .andExpect(jsonPath("$.data").isArray());
         
-        System.out.println("===== Redis 랭킹 폴백 테스트 완료 =====");
-        System.out.println("랭킹 데이터가 없어도 DB에서 정상 조회됨");
     }
     
     @Test
@@ -242,7 +239,6 @@ public class ProductTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.data[0].id").value(testProducts.get(1).getId())); // 스마트폰이 1위로 변경
         
-        System.out.println("===== Redis 랭킹 실시간 업데이트 테스트 완료 =====");
     }
     
     @Test
@@ -278,7 +274,6 @@ public class ProductTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data[0].id").value(testProducts.get(0).getId())) // 노트북
                 .andExpect(jsonPath("$.data[1].id").value(testProducts.get(1).getId())); // 스마트폰
         
-        System.out.println("===== 누락된 상품 캐시 필터링 테스트 완료 =====");
     }
     
     // === 헬퍼 메서드 ===

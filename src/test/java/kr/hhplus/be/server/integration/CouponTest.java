@@ -210,16 +210,9 @@ public class CouponTest extends IntegrationTestBase {
             .filter(status -> status != 201 && status != 410) // 기타 에러
             .count();
         
-        System.out.println("===== 선착순 쿠폰 테스트 결과 =====");
-        System.out.println("전체 요청: " + statusResults.size());
-        System.out.println("성공 (201): " + successCount);
-        System.out.println("재고 부족 (410): " + outOfStockCount);
-        System.out.println("기타 에러: " + errorCount);
-        
         assertThat(statusResults.size()).isEqualTo(50);
         
         Coupon finalCoupon = couponRepositoryPort.findById(limitedCoupon.getId()).orElseThrow();
-        System.out.println("최종 DB 발급 수량: " + finalCoupon.getIssuedCount());
         
         // Redis 원자적 연산으로 인해 정확히 5개만 발급되어야 함
         assertThat(finalCoupon.getIssuedCount()).isLessThanOrEqualTo(5);
@@ -284,16 +277,9 @@ public class CouponTest extends IntegrationTestBase {
             .filter(status -> status != 201 && status != 410) // 기타 에러
             .count();
         
-        System.out.println("===== 극한 동시성 쿠폰 테스트 결과 =====");
-        System.out.println("전체 요청: " + statusResults.size());
-        System.out.println("성공 (201): " + successCount);
-        System.out.println("재고 부족 (410): " + outOfStockCount);
-        System.out.println("기타 에러: " + errorCount);
-        
         assertThat(statusResults.size()).isEqualTo(30);
         
         Coupon finalCoupon = couponRepositoryPort.findById(singleCoupon.getId()).orElseThrow();
-        System.out.println("최종 DB 발급 수량: " + finalCoupon.getIssuedCount());
         
         // Redis 원자적 연산으로 인해 정확히 1개만 발급되어야 함
         assertThat(finalCoupon.getIssuedCount()).isLessThanOrEqualTo(1);
