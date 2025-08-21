@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase.balance;
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.usecase.balance.ChargeBalanceUseCase;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.BalanceException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -36,12 +38,18 @@ class ChargeBalanceUseCaseTest {
     @Mock
     private BalanceRepositoryPort balanceRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
     private ChargeBalanceUseCase chargeBalanceUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        chargeBalanceUseCase = new ChargeBalanceUseCase(balanceRepositoryPort);
+        chargeBalanceUseCase = new ChargeBalanceUseCase(balanceRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test
