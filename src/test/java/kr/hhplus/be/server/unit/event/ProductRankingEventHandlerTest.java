@@ -118,7 +118,7 @@ class ProductRankingEventHandlerTest {
         Long orderId = 3L;
         Long userId = 102L;
         
-        List<OrderCompletedEvent.ProductOrderInfo> productOrders = Arrays.asList();
+        List<OrderCompletedEvent.ProductOrderInfo> productOrders = List.of();
         
         OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
         
