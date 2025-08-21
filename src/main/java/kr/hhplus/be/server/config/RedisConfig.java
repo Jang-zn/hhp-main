@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Configuration;
 import org.redisson.api.RBucket;
 import org.redisson.api.RMap;
 import org.redisson.codec.JsonJacksonCodec;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -67,8 +70,11 @@ public class RedisConfig {
         config.setThreads(4);
         config.setNettyThreads(4);
         
-        // JSON 코덱 설정 (캐싱용)
-        config.setCodec(new JsonJacksonCodec());
+        // JSON 코덱 설정 (캐싱용) - JavaTimeModule 포함
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // ISO-8601 형식 사용
+        config.setCodec(new JsonJacksonCodec(objectMapper));
         
         return Redisson.create(config);
     }

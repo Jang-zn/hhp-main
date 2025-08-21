@@ -215,6 +215,20 @@ public class KeyGenerator {
     }
     
     /**
+     * @param paymentId 결제 ID
+     */
+    public String generatePaymentCacheKey(Long paymentId) {
+        return String.join(SEPARATOR, PAYMENT_DOMAIN, INFO_TYPE, "payment_" + paymentId);
+    }
+    
+    /**
+     * @param couponId 쿠폰 ID
+     */
+    public String generateCouponCacheKey(Long couponId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, INFO_TYPE, "coupon_" + couponId);
+    }
+    
+    /**
      * @param userId 사용자 ID
      * @param limit 조회 개수
      * @param offset 오프셋
@@ -341,5 +355,41 @@ public class KeyGenerator {
     
     public String generateCouponUserKey(Long couponId, Long userId) {
         return String.join(SEPARATOR, COUPON_DOMAIN, USER_TYPE, "coupon_" + couponId + "_user_" + userId);
+    }
+    
+    // ========================= Phase 4: 이벤트 기반 캐시 무효화를 위한 메서드들 =========================
+    
+    /**
+     * 상품 목록 캐시 무효화 패턴 (일반 목록)
+     * @return 무효화 패턴 (예: "product:list:*")
+     */
+    public String generateProductListCachePattern() {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, LIST_TYPE, "*");
+    }
+    
+    /**
+     * 특정 상품과 관련된 주문 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "order:*:*product_1*")
+     */
+    public String generateOrderCachePatternByProduct(Long productId) {
+        return String.join(SEPARATOR, ORDER_DOMAIN, "*", "*product_" + productId + "*");
+    }
+    
+    /**
+     * 특정 상품과 관련된 쿠폰 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "coupon:*:*product_1*")
+     */
+    public String generateCouponCachePatternByProduct(Long productId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, "*", "*product_" + productId + "*");
+    }
+    
+    /**
+     * 랭킹 관련 모든 캐시 무효화 패턴
+     * @return 무효화 패턴 (예: "product:ranking:*")
+     */
+    public String generateRankingCachePattern() {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "*");
     }
 }

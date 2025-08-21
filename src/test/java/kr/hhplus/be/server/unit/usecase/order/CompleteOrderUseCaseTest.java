@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase.order;
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.CompleteOrderUseCase;
 import kr.hhplus.be.server.domain.exception.ProductException;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -33,13 +35,15 @@ class CompleteOrderUseCaseTest {
     @Mock private OrderRepositoryPort orderRepositoryPort;
     @Mock private ProductRepositoryPort productRepositoryPort;
     @Mock private OrderItemRepositoryPort orderItemRepositoryPort;
+    @Mock private CachePort cachePort;
+    @Mock private KeyGenerator keyGenerator;
     
     private CompleteOrderUseCase completeOrderUseCase;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        completeOrderUseCase = new CompleteOrderUseCase(productRepositoryPort, orderItemRepositoryPort);
+        completeOrderUseCase = new CompleteOrderUseCase(productRepositoryPort, orderItemRepositoryPort, cachePort, keyGenerator);
         
         when(productRepositoryPort.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }

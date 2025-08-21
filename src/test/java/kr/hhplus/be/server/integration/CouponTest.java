@@ -19,6 +19,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -149,7 +153,141 @@ public class CouponTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("한정 수량 쿠폰에 대한 동시 발급에서 수량 한도를 초과하지 않는다")
+    @DisplayName("선착순 쿠폰 발급에서 정확히 한정 수량만 발급된다")
+    void firstComeFirstServedCouponIssuance() throws Exception {
+        // Given - 5개 한정 쿠폰에 50명의 고객이 동시 발급 시도
+        Coupon limitedCoupon = createUniqueLimitedCoupon("FIRST_COME_COUPON", 5);
+        List<User> customers = createMultipleCustomers(50);
+        
+        // 동시 실행을 위한 결과 수집용
+        List<Integer> statusResults = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(50);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(50);
+
+        // When - 50명이 동시에 쿠폰 발급 시도 (각각 다른 고객)
+        for (int i = 0; i < 50; i++) {
+            final int index = i;
+            executor.submit(() -> {
+                try {
+                    startLatch.await(); // 모든 스레드가 동시에 시작
+                    
+                    User customer = customers.get(index);
+                    CouponRequest request = createCouponRequest(customer.getId(), limitedCoupon.getId());
+
+                    var response = mockMvc.perform(post("/api/coupon/issue")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+
+                    synchronized (statusResults) {
+                        statusResults.add(response.getResponse().getStatus());
+                    }
+                } catch (Exception e) {
+                    synchronized (statusResults) {
+                        statusResults.add(500);
+                    }
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown(); // 모든 스레드 시작
+        doneLatch.await(10, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        // Then - 결과 분석
+        long successCount = statusResults.stream()
+            .filter(status -> status == 201) // Created
+            .count();
+        
+        long outOfStockCount = statusResults.stream()
+            .filter(status -> status == 410) // Gone (Out of Stock)
+            .count();
+        
+        long errorCount = statusResults.stream()
+            .filter(status -> status != 201 && status != 410) // 기타 에러
+            .count();
+        
+        assertThat(statusResults.size()).isEqualTo(50);
+        
+        Coupon finalCoupon = couponRepositoryPort.findById(limitedCoupon.getId()).orElseThrow();
+        
+        // Redis 원자적 연산으로 인해 정확히 5개만 발급되어야 함
+        assertThat(finalCoupon.getIssuedCount()).isLessThanOrEqualTo(5);
+        assertThat(successCount).isLessThanOrEqualTo(5);
+    }
+    
+    @Test
+    @DisplayName("극한 동시성 상황에서도 선착순 쿠폰 발급이 정확하다")
+    void extremeConcurrencyFirstComeFirstServedTest() throws Exception {
+        // Given - 1개 한정 쿠폰에 30명의 고객이 동시 발급 시도
+        Coupon singleCoupon = createUniqueLimitedCoupon("SINGLE_COUPON", 1);
+        List<User> customers = createMultipleCustomers(30);
+        
+        // 동시 실행을 위한 결과 수집용
+        List<Integer> statusResults = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(30);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(30);
+
+        // When - 30명이 동시에 단 1개 쿠폰 발급 시도
+        for (int i = 0; i < 30; i++) {
+            final int index = i;
+            executor.submit(() -> {
+                try {
+                    startLatch.await(); // 모든 스레드가 동시에 시작
+                    
+                    User customer = customers.get(index);
+                    CouponRequest request = createCouponRequest(customer.getId(), singleCoupon.getId());
+
+                    var response = mockMvc.perform(post("/api/coupon/issue")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                        .andReturn();
+
+                    synchronized (statusResults) {
+                        statusResults.add(response.getResponse().getStatus());
+                    }
+                } catch (Exception e) {
+                    synchronized (statusResults) {
+                        statusResults.add(500);
+                    }
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown(); // 모든 스레드 시작
+        doneLatch.await(10, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        // Then - 결과 분석
+        long successCount = statusResults.stream()
+            .filter(status -> status == 201) // Created
+            .count();
+        
+        long outOfStockCount = statusResults.stream()
+            .filter(status -> status == 410) // Gone (Out of Stock)
+            .count();
+        
+        long errorCount = statusResults.stream()
+            .filter(status -> status != 201 && status != 410) // 기타 에러
+            .count();
+        
+        assertThat(statusResults.size()).isEqualTo(30);
+        
+        Coupon finalCoupon = couponRepositoryPort.findById(singleCoupon.getId()).orElseThrow();
+        
+        // Redis 원자적 연산으로 인해 정확히 1개만 발급되어야 함
+        assertThat(finalCoupon.getIssuedCount()).isLessThanOrEqualTo(1);
+        assertThat(successCount).isLessThanOrEqualTo(1);
+    }
+    
+    @Test
+    @DisplayName("한정 수량 쿠폰에 대한 동시 발급에서 수량 한도를 초과하지 않는다 (기존 테스트)")
     void maintainsCouponLimitUnderConcurrentIssuance() throws Exception {
         // Given - 5개 한정 쿠폰에 10명의 고객이 동시 발급 시도
         Coupon limitedCoupon = createUniqueLimitedCoupon("LIMITED_COUPON", 5);

@@ -131,9 +131,6 @@ class GetCouponListTest {
             assertThat(result.get(1).getCouponId()).isEqualTo(2L);
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -159,9 +156,6 @@ class GetCouponListTest {
             assertThat(result).isEmpty();
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -205,9 +199,6 @@ class GetCouponListTest {
             assertThat(result).hasSize(1);
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
     }

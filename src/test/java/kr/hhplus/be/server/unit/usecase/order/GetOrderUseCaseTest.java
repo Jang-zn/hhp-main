@@ -4,6 +4,8 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -42,13 +44,18 @@ class GetOrderUseCaseTest {
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private GetOrderUseCase getOrderUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getOrderUseCase = new GetOrderUseCase(userRepositoryPort, orderRepositoryPort);
+        getOrderUseCase = new GetOrderUseCase(userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator);
     }
 
     // === 기본 주문 조회 시나리오 ===

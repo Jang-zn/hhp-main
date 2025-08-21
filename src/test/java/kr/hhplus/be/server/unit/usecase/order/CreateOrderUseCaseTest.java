@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
@@ -41,6 +43,12 @@ class CreateOrderUseCaseTest {
     
     @Mock
     private EventLogRepositoryPort eventLogRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private CreateOrderUseCase createOrderUseCase;
 
@@ -55,7 +63,9 @@ class CreateOrderUseCaseTest {
             userRepositoryPort,
             productRepositoryPort, 
             orderRepositoryPort,
-            orderItemRepositoryPort
+            orderItemRepositoryPort,
+            cachePort,
+            keyGenerator
         );
         
         testUser = User.builder()

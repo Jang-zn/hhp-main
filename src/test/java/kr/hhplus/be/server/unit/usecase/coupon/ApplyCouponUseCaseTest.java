@@ -2,6 +2,8 @@ package kr.hhplus.be.server.unit.usecase.coupon;
 
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.port.storage.*;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
@@ -27,7 +29,11 @@ class ApplyCouponUseCaseTest {
     @Mock
     private CouponRepositoryPort couponRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
     
+    @Mock
+    private KeyGenerator keyGenerator;
     
     private ApplyCouponUseCase applyCouponUseCase;
     
@@ -36,7 +42,7 @@ class ApplyCouponUseCaseTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        applyCouponUseCase = new ApplyCouponUseCase(couponRepositoryPort);
+        applyCouponUseCase = new ApplyCouponUseCase(couponRepositoryPort, cachePort, keyGenerator);
         
         testCoupon = Coupon.builder()
             .id(1L)

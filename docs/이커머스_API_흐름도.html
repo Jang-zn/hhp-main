@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이커머스 플랫폼 API 흐름도</title>
+    <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            margin: 0;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            padding-left: 20px;
+        }
+        
+        .diagram {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e9ecef;
+        }
+        
+        .api-info {
+            background: #e8f4f8;
+            border-left: 4px solid #17a2b8;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .tech-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+            transition: transform 0.3s ease;
+        }
+        
+        .tech-item:hover {
+            transform: translateY(-5px);
+            border-color: #3498db;
+        }
+        
+        .tech-item h4 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        /* Mermaid 스타일 커스터마이징 */
+        .mermaid {
+            background: white !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 이커머스 플랫폼 API 흐름도</h1>
+            <p>Redis 기반 실시간 랭킹 & 선착순 쿠폰 시스템</p>
+        </div>
+        
+        <div class="content">
+            
+            <!-- 1. 전체 시스템 아키텍처 -->
+            <div class="section">
+                <h2>🏗️ 전체 시스템 아키텍처</h2>
+                <div class="api-info">
+                    <strong>📋 주요 특징:</strong> 클린 아키텍처, DIP 원칙, 포트-어댑터 패턴, 이벤트 기반 비동기 처리
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+graph TB
+    subgraph "🌐 API Layer"
+        PC[ProductController<br/>상품 관리]
+        OC[OrderController<br/>주문 관리] 
+        BC[BalanceController<br/>잔액 관리]
+        CC[CouponController<br/>쿠폰 관리]
+    end
+    
+    subgraph "🏗️ Service Layer"
+        PS[ProductService]
+        OS[OrderService]
+        BS[BalanceService]
+        CS[CouponService]
+    end
+    
+    subgraph "💼 UseCase Layer"
+        PUC[Product UseCases]
+        OUC[Order UseCases]
+        BUC[Balance UseCases]
+        CUC[Coupon UseCases]
+    end
+    
+    subgraph "🔌 Infrastructure"
+        subgraph "💾 Storage"
+            DB[(MySQL Database)]
+        end
+        subgraph "⚡ Cache & Queue"
+            REDIS[(Redis<br/>캐시/랭킹/쿠폰)]
+        end
+        subgraph "🔒 External"
+            LOCK[Distributed Lock]
+        end
+    end
+    
+    subgraph "📢 Event System"
+        EP[Event Publisher]
+        EH[Event Handlers<br/>- Ranking Update<br/>- Cache Invalidation]
+    end
+    
+    PC --> PS --> PUC
+    OC --> OS --> OUC
+    BC --> BS --> BUC
+    CC --> CS --> CUC
+    
+    PUC --> DB
+    OUC --> DB
+    BUC --> DB
+    CUC --> DB
+    
+    PUC --> REDIS
+    OUC --> REDIS
+    BUC --> REDIS
+    CUC --> REDIS
+    
+    BS --> LOCK
+    OS --> EP --> EH --> REDIS
+    
+    classDef controller fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef service fill:#f3e5f5,stroke:#4a148c,stroke-width:2px  
+    classDef usecase fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef storage fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef cache fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef event fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class PC,OC,BC,CC controller
+    class PS,OS,BS,CS service
+    class PUC,OUC,BUC,CUC usecase
+    class DB storage
+    class REDIS,LOCK cache
+    class EP,EH event
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2. 상품 API 흐름 -->
+            <div class="section">
+                <h2>📦 상품 API 흐름</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> Redis Sorted Set 기반 실시간 랭킹, Cache-Aside 패턴, DB 폴백 전략
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Cache
+    participant DB
+
+    Note over Client,DB: 📦 GET /api/product/list - 상품 목록 조회
+    Client->>Controller: GET /api/product/list
+    Controller->>Service: 상품목록조회()
+    Service->>UseCase: 상품목록조회유스케이스
+    UseCase->>Cache: 상품 목록 캐시 확인
+    alt 캐시 히트
+        Cache-->>UseCase: 캐시된 목록 반환
+    else 캐시 미스
+        UseCase->>DB: 상품 목록 조회
+        DB-->>UseCase: 상품 목록 데이터
+        UseCase->>Cache: 캐시에 저장
+    end
+    UseCase-->>Service: 상품 목록
+    Service-->>Controller: 상품 목록
+    Controller-->>Client: 200 OK + 상품 목록
+
+    Note over Client,DB: 🏆 GET /api/product/popular - 인기 상품 조회
+    Client->>Controller: GET /api/product/popular
+    Controller->>Service: 인기상품조회()
+    Service->>UseCase: 인기상품목록조회유스케이스
+    UseCase->>Cache: Redis ZRANGE 랭킹 조회
+    alt Redis 성공
+        Cache-->>UseCase: 랭킹 상품 ID 목록
+        UseCase->>Cache: 상품 상세정보 조회
+        Cache-->>UseCase: 상품 상세정보
+    else Redis 실패
+        UseCase->>DB: DB 폴백 조회
+        DB-->>UseCase: 상품 데이터
+        UseCase->>Cache: 캐시에 저장
+    end
+    UseCase-->>Service: 랭킹 상품 목록
+    Service-->>Controller: 인기 상품 목록
+    Controller-->>Client: 200 OK + 인기 상품 목록
+
+    Note over Client,DB: 🔍 GET /api/product/{id} - 상품 상세 조회
+    Client->>Controller: GET /api/product/{id}
+    Controller->>Service: 상품조회(id)
+    Service->>UseCase: 상품조회유스케이스
+    UseCase->>Cache: 상품 캐시 확인
+    alt 캐시 히트
+        Cache-->>UseCase: 캐시된 상품
+    else 캐시 미스
+        UseCase->>DB: ID로 상품 조회
+        DB-->>UseCase: 상품 데이터
+        UseCase->>Cache: 상품 저장
+    end
+    UseCase-->>Service: 상품 정보
+    Service-->>Controller: 상품 상세정보
+    Controller-->>Client: 200 OK + 상품 상세정보
+
+    Note over Client,DB: ➕ POST /api/product - 상품 생성
+    Client->>Controller: POST /api/product
+    Controller->>Service: 상품생성(요청)
+    Service->>UseCase: 상품생성유스케이스
+    UseCase->>DB: 상품 검증 및 생성
+    UseCase->>DB: 트랜잭션 커밋
+    UseCase->>Cache: 관련 캐시 무효화
+    UseCase-->>Service: 생성된 상품
+    Service-->>Controller: 상품 생성 완료
+    Controller-->>Client: 201 Created + 상품 정보
+
+    Note over Client,DB: ✏️ PUT /api/product/{id} - 상품 수정
+    Client->>Controller: PUT /api/product/{id}
+    Controller->>Service: 상품수정(id, 요청)
+    Service->>UseCase: 상품수정유스케이스
+    UseCase->>DB: 상품 검증 및 수정
+    UseCase->>DB: 트랜잭션 커밋
+    UseCase->>Cache: 상품 캐시 무효화
+    UseCase-->>Service: 수정된 상품
+    Service-->>Controller: 상품 수정 완료
+    Controller-->>Client: 200 OK + 상품 정보
+
+    Note over Client,DB: 🗑️ DELETE /api/product/{id} - 상품 삭제
+    Client->>Controller: DELETE /api/product/{id}
+    Controller->>Service: 상품삭제(id)
+    Service->>UseCase: 상품삭제유스케이스
+    UseCase->>DB: 상품 검증 및 삭제
+    UseCase->>DB: 트랜잭션 커밋
+    UseCase->>Cache: 모든 상품 캐시 무효화
+    UseCase-->>Service: 삭제 성공
+    Service-->>Controller: 삭제 확인
+    Controller-->>Client: 204 No Content
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3. 주문 & 결제 API 흐름 -->
+            <div class="section">
+                <h2>🛒 주문 & 결제 API 흐름</h2>
+                <div class="api-info">
+                    <strong>⚡ 핵심 기능:</strong> 분산 락 기반 동시성 제어, 이벤트 기반 랭킹 업데이트, 트랜잭션 관리
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Lock as Redis Lock
+    participant DB
+    participant EventBus
+    participant RankingHandler
+
+    Note over Client,RankingHandler: 🛒 POST /api/order - 주문 생성
+    Client->>Controller: POST /api/order
+    Controller->>Service: 주문생성(주문요청)
+    Service->>UseCase: 주문생성유스케이스
+    UseCase->>DB: 재고 확인 및 예약
+    UseCase->>DB: 주문 엔티티 생성
+    UseCase->>DB: 트랜잭션 커밋
+    UseCase-->>Service: 주문 생성 완료
+    Service-->>Controller: 주문 응답
+    Controller-->>Client: 201 Created + 주문 정보
+
+    Note over Client,RankingHandler: 💳 POST /api/order/{orderId}/pay - 주문 결제
+    Client->>Controller: POST /api/order/{id}/pay
+    Controller->>Service: 주문결제(주문ID, 사용자ID)
+    Service->>UseCase: 주문결제유스케이스
+    UseCase->>Lock: 분산 락 획득
+    alt 락 획득 성공
+        UseCase->>DB: 잔액 차감 및 결제
+        UseCase->>DB: 주문 상태 업데이트
+        UseCase->>EventBus: 주문완료이벤트 발행
+        UseCase->>Lock: 락 해제
+        EventBus->>RankingHandler: 비동기 랭킹 업데이트
+        RankingHandler->>Lock: Redis ZADD 상품별 주문량
+    else 락 획득 실패
+        UseCase-->>Service: 동시성 충돌
+        Service-->>Controller: 409 충돌
+        Controller-->>Client: 409 충돌
+    end
+    UseCase-->>Service: 결제 성공
+    Service-->>Controller: 결제 응답
+    Controller-->>Client: 200 OK + 결제 결과
+
+    Note over Client,RankingHandler: 📋 GET /api/order/{orderId} - 주문 조회
+    Client->>Controller: GET /api/order/{id}
+    Controller->>Service: 주문조회(주문ID)
+    Service->>UseCase: 주문조회유스케이스
+    UseCase->>DB: ID로 주문 조회
+    UseCase-->>Service: 주문 상세정보
+    Service-->>Controller: 주문 정보
+    Controller-->>Client: 200 OK + 주문 정보
+
+    Note over Client,RankingHandler: 📜 GET /api/order/user/{userId} - 사용자 주문 목록
+    Client->>Controller: GET /api/order/user/{userId}
+    Controller->>Service: 주문목록조회(사용자ID)
+    Service->>UseCase: 주문목록조회유스케이스
+    UseCase->>DB: 페이징 조회
+    UseCase-->>Service: 주문 목록
+    Service-->>Controller: 사용자 주문 목록
+    Controller-->>Client: 200 OK + 주문 목록
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 4. 쿠폰 API 흐름 -->
+            <div class="section">
+                <h2>🎫 쿠폰 API 흐름 (선착순 시스템)</h2>
+                <div class="api-info">
+                    <strong>🚀 핵심 기능:</strong> Redis Atomic 연산 기반 선착순 처리, Race Condition 완벽 해결, 중복 발급 방지
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Cache
+    participant Counter as Redis Counter
+    participant DB
+    participant Scheduler
+
+    Note over Client,Scheduler: 🎫 POST /api/coupon/issue - 선착순 쿠폰 발급
+    Client->>Controller: POST /api/coupon/issue
+    Controller->>Service: 쿠폰발급(쿠폰ID, 사용자ID)
+    Service->>UseCase: 쿠폰발급유스케이스
+    UseCase->>DB: 쿠폰 발급 가능 여부 확인
+    alt 쿠폰 발급 가능
+        UseCase->>Counter: 원자적 발급 연산
+        Counter->>Counter: 중복 사용자 확인
+        Counter->>Counter: 증가 및 한도 검증
+        alt 발급 성공
+            Counter-->>UseCase: 발급된 카운트
+            UseCase->>DB: 쿠폰 이력 저장
+            UseCase->>Cache: 캐시 무효화
+        else 발급 실패
+            Counter-->>UseCase: -1 (실패)
+            UseCase-->>Service: 이미발급됨/한도초과
+        end
+    else 쿠폰 발급 불가
+        UseCase-->>Service: 쿠폰발급불가
+    end
+    UseCase-->>Service: 발급 결과
+    Service-->>Controller: 쿠폰 발급 완료
+    Controller-->>Client: 200 OK + 쿠폰 정보
+
+    Note over Client,Scheduler: 📋 GET /api/coupon/user/{userId} - 사용자 쿠폰 목록
+    Client->>Controller: GET /api/coupon/user/{userId}
+    Controller->>Service: 쿠폰목록조회(사용자ID)
+    Service->>UseCase: 쿠폰목록조회유스케이스
+    UseCase->>Cache: 쿠폰 목록 캐시 확인
+    alt 캐시 히트
+        Cache-->>UseCase: 캐시된 쿠폰 목록
+    else 캐시 미스
+        UseCase->>DB: 사용자 쿠폰 조회
+        DB-->>UseCase: 쿠폰 목록
+        UseCase->>Cache: 캐시에 저장
+    end
+    UseCase-->>Service: 사용자 쿠폰 목록
+    Service-->>Controller: 쿠폰 목록
+    Controller-->>Client: 200 OK + 쿠폰 목록
+
+    Note over Client,Scheduler: ⏰ 스케줄링 쿠폰 만료 처리
+    loop 매시 실행
+        Scheduler->>UseCase: 쿠폰만료처리유스케이스
+        UseCase->>DB: 만료된 쿠폰 상태 업데이트
+        UseCase->>Cache: 만료된 캐시 무효화
+    end
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5. 잔액 API 흐름 -->
+            <div class="section">
+                <h2>💰 잔액 API 흐름</h2>
+                <div class="api-info">
+                    <strong>🔐 핵심 기능:</strong> 분산 락으로 동시성 제어, 트랜잭션 안정성 보장, 잔액 충전 및 조회
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Lock as Redis Lock
+    participant DB
+
+    Note over Client,DB: 💳 POST /api/balance/charge - 잔액 충전
+    Client->>Controller: POST /api/balance/charge
+    Controller->>Service: 잔액충전(사용자ID, 금액)
+    Service->>UseCase: 잔액충전유스케이스
+    UseCase->>Lock: 분산 락 획득
+    alt 락 획득 성공
+        UseCase->>DB: 잔액 조회 또는 생성
+        UseCase->>DB: 충전 금액 검증
+        alt 유효한 금액
+            UseCase->>DB: 잔액 업데이트 (+)
+            UseCase->>DB: 트랜잭션 커밋
+            UseCase->>Lock: 락 해제
+            UseCase-->>Service: 충전 성공
+        else 유효하지 않은 금액
+            UseCase->>Lock: 락 해제
+            UseCase-->>Service: 유효하지않은금액
+        end
+    else 락 획득 실패
+        UseCase-->>Service: 동시성 충돌
+    end
+    Service-->>Controller: 충전 결과
+    Controller-->>Client: 200 OK + 잔액 정보
+
+    Note over Client,DB: 💰 GET /api/balance/{userId} - 잔액 조회
+    Client->>Controller: GET /api/balance/{userId}
+    Controller->>Service: 잔액조회(사용자ID)
+    Service->>UseCase: 잔액조회유스케이스
+    UseCase->>DB: 사용자 잔액 조회
+    alt 잔액 존재
+        DB-->>UseCase: 현재 잔액
+    else 잔액 없음
+        DB-->>UseCase: 기본값 0
+    end
+    UseCase-->>Service: 잔액 정보
+    Service-->>Controller: 잔액 정보
+    Controller-->>Client: 200 OK + 잔액 정보
+
+    Note over Client,DB: 💸 POST /api/balance/deduct - 잔액 차감
+    Client->>Controller: POST /api/balance/deduct
+    Controller->>Service: 잔액차감(사용자ID, 금액)
+    Service->>UseCase: 잔액차감유스케이스
+    UseCase->>Lock: 분산 락 획득
+    alt 락 획득 성공
+        UseCase->>DB: 현재 잔액 조회
+        alt 잔액 충분
+            UseCase->>DB: 잔액 업데이트 (-)
+            UseCase->>DB: 트랜잭션 커밋
+            UseCase->>Lock: 락 해제
+            UseCase-->>Service: 차감 성공
+        else 잔액 부족
+            UseCase->>Lock: 락 해제
+            UseCase-->>Service: 잔액부족
+        end
+    else 락 획득 실패
+        UseCase-->>Service: 동시성 충돌
+    end
+    Service-->>Controller: 차감 결과
+    Controller-->>Client: 200 OK + 잔액 정보
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 6. Redis 활용 전략 -->
+            <div class="section">
+                <h2>⚡ Redis 활용 전략</h2>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <h4>🏆 Sorted Set</h4>
+                        <p>실시간 상품 랭킹<br/>O(log N) 성능<br/>ZADD/ZRANGE</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>⚛️ Atomic Long</h4>
+                        <p>선착순 쿠폰 카운터<br/>Race Condition 해결<br/>INCREMENT/DECREMENT</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>💾 Bucket</h4>
+                        <p>개별 데이터 캐싱<br/>TTL 기반 만료<br/>GET/SET/EXPIRE</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>🔒 Distributed Lock</h4>
+                        <p>분산 환경 동시성<br/>Redisson 활용<br/>LOCK/UNLOCK</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 7. 성능 최적화 요소 -->
+            <div class="section">
+                <h2>🚀 성능 최적화 요소</h2>
+                <div class="diagram">
+                    <div class="mermaid">
+graph TD
+    A[성능 최적화] --> B[Cache 전략]
+    A --> C[동시성 제어]
+    A --> D[실시간 처리]
+    A --> E[DB 최적화]
+    A --> F[폴백 전략]
+    
+    B --> B1[Cache-Aside 패턴]
+    B --> B2[TTL 기반 만료]
+    B --> B3[Cache Stampede 방어]
+    
+    C --> C1[Redis 분산 락]
+    C --> C2[Atomic 연산]
+    C --> C3[데드락 방지]
+    
+    D --> D1[Event-Driven Architecture]
+    D --> D2[비동기 핸들러]
+    D --> D3[장애 격리]
+    
+    E --> E1[Connection Pooling]
+    E --> E2[트랜잭션 격리]
+    E --> E3[인덱스 최적화]
+    
+    F --> F1[Redis 장애 대응]
+    F --> F2[DB 폴백]
+    F --> F3[Circuit Breaker]
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <div class="footer">
+            <p>🛠️ 기술 스택: Spring Boot 3.x, Redis (Redisson), MySQL, JPA, Event-Driven Architecture</p>
+            <p>📅 생성일: 2025-08-21 | 📊 프로젝트: 이커머스 플랫폼 Redis 시스템 디자인</p>
+        </div>
+    </div>
+
+    <script>
+        // Mermaid 10.x 초기화 방식
+        document.addEventListener('DOMContentLoaded', function() {
+            mermaid.initialize({ 
+                startOnLoad: true,
+                theme: 'default',
+                securityLevel: 'loose',
+                flowchart: {
+                    htmlLabels: true,
+                    curve: 'basis'
+                },
+                themeVariables: {
+                    primaryColor: '#3498db',
+                    primaryTextColor: '#2c3e50',
+                    primaryBorderColor: '#3498db',
+                    lineColor: '#34495e'
+                }
+            });
+        });
+    </script>
+</body>
+</html>

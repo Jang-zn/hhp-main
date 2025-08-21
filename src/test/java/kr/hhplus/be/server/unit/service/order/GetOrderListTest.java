@@ -88,7 +88,7 @@ class GetOrderListTest {
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
             applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, 
-            orderItemRepositoryPort, cachePort, keyGenerator, eventPublisher
+            orderItemRepositoryPort, keyGenerator, eventPublisher
         );
     }
 
@@ -121,9 +121,6 @@ class GetOrderListTest {
         assertThat(result.get(1).getUserId()).isEqualTo(userId);
         
         verify(userRepositoryPort).existsById(userId);
-        verify(keyGenerator).generateOrderListCacheKey(userId, limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(expectedOrders), anyInt());
         verify(getOrderListUseCase).execute(userId, limit, offset);
     }
     
@@ -149,9 +146,6 @@ class GetOrderListTest {
         assertThat(result).isEmpty();
         
         verify(userRepositoryPort).existsById(userId);
-        verify(keyGenerator).generateOrderListCacheKey(userId, limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(List.of()), anyInt());
         verify(getOrderListUseCase).execute(userId, limit, offset);
     }
 }

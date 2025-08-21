@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase.order;
 import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.OrderStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.CreatePaymentUseCase;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,12 @@ class CreatePaymentUseCaseTest {
     @Mock
     private PaymentRepositoryPort paymentRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
     private CreatePaymentUseCase createPaymentUseCase;
     
     private User testUser;
@@ -32,7 +40,7 @@ class CreatePaymentUseCaseTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        createPaymentUseCase = new CreatePaymentUseCase(paymentRepositoryPort);
+        createPaymentUseCase = new CreatePaymentUseCase(paymentRepositoryPort, cachePort, keyGenerator);
         
         testUser = User.builder()
             .id(1L)

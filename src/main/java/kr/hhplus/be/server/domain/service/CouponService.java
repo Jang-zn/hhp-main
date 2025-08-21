@@ -12,7 +12,6 @@ import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.CouponException;
-import kr.hhplus.be.server.domain.enums.CacheTTL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,7 +22,7 @@ import java.util.List;
 /**
  * 쿠폰 관련 비즈니스 로직을 처리하는 서비스
  * 
- * 쿠폰 조회, 발급 등의 기능을 제공하며,
+ * UseCase 레이어에 위임하여 쿠폰 조회, 발급 등의 기능을 제공하며,
  * 동시성 제어를 통해 쿠폰 재고 관리를 합니다.
  */
 @Service
@@ -41,7 +40,7 @@ public class CouponService {
     private final KeyGenerator keyGenerator;
     
     /**
-     * 사용자의 쿠폰 히스토리 목록 조회 (캐시 적용)
+     * 사용자의 쿠폰 히스토리 목록 조회
      * 
      * @param userId 사용자 ID
      * @param limit 조회할 쿠폰 개수
@@ -55,29 +54,7 @@ public class CouponService {
             throw new UserException.NotFound();
         }
         
-        try {
-            String cacheKey = keyGenerator.generateCouponListCacheKey(userId, limit, offset);
-            
-            // 캐시에서 조회 시도
-            List<CouponHistory> cachedCoupons = cachePort.getList(cacheKey);
-            
-            if (cachedCoupons != null) {
-                log.debug("캐시에서 쿠폰 목록 조회 성공: userId={}, count={}", userId, cachedCoupons.size());
-                return cachedCoupons;
-            }
-            
-            // 캐시 미스 - 데이터베이스에서 조회
-            List<CouponHistory> couponHistories = getCouponListUseCase.execute(userId, limit, offset);
-            log.debug("데이터베이스에서 쿠폰 목록 조회: userId={}, count={}", userId, couponHistories.size());
-            
-            // TTL과 함께 캐시에 저장
-            cachePort.put(cacheKey, couponHistories, CacheTTL.USER_COUPON_LIST.getSeconds());
-            
-            return couponHistories;
-        } catch (Exception e) {
-            log.error("쿠폰 목록 조회 중 오류 발생: userId={}, limit={}, offset={}", userId, limit, offset, e);
-            return getCouponListUseCase.execute(userId, limit, offset);
-        }
+        return getCouponListUseCase.execute(userId, limit, offset);
     }
 
     /**
@@ -126,11 +103,7 @@ public class CouponService {
                 return issueCouponUseCase.execute(userId, couponId);
             });
             
-            // 트랜잭션 커밋 후 캐시 무효화
-            String cacheKeyPattern = keyGenerator.generateCouponListCachePattern(userId);
-            cachePort.evictByPattern(cacheKeyPattern);
-            
-            log.debug("Coupon issued successfully: couponId={}, userId={}, issueNumber={}", 
+            log.info("쿠폰 발급 완료: couponId={}, userId={}, issueNumber={}", 
                      couponId, userId, issueNumber);
             
             return result;
@@ -147,6 +120,7 @@ public class CouponService {
      * @throws CouponException.NotFound 쿠폰을 찾을 수 없는 경우
      */
     public Coupon getCouponById(Long couponId) {
+        log.debug("쿠폰 조회 요청: couponId={}", couponId);
         return getCouponByIdUseCase.execute(couponId);
     }
 }

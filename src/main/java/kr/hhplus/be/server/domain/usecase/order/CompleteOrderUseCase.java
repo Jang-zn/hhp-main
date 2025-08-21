@@ -5,6 +5,8 @@ import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.ProductException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,12 +21,30 @@ public class CompleteOrderUseCase {
     
     private final ProductRepositoryPort productRepositoryPort;
     private final OrderItemRepositoryPort orderItemRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     public void execute(Order order) {
         log.debug("주문 완료 처리: orderId={}", order.getId());
         
         // 예약된 재고를 확정합니다 (실제 재고 차감)
         confirmReservedStock(order);
+        
+        // 주문 완료 후 캐시 무효화
+        try {
+            // 주문 상세 캐시 무효화 (미래에 상태 변경 시 업데이트 대비)
+            String orderCacheKey = keyGenerator.generateOrderCacheKey(order.getId());
+            cachePort.evict(orderCacheKey);
+            log.debug("주문 캐시 무효화 완료: orderId={}", order.getId());
+            
+            // 주문 목록 캐시 무효화
+            String pattern = keyGenerator.generateOrderListCachePattern(order.getUserId());
+            cachePort.evictByPattern(pattern);
+            log.debug("주문 목록 캐시 무효화 완료: userId={}", order.getUserId());
+        } catch (Exception e) {
+            log.warn("주문 완료 캐시 처리 실패: orderId={}, userId={}", order.getId(), order.getUserId(), e);
+            // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
+        }
         
         log.info("주문 완료 처리 완료: orderId={}", order.getId());
     }

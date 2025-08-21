@@ -4,6 +4,9 @@ import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.service.ProductService;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import kr.hhplus.be.server.domain.usecase.product.CreateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.UpdateProductUseCase;
+import kr.hhplus.be.server.domain.usecase.product.DeleteProductUseCase;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
@@ -31,6 +34,15 @@ class GetProductListTest {
     private GetPopularProductListUseCase getPopularProductListUseCase;
     
     @Mock
+    private CreateProductUseCase createProductUseCase;
+    
+    @Mock
+    private UpdateProductUseCase updateProductUseCase;
+    
+    @Mock
+    private DeleteProductUseCase deleteProductUseCase;
+    
+    @Mock
     private CachePort cachePort;
     
     @Mock
@@ -41,7 +53,7 @@ class GetProductListTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, cachePort, keyGenerator);
+        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase);
     }
 
     @Test
@@ -70,9 +82,6 @@ class GetProductListTest {
         assertThat(result.get(0).getName()).isEqualTo("Product 1");
         assertThat(result.get(1).getName()).isEqualTo("Product 2");
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -95,9 +104,6 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(List.of()), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
     
@@ -124,9 +130,6 @@ class GetProductListTest {
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
         
-        verify(keyGenerator).generateProductListCacheKey(limit, offset);
-        verify(cachePort).getList(eq(cacheKey));
-        verify(cachePort).put(eq(cacheKey), eq(expectedProducts), anyInt());
         verify(getProductUseCase).execute(limit, offset);
     }
 }
