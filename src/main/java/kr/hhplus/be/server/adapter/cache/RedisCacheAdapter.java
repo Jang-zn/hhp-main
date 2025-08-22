@@ -328,31 +328,48 @@ public class RedisCacheAdapter implements CachePort {
     
     @Override
     public long issueCouponAtomically(String couponCounterKey, String couponUserKey, long maxCount) {
+        String lockKey = couponCounterKey + ":lock";
+        RLock lock = redissonClient.getLock(lockKey);
+        
         try {
-            RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
-            RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
-            
-            if (userBucket.isExists()) {
+            // 분산 락 획득 (최대 10초 대기, 30초 후 자동 해제)
+            if (!lock.tryLock(10, 30, TimeUnit.SECONDS)) {
+                log.warn("Failed to acquire lock for coupon issuance: lockKey={}", lockKey);
                 return -1;
             }
             
-            long currentCount = counter.get();
-            if (currentCount >= maxCount) {
-                return -1;
+            try {
+                RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
+                
+                // 이미 발급받은 사용자인지 확인 (원자적 확인 및 설정)
+                if (!userBucket.trySet("issued", 30, TimeUnit.DAYS)) {
+                    log.debug("User already issued coupon: userKey={}", couponUserKey);
+                    return -1;
+                }
+                
+                RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
+                long newCount = counter.incrementAndGet();
+                
+                // 최대 수량 초과 확인
+                if (newCount > maxCount) {
+                    // 롤백: 사용자 키 삭제 및 카운터 감소
+                    userBucket.delete();
+                    counter.decrementAndGet();
+                    log.debug("Coupon issuance exceeded max count: counter={}, maxCount={}", newCount, maxCount);
+                    return -1;
+                }
+                
+                log.debug("Coupon issued atomically: counter={}, user={}, issueNumber={}", couponCounterKey, couponUserKey, newCount);
+                return newCount;
+                
+            } finally {
+                lock.unlock();
             }
             
-            long newCount = counter.incrementAndGet();
-            if (newCount > maxCount) {
-                counter.decrementAndGet();
-                return -1;
-            }
-            
-            userBucket.set("issued");
-            userBucket.expire(30, TimeUnit.DAYS);
-            
-            log.debug("Coupon issued atomically: counter={}, user={}, issueNumber={}", couponCounterKey, couponUserKey, newCount);
-            return newCount;
-            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Thread interrupted while acquiring lock for coupon issuance: counter={}, user={}", couponCounterKey, couponUserKey, e);
+            return -1;
         } catch (Exception e) {
             log.error("Error issuing coupon atomically: counter={}, user={}, maxCount={}", couponCounterKey, couponUserKey, maxCount, e);
             return -1;
