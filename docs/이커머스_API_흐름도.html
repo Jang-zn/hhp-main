@@ -205,11 +205,11 @@ graph TB
                 </div>
             </div>
             
-            <!-- 2. 상품 API 흐름 -->
+            <!-- 2-1. 상품 조회 API -->
             <div class="section">
-                <h2>📦 상품 API 흐름</h2>
+                <h2>📦 상품 조회 API</h2>
                 <div class="api-info">
-                    <strong>🎯 핵심 기능:</strong> Redis Sorted Set 기반 실시간 랭킹, Cache-Aside 패턴, DB 폴백 전략
+                    <strong>🎯 핵심 기능:</strong> Cache-Aside 패턴, 향상된 에러 처리 분리
                 </div>
                 <div class="diagram">
                     <div class="mermaid">
@@ -254,22 +254,89 @@ sequenceDiagram
     UseCase-->>Service: 랭킹 상품 목록
     Service-->>Controller: 인기 상품 목록
     Controller-->>Client: 200 OK + 인기 상품 목록
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2-2. 상품 상세 조회 (에러 분리 패턴) -->
+            <div class="section">
+                <h2>🔍 상품 상세 조회 (에러 분리 패턴)</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> 캐시/DB 에러 분리, 자동 재시도, 부분 장애 허용
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Cache
+    participant DB
 
     Note over Client,DB: 🔍 GET /api/product/{id} - 상품 상세 조회
     Client->>Controller: GET /api/product/{id}
     Controller->>Service: 상품조회(id)
     Service->>UseCase: 상품조회유스케이스
-    UseCase->>Cache: 상품 캐시 확인
-    alt 캐시 히트
-        Cache-->>UseCase: 캐시된 상품
-    else 캐시 미스
-        UseCase->>DB: ID로 상품 조회
-        DB-->>UseCase: 상품 데이터
-        UseCase->>Cache: 상품 저장
+    
+    rect rgb(255, 248, 220)
+        Note over UseCase,Cache: 캐시 조회 (개별 예외 처리)
+        UseCase->>Cache: 상품 캐시 확인
+        alt 캐시 히트
+            Cache-->>UseCase: 캐시된 상품
+        else 캐시 실패/미스
+            Cache-->>UseCase: null (로그 기록)
+        end
     end
+    
+    rect rgb(240, 255, 240)
+        Note over UseCase,DB: DB 조회 (재시도 포함)
+        alt 캐시에서 상품 없음
+            UseCase->>DB: ID로 상품 조회
+            alt DB 조회 성공
+                DB-->>UseCase: 상품 데이터
+            else DB 조회 실패
+                Note over UseCase,DB: 100ms 대기 후 재시도
+                UseCase->>DB: 재시도 조회
+                DB-->>UseCase: 상품 데이터
+            end
+        end
+    end
+    
+    rect rgb(255, 248, 220)
+        Note over UseCase,Cache: 캐시 저장 (개별 예외 처리)
+        alt 상품 조회 성공
+            UseCase->>Cache: 상품 저장
+            alt 캐시 저장 실패
+                Cache-->>UseCase: 실패 (로그만 기록)
+            end
+        end
+    end
+    
     UseCase-->>Service: 상품 정보
     Service-->>Controller: 상품 상세정보
     Controller-->>Client: 200 OK + 상품 상세정보
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2-3. 상품 관리 API -->
+            <div class="section">
+                <h2>⚙️ 상품 관리 API</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> 생성/수정/삭제, 포괄적 캐시 관리, 이벤트 기반 처리
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Cache
+    participant DB
+    participant EventBus
+    participant RankingHandler
 
     Note over Client,DB: ➕ POST /api/product - 상품 생성
     Client->>Controller: POST /api/product
@@ -293,13 +360,26 @@ sequenceDiagram
     Service-->>Controller: 상품 수정 완료
     Controller-->>Client: 200 OK + 상품 정보
 
-    Note over Client,DB: 🗑️ DELETE /api/product/{id} - 상품 삭제
+    Note over Client,EventBus: 🗑️ DELETE /api/product/{id} - 상품 삭제
     Client->>Controller: DELETE /api/product/{id}
     Controller->>Service: 상품삭제(id)
     Service->>UseCase: 상품삭제유스케이스
     UseCase->>DB: 상품 검증 및 삭제
     UseCase->>DB: 트랜잭션 커밋
-    UseCase->>Cache: 모든 상품 캐시 무효화
+    
+    rect rgb(255, 248, 220)
+        Note over UseCase,Cache: 동기 캐시 무효화
+        UseCase->>Cache: 상품별 캐시 무효화
+        UseCase->>Cache: 랭킹 캐시 무효화 (특정 상품)
+        UseCase->>Cache: 상품 목록 캐시 무효화
+    end
+    
+    rect rgb(240, 255, 240)
+        Note over Service,EventBus: 비동기 이벤트 처리
+        Service->>EventBus: ProductDeleted 이벤트 발행
+        EventBus->>RankingHandler: 모든 랭킹에서 상품 제거
+    end
+    
     UseCase-->>Service: 삭제 성공
     Service-->>Controller: 삭제 확인
     Controller-->>Client: 204 No Content
@@ -307,11 +387,11 @@ sequenceDiagram
                 </div>
             </div>
             
-            <!-- 3. 주문 & 결제 API 흐름 -->
+            <!-- 3-1. 주문 생성 & 결제 -->
             <div class="section">
-                <h2>🛒 주문 & 결제 API 흐름</h2>
+                <h2>🛒 주문 생성 & 결제</h2>
                 <div class="api-info">
-                    <strong>⚡ 핵심 기능:</strong> 분산 락 기반 동시성 제어, 이벤트 기반 랭킹 업데이트, 트랜잭션 관리
+                    <strong>⚡ 핵심 기능:</strong> 분산 락 기반 동시성 제어, 이벤트 기반 랭킹 업데이트
                 </div>
                 <div class="diagram">
                     <div class="mermaid">
@@ -356,8 +436,26 @@ sequenceDiagram
     UseCase-->>Service: 결제 성공
     Service-->>Controller: 결제 응답
     Controller-->>Client: 200 OK + 결제 결과
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3-2. 주문 조회 -->
+            <div class="section">
+                <h2>📋 주문 조회</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> 주문 상세 조회, 사용자별 주문 목록
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant DB
 
-    Note over Client,RankingHandler: 📋 GET /api/order/{orderId} - 주문 조회
+    Note over Client,DB: 📋 GET /api/order/{orderId} - 주문 조회
     Client->>Controller: GET /api/order/{id}
     Controller->>Service: 주문조회(주문ID)
     Service->>UseCase: 주문조회유스케이스
@@ -366,7 +464,7 @@ sequenceDiagram
     Service-->>Controller: 주문 정보
     Controller-->>Client: 200 OK + 주문 정보
 
-    Note over Client,RankingHandler: 📜 GET /api/order/user/{userId} - 사용자 주문 목록
+    Note over Client,DB: 📜 GET /api/order/user/{userId} - 사용자 주문 목록
     Client->>Controller: GET /api/order/user/{userId}
     Controller->>Service: 주문목록조회(사용자ID)
     Service->>UseCase: 주문목록조회유스케이스
@@ -378,11 +476,11 @@ sequenceDiagram
                 </div>
             </div>
             
-            <!-- 4. 쿠폰 API 흐름 -->
+            <!-- 4-1. 선착순 쿠폰 발급 -->
             <div class="section">
-                <h2>🎫 쿠폰 API 흐름 (선착순 시스템)</h2>
+                <h2>🎫 선착순 쿠폰 발급</h2>
                 <div class="api-info">
-                    <strong>🚀 핵심 기능:</strong> Redis Atomic 연산 기반 선착순 처리, Race Condition 완벽 해결, 중복 발급 방지
+                    <strong>🚀 핵심 기능:</strong> Redis Atomic 연산 기반 선착순 처리, Race Condition 완벽 해결
                 </div>
                 <div class="diagram">
                     <div class="mermaid">
@@ -394,9 +492,8 @@ sequenceDiagram
     participant Cache
     participant Counter as Redis Counter
     participant DB
-    participant Scheduler
 
-    Note over Client,Scheduler: 🎫 POST /api/coupon/issue - 선착순 쿠폰 발급
+    Note over Client,DB: 🎫 POST /api/coupon/issue - 선착순 쿠폰 발급
     Client->>Controller: POST /api/coupon/issue
     Controller->>Service: 쿠폰발급(쿠폰ID, 사용자ID)
     Service->>UseCase: 쿠폰발급유스케이스
@@ -419,8 +516,28 @@ sequenceDiagram
     UseCase-->>Service: 발급 결과
     Service-->>Controller: 쿠폰 발급 완료
     Controller-->>Client: 200 OK + 쿠폰 정보
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 4-2. 쿠폰 조회 & 관리 -->
+            <div class="section">
+                <h2>📋 쿠폰 조회 & 관리</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> 캐시 기반 쿠폰 목록, 스케줄링 만료 처리
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Cache
+    participant DB
+    participant Scheduler
 
-    Note over Client,Scheduler: 📋 GET /api/coupon/user/{userId} - 사용자 쿠폰 목록
+    Note over Client,DB: 📋 GET /api/coupon/user/{userId} - 사용자 쿠폰 목록
     Client->>Controller: GET /api/coupon/user/{userId}
     Controller->>Service: 쿠폰목록조회(사용자ID)
     Service->>UseCase: 쿠폰목록조회유스케이스
@@ -436,7 +553,7 @@ sequenceDiagram
     Service-->>Controller: 쿠폰 목록
     Controller-->>Client: 200 OK + 쿠폰 목록
 
-    Note over Client,Scheduler: ⏰ 스케줄링 쿠폰 만료 처리
+    Note over Scheduler,Cache: ⏰ 스케줄링 쿠폰 만료 처리
     loop 매시 실행
         Scheduler->>UseCase: 쿠폰만료처리유스케이스
         UseCase->>DB: 만료된 쿠폰 상태 업데이트
@@ -446,11 +563,11 @@ sequenceDiagram
                 </div>
             </div>
             
-            <!-- 5. 잔액 API 흐름 -->
+            <!-- 5-1. 잔액 충전 -->
             <div class="section">
-                <h2>💰 잔액 API 흐름</h2>
+                <h2>💳 잔액 충전</h2>
                 <div class="api-info">
-                    <strong>🔐 핵심 기능:</strong> 분산 락으로 동시성 제어, 트랜잭션 안정성 보장, 잔액 충전 및 조회
+                    <strong>🔐 핵심 기능:</strong> 분산 락으로 동시성 제어, 트랜잭션 안정성 보장
                 </div>
                 <div class="diagram">
                     <div class="mermaid">
@@ -484,6 +601,25 @@ sequenceDiagram
     end
     Service-->>Controller: 충전 결과
     Controller-->>Client: 200 OK + 잔액 정보
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5-2. 잔액 조회 & 차감 -->
+            <div class="section">
+                <h2>💰 잔액 조회 & 차감</h2>
+                <div class="api-info">
+                    <strong>🎯 핵심 기능:</strong> 잔액 조회, 분산 락 기반 차감
+                </div>
+                <div class="diagram">
+                    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UseCase
+    participant Lock as Redis Lock
+    participant DB
 
     Note over Client,DB: 💰 GET /api/balance/{userId} - 잔액 조회
     Client->>Controller: GET /api/balance/{userId}
@@ -544,6 +680,14 @@ sequenceDiagram
                         <h4>🔒 Distributed Lock</h4>
                         <p>분산 환경 동시성<br/>Redisson 활용<br/>LOCK/UNLOCK</p>
                     </div>
+                    <div class="tech-item">
+                        <h4>🔑 Key Namespace</h4>
+                        <p>통일된 키 관리<br/>cache: 접두사<br/>패턴 기반 무효화</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>🔄 Error Isolation</h4>
+                        <p>캐시/DB 에러 분리<br/>부분 장애 격리<br/>자동 재시도</p>
+                    </div>
                 </div>
             </div>
             
@@ -558,10 +702,12 @@ graph TD
     A --> D[실시간 처리]
     A --> E[DB 최적화]
     A --> F[폴백 전략]
+    A --> G[에러 처리]
     
     B --> B1[Cache-Aside 패턴]
     B --> B2[TTL 기반 만료]
     B --> B3[Cache Stampede 방어]
+    B --> B4[키 네임스페이스 통일]
     
     C --> C1[Redis 분산 락]
     C --> C2[Atomic 연산]
@@ -570,14 +716,21 @@ graph TD
     D --> D1[Event-Driven Architecture]
     D --> D2[비동기 핸들러]
     D --> D3[장애 격리]
+    D --> D4[동기/비동기 분리]
     
     E --> E1[Connection Pooling]
     E --> E2[트랜잭션 격리]
     E --> E3[인덱스 최적화]
+    E --> E4[DB 재시도 메커니즘]
     
     F --> F1[Redis 장애 대응]
     F --> F2[DB 폴백]
     F --> F3[Circuit Breaker]
+    
+    G --> G1[캐시 에러 분리]
+    G --> G2[DB 에러 분리]
+    G --> G3[부분 장애 허용]
+    G --> G4[서비스 연속성 보장]
                     </div>
                 </div>
             </div>
@@ -585,8 +738,8 @@ graph TD
         </div>
         
         <div class="footer">
-            <p>🛠️ 기술 스택: Spring Boot 3.x, Redis (Redisson), MySQL, JPA, Event-Driven Architecture</p>
-            <p>📅 생성일: 2025-08-21 | 📊 프로젝트: 이커머스 플랫폼 Redis 시스템 디자인</p>
+            <p>🛠️ 기술 스택: Spring Boot 3.x, Redis (Redisson), MySQL, JPA, Event-Driven Architecture, Error Isolation Pattern</p>
+            <p>📅 생성일: 2025-08-21 | 📊 프로젝트: 이커머스 플랫폼 Redis 시스템 디자인 | 🔄 최종 업데이트: 2025-08-22</p>
         </div>
     </div>
 

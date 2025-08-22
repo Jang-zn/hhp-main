@@ -41,25 +41,26 @@ E-Commerce 시스템에서 증가하는 트래픽과 DB 부하를 해결하기 �
 **Redis Sorted Set을 활용한 실시간 랭킹 시스템 구현**
 
 ```java
-// RedisCacheAdapter.java - 랭킹 시스템 핵심 로직
+// RedisCacheAdapter.java - 랭킹 시스템 핵심 로직 (실제 구현)
 @Override
 public void addProductScore(String rankingKey, String productKey, int orderQuantity) {
     try {
-        RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+        String prefixedKey = CACHE_KEY_PREFIX + rankingKey; // "cache:" 접두사 추가
+        RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
         ranking.addScore(productKey, orderQuantity);
         
         ranking.expire(7, TimeUnit.DAYS); // 일주일 자동 만료
-        log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", 
-                 rankingKey, productKey, orderQuantity);
+        log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", prefixedKey, productKey, orderQuantity);
     } catch (Exception e) {
-        log.error("Error adding product score", e);
+        log.error("Error adding product score: rankingKey={}, productKey={}, quantity={}", rankingKey, productKey, orderQuantity, e);
     }
 }
 
 @Override
 public List<Long> getProductRanking(String rankingKey, int offset, int limit) {
     try {
-        RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+        String prefixedKey = CACHE_KEY_PREFIX + rankingKey; // 일관된 접두사 적용
+        RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
         return ranking.entryRangeReversed(offset, offset + limit - 1)
                 .stream()
                 .map(entry -> {
@@ -68,7 +69,7 @@ public List<Long> getProductRanking(String rankingKey, int offset, int limit) {
                 })
                 .collect(Collectors.toList());
     } catch (Exception e) {
-        log.error("Error getting product ranking", e);
+        log.error("Error getting product ranking: rankingKey={}, offset={}, limit={}", CACHE_KEY_PREFIX + rankingKey, offset, limit, e);
         return List.of();
     }
 }
@@ -103,7 +104,7 @@ public List<Product> execute(int period, int limit, int offset) {
 #### 2.1.2 해결된 문제점
 
 1. **실시간 랭킹 제공**: Redis Sorted Set의 O(log N) 성능으로 빠른 랭킹 조회
-2. **장애 복구**: Redis 장애 시 DB 폴백으로 서비스 연속성 보장
+2. **장애 복구**: Redis 장애 시 DB 폴백
 
 ### 2.2 선착순 쿠폰 발급 시스템
 
@@ -112,40 +113,53 @@ public List<Product> execute(int period, int limit, int offset) {
 **Redis Atomic Operations를 활용한 동시성 제어**
 
 ```java
-// RedisCacheAdapter.java - 원자적 쿠폰 발급 로직
+// RedisCacheAdapter.java - 원자적 쿠폰 발급 로직 (실제 구현 - 분산 락 기반)
 @Override
 public long issueCouponAtomically(String couponCounterKey, String couponUserKey, long maxCount) {
+    String lockKey = couponCounterKey + ":lock";
+    RLock lock = redissonClient.getLock(lockKey);
+    
     try {
-        RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
-        RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
-        
-        // 1. 중복 발급 검증
-        if (userBucket.isExists()) {
-            return -1; // 이미 발급받음
+        // 분산 락 획득 (최대 10초 대기, 30초 후 자동 해제)
+        if (!lock.tryLock(10, 30, TimeUnit.SECONDS)) {
+            log.warn("Failed to acquire lock for coupon issuance: lockKey={}", lockKey);
+            return -1;
         }
         
-        // 2. 현재 발급 수량 확인
-        long currentCount = counter.get();
-        if (currentCount >= maxCount) {
-            return -1; // 재고 소진
+        try {
+            RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
+            
+            // 이미 발급받은 사용자인지 확인 (원자적 확인 및 설정)
+            if (!userBucket.trySet("issued", 30, TimeUnit.DAYS)) {
+                log.debug("User already issued coupon: userKey={}", couponUserKey);
+                return -1;
+            }
+            
+            RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
+            long newCount = counter.incrementAndGet();
+            
+            // 최대 수량 초과 확인
+            if (newCount > maxCount) {
+                // 롤백: 사용자 키 삭제 및 카운터 감소
+                userBucket.delete();
+                counter.decrementAndGet();
+                log.debug("Coupon issuance exceeded max count: counter={}, maxCount={}", newCount, maxCount);
+                return -1;
+            }
+            
+            log.debug("Coupon issued atomically: counter={}, user={}, issueNumber={}", couponCounterKey, couponUserKey, newCount);
+            return newCount;
+            
+        } finally {
+            lock.unlock();
         }
         
-        // 3. 원자적 증가 연산
-        long newCount = counter.incrementAndGet();
-        if (newCount > maxCount) {
-            counter.decrementAndGet(); // 롤백
-            return -1; // 재고 초과
-        }
-        
-        // 4. 사용자 발급 이력 저장
-        userBucket.set("issued");
-        userBucket.expire(30, TimeUnit.DAYS);
-        
-        log.debug("Coupon issued atomically: issueNumber={}", newCount);
-        return newCount;
-        
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        log.error("Thread interrupted while acquiring lock for coupon issuance: counter={}, user={}", couponCounterKey, couponUserKey, e);
+        return -1;
     } catch (Exception e) {
-        log.error("Error issuing coupon atomically", e);
+        log.error("Error issuing coupon atomically: counter={}, user={}, maxCount={}", couponCounterKey, couponUserKey, maxCount, e);
         return -1;
     }
 }
@@ -169,7 +183,7 @@ public CouponHistory execute(Long userId, Long couponId) {
         throw new CouponException.CouponNotIssuable();
     }
     
-    // 3. Redis 원자적 발급 처리
+    // 3. Redis 원자적 발급 처리 (분산 락 기반)
     String counterKey = keyGenerator.generateCouponCounterKey(couponId);
     String userKey = keyGenerator.generateCouponUserKey(couponId, userId);
     long issueNumber = cachePort.issueCouponAtomically(counterKey, userKey, coupon.getQuantity());
@@ -179,6 +193,7 @@ public CouponHistory execute(Long userId, Long couponId) {
     }
     
     // 4. DB 저장 및 캐시 무효화
+    CouponHistory couponHistory = CouponHistory.of(user, coupon, issueNumber);
     CouponHistory savedHistory = couponHistoryRepositoryPort.save(couponHistory);
     cachePort.evictByPattern(keyGenerator.generateCouponListCachePattern(userId));
     
@@ -186,26 +201,106 @@ public CouponHistory execute(Long userId, Long couponId) {
 }
 ```
 
+#### 2.2.3 원자성 보장 메커니즘의 핵심
+
+**trySet을 활용한 원자적 중복 검증**
+```java
+// 핵심: 검증과 설정이 원자적으로 수행됨
+if (!userBucket.trySet("issued", 30, TimeUnit.DAYS)) {
+    // 이미 키가 존재하면 false 반환 (중복 발급)
+    return -1;
+}
+// 키가 없었다면 즉시 설정되어 다른 요청 차단
+```
+
+이 구현의 장점:
+1. **경합 조건 해결**: 여러 스레드가 동시에 중복 검증을 해도 단 하나만 성공
+2. **원자성**: 검증과 설정이 분리되지 않아 중간 상태 없음
+3. **고성능**: 별도의 락 없이도 중복 발급 방지 가능
+
 #### 2.2.2 해결된 문제점
 
-1. **정확한 재고 관리**: Redis AtomicLong으로 동시 발급 시에도 정확한 수량 제어
-2. **중복 발급 방지**: 사용자별 발급 이력을 Redis에 저장하여 즉시 검증
-3. **고성능 처리**: DB 락 없이 Redis 연산만으로 동시성 제어
+1. **정확한 재고 관리**: 분산 락 + AtomicLong으로 동시 발급 시에도 정확한 수량 제어
+2. **중복 발급 방지**: trySet을 활용한 원자적 중복 검증 및 발급 이력 저장
+3. **고성능 처리**: DB 락 없이 Redis 분산 락으로 동시성 제어
+4. **데드락 방지**: 10초 락 대기 타임아웃 + 30초 자동 해제로 안전한 락 관리
+5. **원자성 보장**: trySet의 원자적 특성으로 검증과 설정을 한 번에 처리
+6. **자동 롤백**: 재고 초과 시 사용자 키 삭제와 카운터 감소로 일관성 유지
 
-### 2.3 Cache Stampede 방어 시스템
+### 2.3 향상된 에러 처리 및 복원력
 
-#### 2.3.1 분산 락 기반 방어 메커니즘
+#### 2.3.1 에러 처리 분리 전략
+
+**캐시와 DB 연산의 개별 예외 처리**
 
 ```java
-// RedisCacheAdapter.java - Cache Stampede 방어 로직
+// GetProductUseCase.java - 개선된 에러 처리 구조
+public Optional<Product> execute(Long productId) {
+    String cacheKey = keyGenerator.generateProductCacheKey(productId);
+    
+    // 1. 캐시 조회 (개별 예외 처리)
+    Product cachedProduct = null;
+    try {
+        cachedProduct = cachePort.get(cacheKey, Product.class);
+        if (cachedProduct != null) {
+            return Optional.of(cachedProduct);
+        }
+    } catch (Exception cacheException) {
+        log.warn("캐시 조회 실패, DB로 진행: productId={}", productId, cacheException);
+    }
+    
+    // 2. DB 조회 (재시도 포함)
+    Optional<Product> productOpt = null;
+    try {
+        productOpt = productRepositoryPort.findById(productId);
+    } catch (Exception dbException) {
+        // 일시적 오류 재시도
+        log.warn("DB 조회 실패, 재시도: productId={}", productId, dbException);
+        try {
+            Thread.sleep(100); // 100ms 대기
+            productOpt = productRepositoryPort.findById(productId);
+        } catch (Exception retryException) {
+            log.error("DB 조회 재시도 실패: productId={}", productId, retryException);
+            throw retryException;
+        }
+    }
+    
+    // 3. 캐시 저장 (개별 예외 처리)
+    if (productOpt != null && productOpt.isPresent()) {
+        try {
+            cachePort.put(cacheKey, productOpt.get(), CacheTTL.PRODUCT_INFO.getSeconds());
+        } catch (Exception cacheException) {
+            log.warn("캐시 저장 실패, 계속 진행: productId={}", productId, cacheException);
+        }
+    }
+    
+    return productOpt;
+}
+```
+
+#### 2.3.2 해결된 문제점
+
+1. **캐시 장애 격리**: 캐시 오류가 DB 조회를 방해하지 않음
+2. **DB 복원력**: 일시적 DB 장애 시 자동 재시도 메커니즘
+3. **서비스 연속성**: 개별 컴포넌트 장애 시에도 전체 서비스 유지
+
+### 2.4 Cache Stampede 방어 시스템
+
+#### 2.4.1 분산 락 기반 방어 메커니즘
+
+```java
+// RedisCacheAdapter.java - Cache Stampede 방어 로직 (실제 구현)
 @Override
 public <T> T get(String key, Class<T> type) {
+    String cacheKey = CACHE_KEY_PREFIX + key;
+    
     try {
         // 1. 첫 번째 캐시 확인
         RBucket<T> bucket = redissonClient.getBucket(cacheKey);
         T cachedValue = bucket.get();
         
         if (cachedValue != null) {
+            log.debug("Cache hit: key={}, type={}", cacheKey, type.getSimpleName());
             return cachedValue; // Cache Hit
         }
         
@@ -214,32 +309,36 @@ public <T> T get(String key, Class<T> type) {
         RLock lock = redissonClient.getLock(lockKey);
         
         try {
-            // 3. 200ms 타임아웃으로 락 획득 시도
+            // 3. Redisson pub/sub 대기 메커니즘 활용 (200ms 대기)
             if (lock.tryLock(200, TimeUnit.MILLISECONDS)) {
                 try {
                     // 4. Double-check (다른 스레드가 이미 로드했을 수 있음)
                     cachedValue = bucket.get();
                     if (cachedValue != null) {
+                        log.debug("Cache hit after lock (double-check): key={}, type={}", cacheKey, type.getSimpleName());
                         return cachedValue;
                     }
                     
-                    // 5. null 반환 → Service에서 DB 조회 후 put() 호출
+                    // 5. 여전히 없으면 null 반환 (서비스가 DB 조회 후 put() 호출하도록)
+                    log.debug("Cache miss after lock: key={}, type={}", cacheKey, type.getSimpleName());
                     return null;
                     
                 } finally {
                     lock.unlock();
                 }
             } else {
-                // 6. 락 획득 실패 시 DB 폴백
+                // 6. 200ms 대기했는데도 락 획득 실패 - DB 폴백
+                log.debug("Lock acquisition timeout, fallback to DB: key={}", cacheKey);
                 return null;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.warn("Thread interrupted during lock wait: key={}", cacheKey);
             return null;
         }
         
     } catch (Exception e) {
-        log.error("Error accessing cache", e);
+        log.error("Error accessing cache: key={}, type={}", cacheKey, type.getSimpleName(), e);
         return null;
     }
 }
@@ -248,32 +347,161 @@ public <T> T get(String key, Class<T> type) {
 #### 2.3.2 TTL Randomization 구현
 
 ```java
-// RedisCacheAdapter.java - TTL 지터 추가
+// RedisCacheAdapter.java - TTL 지터 추가 (실제 구현)
 @Override
 public void put(String key, Object value, int ttlSeconds) {
+    String cacheKey = CACHE_KEY_PREFIX + key;
+    
     try {
+        RBucket<Object> bucket = redissonClient.getBucket(cacheKey);
+        
         if (ttlSeconds > 0) {
-            // ±10% 랜덤 지터 추가
-            int jitter = (int) (ttlSeconds * 0.1 * (random.nextDouble() * 2 - 1));
+            // Cache Stampede 방지: TTL에 ±10% 랜덤 지터 추가
+            int jitter = (int) (ttlSeconds * 0.1 * (random.nextDouble() * 2 - 1)); // -10% ~ +10%
             int randomizedTTL = ttlSeconds + jitter;
             
             bucket.set(value, randomizedTTL, TimeUnit.SECONDS);
-            log.debug("Cache put with randomized TTL: originalTTL={}s, actualTTL={}s", 
-                     ttlSeconds, randomizedTTL);
+            log.debug("Cache put with randomized TTL: key={}, originalTTL={}s, actualTTL={}s", 
+                     cacheKey, ttlSeconds, randomizedTTL);
+        } else {
+            bucket.set(value);
+            log.debug("Cache put without TTL: key={}", cacheKey);
         }
+        
     } catch (Exception e) {
-        log.error("Error putting cache", e);
+        log.error("Error putting cache: key={}, ttl={}s", cacheKey, ttlSeconds, e);
     }
 }
 ```
 
-#### 2.3.3 해결된 문제점
+#### 2.4.3 해결된 문제점
 
 1. **DB 부하 분산**: 동시 요청 중 단 하나의 스레드만 DB 조회
 2. **타임아웃 제어**: 200ms 락 타임아웃으로 데드락 방지
 3. **자동 부하 분산**: TTL 지터로 캐시 만료 시점 분산
+4. **Redisson 최적화**: pub/sub 메커니즘을 활용한 효율적인 락 대기
 
-### 2.4 아키텍처 개선
+### 2.5 Redis 키 네임스페이스 일관성
+
+#### 2.5.1 키 생성 표준화
+
+**문제**: 랭킹 캐시 키가 다른 캐시 키와 다른 네임스페이스 사용
+
+```java
+// 기존 문제점
+public void addProductScore(String rankingKey, String productKey, int orderQuantity) {
+    // rankingKey가 "cache:" 접두사 없이 생성됨
+    RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+    // evictByPattern("cache:*")이 이 키들을 찾지 못함
+}
+```
+
+**해결**: 모든 Redis 키에 일관된 접두사 적용
+
+```java
+// RedisCacheAdapter.java - 개선된 랭킹 키 생성 (실제 구현)
+@Override
+public void addProductScore(String rankingKey, String productKey, int orderQuantity) {
+    try {
+        String prefixedKey = CACHE_KEY_PREFIX + rankingKey; // "cache:" 접두사 추가
+        RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
+        ranking.addScore(productKey, orderQuantity);
+        ranking.expire(7, TimeUnit.DAYS);
+        log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", prefixedKey, productKey, orderQuantity);
+    } catch (Exception e) {
+        log.error("Error adding product score: rankingKey={}, productKey={}, quantity={}", rankingKey, productKey, orderQuantity, e);
+    }
+}
+
+// KeyGenerator.java - 패턴 생성 일관성
+public String generateRankingCachePattern() {
+    return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*");
+    // "cache:product:ranking:*" 형태로 통일
+}
+```
+
+#### 2.5.2 해결된 문제점
+
+1. **패턴 매칭 정확성**: `evictByPattern()` 메서드가 모든 랭킹 캐시를 정확히 찾음
+2. **캐시 관리 일관성**: 모든 캐시 키가 동일한 네임스페이스 규칙 준수
+3. **운영 편의성**: 키 생성 로직의 중앙화로 유지보수성 향상
+
+### 2.6 이벤트 기반 캐시 관리
+
+#### 2.6.1 상품 삭제 시 종합적 캐시 정리
+
+**기존 문제**: 상품 삭제 시 랭킹 캐시가 정리되지 않음
+
+```java
+// 기존 DeleteProductUseCase.java
+public void execute(Long productId) {
+    // 상품 삭제 후
+    cachePort.evictByPattern(keyGenerator.generateProductCachePattern(productId));
+    // 랭킹 캐시는 그대로 남아있음 - 문제!
+}
+```
+
+**개선**: 포괄적 캐시 무효화 및 이벤트 발행
+
+```java
+// 개선된 DeleteProductUseCase.java
+public void execute(Long productId) {
+    productRepositoryPort.deleteById(productId);
+    
+    // 1. 상품별 캐시 무효화
+    invalidateRelatedCaches(productId);
+    
+    // 2. 이벤트 발행으로 비동기 처리
+    productService.publishProductDeletedEvent(productId);
+}
+
+private void invalidateRelatedCaches(Long productId) {
+    // 기본 상품 캐시
+    String productCachePattern = keyGenerator.generateProductCachePattern(productId);
+    cachePort.evictByPattern(productCachePattern);
+    
+    // 랭킹 캐시 (특정 상품 관련)
+    String rankingCachePattern = keyGenerator.generateRankingCachePattern(productId);
+    cachePort.evictByPattern(rankingCachePattern);
+    
+    // 상품 목록 캐시
+    String listCachePattern = keyGenerator.generateProductListCachePattern();
+    cachePort.evictByPattern(listCachePattern);
+}
+```
+
+**비동기 이벤트 핸들러**
+
+```java
+// ProductService.java - 이벤트 발행
+@Service
+public class ProductService {
+    private final ApplicationEventPublisher eventPublisher;
+    
+    public void publishProductDeletedEvent(Long productId) {
+        ProductUpdatedEvent event = ProductUpdatedEvent.deleted(productId);
+        eventPublisher.publishEvent(event);
+    }
+}
+
+// ProductRankingEventHandler.java - 비동기 처리
+@EventListener
+@Async
+public void handleProductDeleted(ProductUpdatedEvent event) {
+    if (event.getEventType() == ProductUpdatedEvent.EventType.DELETED) {
+        // 모든 랭킹에서 해당 상품 제거
+        rankingService.removeProductFromAllRankings(event.getProductId());
+    }
+}
+```
+
+#### 2.6.2 해결된 문제점
+
+1. **데이터 정합성**: 삭제된 상품이 랭킹에서도 완전히 제거됨
+2. **성능 최적화**: 동기 처리와 비동기 처리의 적절한 분리
+3. **확장성**: 새로운 캐시 타입 추가 시 이벤트 핸들러만 확장
+
+### 2.7 아키텍처 개선
 
 #### 2.4.1 UseCase 레이어 캐시 로직 분리
 
@@ -350,203 +578,50 @@ public enum CacheTTL {
 }
 ```
 
----
 
-## 3. 테스트 전략 및 검증
+## 43. 한계점 및 개선 방안
 
-### 3.1 단위 테스트
+### 3.1 현재 시스템의 한계점
 
-#### 3.1.1 Cache Stampede 방어 테스트
-
-```java
-@Test
-@DisplayName("동시 캐시 요청 시 단 하나의 스레드만 DB 조회")
-void testCacheStampedeDefense() throws InterruptedException {
-    // Given
-    String cacheKey = "test:product:1";
-    int threadCount = 100;
-    CountDownLatch latch = new CountDownLatch(threadCount);
-    AtomicInteger dbCallCount = new AtomicInteger(0);
-    
-    // When: 100개 스레드에서 동시 요청
-    ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-    for (int i = 0; i < threadCount; i++) {
-        executor.submit(() -> {
-            try {
-                Product result = productService.getProduct(1L);
-                if (result != null) dbCallCount.incrementAndGet();
-            } finally {
-                latch.countDown();
-            }
-        });
-    }
-    
-    latch.await(5, TimeUnit.SECONDS);
-    
-    // Then: DB 호출은 1회만 발생
-    assertThat(dbCallCount.get()).isEqualTo(1);
-}
-```
-
-#### 3.1.2 쿠폰 발급 동시성 테스트
-
-```java
-@Test
-@DisplayName("선착순 쿠폰 발급 - 정확한 수량 제한")
-void testConcurrentCouponIssue() throws InterruptedException {
-    // Given
-    Long couponId = 1L;
-    int maxCount = 100;
-    int threadCount = 1000; // 100개 한정 쿠폰에 1000명 동시 요청
-    
-    // When: 1000명이 동시에 쿠폰 발급 요청
-    CountDownLatch latch = new CountDownLatch(threadCount);
-    AtomicInteger successCount = new AtomicInteger(0);
-    
-    ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-    for (int i = 0; i < threadCount; i++) {
-        final Long userId = (long) i;
-        executor.submit(() -> {
-            try {
-                couponService.issueCoupon(userId, couponId);
-                successCount.incrementAndGet();
-            } catch (CouponException.OutOfStock e) {
-                // 재고 소진 예외는 정상
-            } finally {
-                latch.countDown();
-            }
-        });
-    }
-    
-    latch.await(10, TimeUnit.SECONDS);
-    
-    // Then: 정확히 100개만 발급
-    assertThat(successCount.get()).isEqualTo(maxCount);
-}
-```
-
-### 3.2 성능 테스트
-
-#### 3.2.1 응답 시간 개선 측정
-
-```java
-@Test
-@DisplayName("캐시 적용 전후 응답 시간 비교")
-void testResponseTimeImprovement() {
-    // Given
-    Long productId = 1L;
-    
-    // When & Then: 첫 번째 요청 (캐시 미스)
-    long startTime1 = System.currentTimeMillis();
-    Product product1 = productService.getProduct(productId).orElse(null);
-    long dbResponseTime = System.currentTimeMillis() - startTime1;
-    
-    // When & Then: 두 번째 요청 (캐시 히트)
-    long startTime2 = System.currentTimeMillis();
-    Product product2 = productService.getProduct(productId).orElse(null);
-    long cacheResponseTime = System.currentTimeMillis() - startTime2;
-    
-    // 검증: 캐시 응답이 DB 응답보다 10배 이상 빠름
-    assertThat(cacheResponseTime * 10).isLessThan(dbResponseTime);
-    assertThat(product1).isEqualTo(product2); // 동일한 데이터
-}
-```
-
-#### 3.2.2 처리량 개선 측정
-
-```java
-@Test
-@DisplayName("동시 사용자 처리량 개선 측정")
-void testThroughputImprovement() throws InterruptedException {
-    // Given
-    int userCount = 1000;
-    Long productId = 1L;
-    
-    // 캐시 웜업
-    productService.getProduct(productId);
-    
-    // When: 1000명 동시 요청
-    CountDownLatch latch = new CountDownLatch(userCount);
-    long startTime = System.currentTimeMillis();
-    
-    ExecutorService executor = Executors.newFixedThreadPool(100);
-    for (int i = 0; i < userCount; i++) {
-        executor.submit(() -> {
-            try {
-                productService.getProduct(productId);
-            } finally {
-                latch.countDown();
-            }
-        });
-    }
-    
-    latch.await(30, TimeUnit.SECONDS);
-    long totalTime = System.currentTimeMillis() - startTime;
-    
-    // Then: 1000건 처리가 5초 이내 완료
-    assertThat(totalTime).isLessThan(5000);
-    double throughput = (double) userCount / totalTime * 1000; // TPS
-    assertThat(throughput).isGreaterThan(200); // 200 TPS 이상
-}
-```
-
-### 3.3 통합 테스트
-
-#### 3.3.1 Redis 장애 시 폴백 테스트
-
-```java
-@Test
-@DisplayName("Redis 장애 시 DB 폴백 동작 검증")
-void testRedisFallback() {
-    // Given: Redis 서버 중단
-    redisContainer.stop();
-    
-    // When: 상품 조회 요청
-    Optional<Product> product = productService.getProduct(1L);
-    
-    // Then: DB에서 정상 조회됨
-    assertThat(product).isPresent();
-    assertThat(product.get().getName()).isNotBlank();
-}
-```
-
----
-
-
-## 4. 한계점 및 개선 방안
-
-### 4.1 현재 시스템의 한계점
-
-#### 4.1.1 캐시 일관성 문제
-**문제**: Write-Through 패턴 적용 범위 제한
-- 현재 잔액, 주문 상태 등에만 적용
-- 상품 정보 수정 시 캐시 무효화 의존
+#### 4.1.1 Redis-DB 불일치 위험
+**문제**: Redis 성공 후 DB 실패 시 보상 로직 부재
+- 쿠폰 발급에서 Redis AtomicLong 증가 후 DB 저장 실패 가능성
+- 현재 보상 트랜잭션이나 롤백 메커니즘 없음
+- 분산 시스템에서 발생할 수 있는 일관성 문제
 
 **개선 방안**:
 ```java
-// 이벤트 기반 캐시 무효화 구현 예시
-@EventHandler
-public class ProductUpdatedEventHandler {
+// 향후 Saga 패턴 또는 보상 트랜잭션 도입 필요
+@Component
+public class CouponIssuanceCompensationHandler {
     
-    @EventListener
-    @Async
-    public void handleProductUpdated(ProductUpdatedEvent event) {
+    public void handleIssuanceFailure(Long couponId, Long userId, long issueNumber) {
         try {
-            // 관련 캐시 무효화
-            String productKey = keyGenerator.generateProductCacheKey(event.getProductId());
-            cachePort.evict(productKey);
+            // Redis 카운터 롤백
+            String counterKey = keyGenerator.generateCouponCounterKey(couponId);
+            RAtomicLong counter = redissonClient.getAtomicLong(counterKey);
+            counter.decrementAndGet();
             
-            // 인기 상품 목록 캐시 무효화
-            String rankingPattern = keyGenerator.generateRankingCachePattern();
-            cachePort.evictByPattern(rankingPattern);
+            // 사용자 발급 이력 제거
+            String userKey = keyGenerator.generateCouponUserKey(couponId, userId);
+            RBucket<String> userBucket = redissonClient.getBucket(userKey);
+            userBucket.delete();
             
-            log.info("캐시 무효화 완료: productId={}", event.getProductId());
+            log.warn("쿠폰 발급 실패 보상 처리 완료: couponId={}, userId={}", couponId, userId);
         } catch (Exception e) {
-            log.error("캐시 무효화 실패: productId={}", event.getProductId(), e);
+            log.error("보상 처리 실패 - 수동 복구 필요: couponId={}, userId={}", couponId, userId, e);
         }
     }
 }
 ```
+
+#### 3.1.2 캐시 일관성 개선 완료
+**기존 문제**: 상품 수정/삭제 시 관련 캐시 무효화 누락
+
+**해결됨**: 포괄적 이벤트 기반 캐시 관리 시스템 구축
+- 상품 삭제 시 랭킹 캐시까지 포함한 전체 캐시 무효화
+- 동기/비동기 처리의 적절한 분리
+- Redis 키 네임스페이스 일관성 확보
 
 #### 4.1.2 메모리 사용량 증가
 **문제**: 모든 상품 데이터를 Redis에 캐싱
@@ -588,7 +663,7 @@ public class TieredCacheStrategy {
 }
 ```
 
-#### 4.1.3 Redis 단일 장애점
+#### 3.1.3 Redis 단일 장애점
 **문제**: Redis 장애 시 성능 저하
 - DB 폴백으로 서비스는 유지되지만 성능 급격히 저하
 - Redis 복구 시까지 Cold Cache 상태 지속
@@ -608,12 +683,15 @@ spring:
 ```
 
 
-## 5. 기술적 개선 성과
+## 4. 기술적 개선 성과
 1. **Cache Stampede 방어**: 분산 락 + TTL 지터로 동시성 문제 해결
 2. **정확한 쿠폰 발급**: Redis Atomic Operations로 선착순 쿠폰 기능 구현
 3. **실시간 랭킹 시스템**: Redis Sorted Set으로 기능 구현
 4. **아키텍처 개선**: 캐시처리 책임을 service -> usecase로 옮김
 5. **장애 복구**: Redis 장애 시 자동 DB 폴백으로 서비스 연속성 보장
+6. **에러 처리 분리**: 캐시와 DB 연산의 독립적 예외 처리로 복원력 향상
+7. **키 네임스페이스 일관성**: 모든 Redis 키의 통일된 네이밍 규칙 적용
+8. **포괄적 캐시 관리**: 이벤트 기반 캐시 무효화로 데이터 정합성 보장
 
 
 ## 6. 학습 항목
@@ -624,9 +702,14 @@ spring:
    - AtomicLong: 동시성 제어에 효과적
    - Bucket: 일반적인 캐시 용도에 적합
 
-2. **TTL 전략의 중요성**
-   - 비즈니스 특성에 따른 차별화된 TTL 설정
-   - 지터를 통한 Cache Stampede 방지
-
-3. **장애 처리 설계의 필요성**
+2. **장애 처리 설계의 필요성**
    - Redis 장애 시에도 서비스 연속성이 보장될 수 있도록 고려해야 함
+   - 캐시와 DB 연산의 독립적 예외 처리로 부분 장애 격리
+
+3. **일관성 있는 키 관리의 중요성**
+   - 통일된 네임스페이스로 캐시 관리 효율성 확보
+   - 패턴 기반 일괄 무효화 가능성 보장
+
+4. **이벤트 기반 아키텍처의 효과**
+   - 동기 처리와 비동기 처리의 적절한 분리
+   - 확장 가능한 캐시 무효화 전략
