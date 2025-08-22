@@ -277,11 +277,12 @@ public class RedisCacheAdapter implements CachePort {
     @Override
     public void addProductScore(String rankingKey, String productKey, int orderQuantity) {
         try {
-            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
             ranking.addScore(productKey, orderQuantity);
             
             ranking.expire(7, TimeUnit.DAYS);
-            log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", rankingKey, productKey, orderQuantity);
+            log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", prefixedKey, productKey, orderQuantity);
         } catch (Exception e) {
             log.error("Error adding product score: rankingKey={}, productKey={}, quantity={}", rankingKey, productKey, orderQuantity, e);
         }
@@ -290,7 +291,8 @@ public class RedisCacheAdapter implements CachePort {
     @Override
     public List<Long> getTopProductsByOrder(String rankingKey, int limit) {
         try {
-            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
             return ranking.entryRangeReversed(0, limit - 1)
                     .stream()
                     .map(entry -> {
@@ -299,7 +301,7 @@ public class RedisCacheAdapter implements CachePort {
                     })
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.error("Error getting top products: rankingKey={}, limit={}", rankingKey, limit, e);
+            log.error("Error getting top products: rankingKey={}, limit={}", CACHE_KEY_PREFIX + rankingKey, limit, e);
             return List.of();
         }
     }
@@ -307,7 +309,8 @@ public class RedisCacheAdapter implements CachePort {
     @Override
     public List<Long> getProductRanking(String rankingKey, int offset, int limit) {
         try {
-            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(rankingKey);
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
             return ranking.entryRangeReversed(offset, offset + limit - 1)
                     .stream()
                     .map(entry -> {
@@ -316,7 +319,7 @@ public class RedisCacheAdapter implements CachePort {
                     })
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.error("Error getting product ranking: rankingKey={}, offset={}, limit={}", rankingKey, offset, limit, e);
+            log.error("Error getting product ranking: rankingKey={}, offset={}, limit={}", CACHE_KEY_PREFIX + rankingKey, offset, limit, e);
             return List.of();
         }
     }

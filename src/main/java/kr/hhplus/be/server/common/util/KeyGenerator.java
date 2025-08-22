@@ -390,6 +390,6 @@ public class KeyGenerator {
      * @return 무효화 패턴 (예: "product:ranking:*")
      */
     public String generateRankingCachePattern() {
-        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "*");
+        return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*");
     }
 }
