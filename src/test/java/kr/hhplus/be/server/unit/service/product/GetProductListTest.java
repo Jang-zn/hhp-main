@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 
@@ -48,12 +49,15 @@ class GetProductListTest {
     @Mock
     private KeyGenerator keyGenerator;
     
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+    
     private ProductService productService;
     
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase);
+        productService = new ProductService(getProductUseCase, getPopularProductListUseCase, createProductUseCase, updateProductUseCase, deleteProductUseCase, eventPublisher);
     }
 
     @Test

@@ -392,4 +392,13 @@ public class KeyGenerator {
     public String generateRankingCachePattern() {
         return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*");
     }
+    
+    /**
+     * 특정 상품 관련 랭킹 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "product:ranking:*product_1*")
+     */
+    public String generateRankingCachePattern(Long productId) {
+        return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*product_" + productId + "*");
+    }
 }

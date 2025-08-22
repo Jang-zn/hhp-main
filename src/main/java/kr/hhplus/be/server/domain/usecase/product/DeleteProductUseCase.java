@@ -115,7 +115,11 @@ public class DeleteProductUseCase {
             String productCachePattern = keyGenerator.generateProductCachePattern(productId);
             cachePort.evictByPattern(productCachePattern);
             
-            log.debug("관련 캐시 무효화 완료: productId={}", productId);
+            // 랭킹 캐시에서 해당 상품 제거
+            String rankingCachePattern = keyGenerator.generateRankingCachePattern(productId);
+            cachePort.evictByPattern(rankingCachePattern);
+            
+            log.debug("관련 캐시 무효화 완료 (랭킹 포함): productId={}", productId);
         } catch (Exception e) {
             log.warn("관련 캐시 무효화 실패: productId={}", productId, e);
         }

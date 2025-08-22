@@ -6,8 +6,10 @@ import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
 import kr.hhplus.be.server.domain.usecase.product.CreateProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.UpdateProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.DeleteProductUseCase;
+import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -27,6 +29,7 @@ public class ProductService {
     private final CreateProductUseCase createProductUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final DeleteProductUseCase deleteProductUseCase;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     /**
@@ -110,7 +113,19 @@ public class ProductService {
     public void deleteProduct(Long productId) {
         log.info("상품 삭제 요청: productId={}", productId);
         
-        deleteProductUseCase.execute(productId);
-        log.info("상품 삭제 완료: productId={}", productId);
+        try {
+            // 1. UseCase를 통한 상품 삭제 (캐시 무효화 포함)
+            deleteProductUseCase.execute(productId);
+            
+            // 2. 상품 삭제 이벤트 발행 (비동기 랭킹 처리)
+            ProductUpdatedEvent deletedEvent = ProductUpdatedEvent.deleted(productId);
+            eventPublisher.publishEvent(deletedEvent);
+            
+            log.info("상품 삭제 및 이벤트 발행 완료: productId={}", productId);
+            
+        } catch (Exception e) {
+            log.error("상품 삭제 실패: productId={}", productId, e);
+            throw e;
+        }
     }
 }
