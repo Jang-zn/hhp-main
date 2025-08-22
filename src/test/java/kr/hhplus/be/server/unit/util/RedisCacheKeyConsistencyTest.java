@@ -97,4 +97,26 @@ class RedisCacheKeyConsistencyTest {
         String patternRegex = patternKey.replace("*", ".*");
         assertThat(customKey).matches(patternRegex);
     }
+    
+    @Test
+    @DisplayName("특정 상품 관련 랭킹 캐시 패턴이 정확히 생성된다")
+    void productSpecificRankingPattern_CorrectGeneration() {
+        // given
+        Long productId = 123L;
+        
+        // when
+        String productRankingPattern = keyGenerator.generateRankingCachePattern(productId);
+        
+        // then
+        assertThat(productRankingPattern).isEqualTo("product:ranking:*product_123*");
+        
+        // 실제 랭킹 키에서 특정 상품이 포함된 경우를 시뮬레이션
+        String simulatedKey = "product:ranking:daily:2025-01-01:product_123";
+        String patternRegex = productRankingPattern.replace("*", ".*");
+        assertThat(simulatedKey).matches(patternRegex);
+        
+        // 다른 상품은 매칭되지 않아야 함
+        String otherProductKey = "product:ranking:daily:2025-01-01:product_456";
+        assertThat(otherProductKey).doesNotMatch(patternRegex);
+    }
 }
