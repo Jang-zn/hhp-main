@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.unit.usecase.order;
 
 import kr.hhplus.be.server.domain.entity.*;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.CreateOrderUseCase;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
@@ -41,6 +43,12 @@ class CreateOrderUseCaseTest {
     
     @Mock
     private EventLogRepositoryPort eventLogRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private CreateOrderUseCase createOrderUseCase;
 
@@ -55,7 +63,9 @@ class CreateOrderUseCaseTest {
             userRepositoryPort,
             productRepositoryPort, 
             orderRepositoryPort,
-            orderItemRepositoryPort
+            orderItemRepositoryPort,
+            cachePort,
+            keyGenerator
         );
         
         testUser = User.builder()
@@ -138,9 +148,10 @@ class CreateOrderUseCaseTest {
             assertThat(result).isNotNull();
             verify(productRepositoryPort).save(testProduct);
             verify(productRepositoryPort).save(secondProduct);
-            verify(orderItemRepositoryPort).saveAll(argThat(items -> 
-                items.size() == 2
-            ));
+            verify(orderItemRepositoryPort).saveAll(argThat(items -> {
+                List<OrderItem> itemList = (List<OrderItem>) items;
+                return itemList.size() == 2;
+            }));
         }
     }
     
@@ -325,8 +336,9 @@ class CreateOrderUseCaseTest {
             
             // then
             verify(orderItemRepositoryPort).saveAll(argThat(items -> {
-                if (items.size() != 1) return false;
-                OrderItem item = items.get(0);
+                List<OrderItem> itemList = (List<OrderItem>) items;
+                if (itemList.size() != 1) return false;
+                OrderItem item = itemList.get(0);
                 return item.getProductId().equals(1L) &&
                        item.getQuantity() == quantity &&
                        item.getPrice().equals(testProduct.getPrice()) &&

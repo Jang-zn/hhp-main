@@ -1,11 +1,14 @@
 package kr.hhplus.be.server.unit.controller.coupon;
 
-import kr.hhplus.be.server.api.controller.CouponController;
+import kr.hhplus.be.server.domain.entity.Coupon;
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.service.CouponService;
-import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.api.controller.CouponController;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.web.servlet.MockMvc;
 import kr.hhplus.be.server.util.TestBuilder;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
+import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,13 +16,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -31,9 +32,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * CouponController.getCouponList 메서드 테스트
  * 
  * Why: 쿠폰 목록 조회 API 엔드포인트가 비즈니스 요구사항을 올바르게 처리하고 Bean Validation이 작동하는지 검증
- * How: MockMvc를 사용한 통합 테스트로 HTTP 요청/응답 전체 플로우 검증
+ * How: MockMvc를 사용한 컨트롤러 테스트로 HTTP 요청/응답 검증
  */
 @WebMvcTest(CouponController.class)
+@ActiveProfiles("unit")
 @DisplayName("쿠폰 목록 조회 컨트롤러 API")
 class GetCouponListControllerTest {
 
@@ -43,8 +45,6 @@ class GetCouponListControllerTest {
     @MockitoBean
     private CouponService couponService;
     
-    @MockitoBean
-    private CouponRepositoryPort couponRepositoryPort;
 
     @Test
     @DisplayName("고객이 자신의 쿠폰 목록을 성공적으로 조회한다")
@@ -71,21 +71,22 @@ class GetCouponListControllerTest {
 
         when(couponService.getCouponList(customerId, limit, offset)).thenReturn(couponHistories);
         
-        // CouponRepositoryPort mock 설정 - safeCouponLookup에서 쿠폰 정보 조회에 사용
-        when(couponRepositoryPort.findById(1L)).thenReturn(Optional.of(
-                TestBuilder.CouponBuilder.defaultCoupon()
-                        .id(1L)
-                        .code("COUPON001")
-                        .discountRate(new BigDecimal("0.10"))
-                        .build()
-        ));
-        when(couponRepositoryPort.findById(2L)).thenReturn(Optional.of(
-                TestBuilder.CouponBuilder.defaultCoupon()
-                        .id(2L) 
-                        .code("COUPON002")
-                        .discountRate(new BigDecimal("0.20"))
-                        .build()
-        ));
+        // Mock getCouponById calls for each coupon
+        Coupon coupon1 = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(1L)
+                .code("COUPON1")
+                .discountRate(new BigDecimal("0.10"))
+                .status(CouponStatus.ACTIVE)
+                .build();
+        Coupon coupon2 = TestBuilder.CouponBuilder.defaultCoupon()
+                .id(2L)
+                .code("COUPON2")
+                .discountRate(new BigDecimal("0.20"))
+                .status(CouponStatus.ACTIVE)
+                .build();
+                
+        when(couponService.getCouponById(1L)).thenReturn(coupon1);
+        when(couponService.getCouponById(2L)).thenReturn(coupon2);
 
         // when & then
         mockMvc.perform(get("/api/coupon/user/{userId}", customerId)

@@ -2,29 +2,49 @@ package kr.hhplus.be.server.domain.port.storage;
 
 import kr.hhplus.be.server.domain.entity.CouponHistory;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
-public interface CouponHistoryRepositoryPort {
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory, Long> {
     boolean existsByUserIdAndCouponId(Long userId, Long couponId);
-    CouponHistory save(CouponHistory couponHistory);
-    Optional<CouponHistory> findById(Long id);
-    List<CouponHistory> findByUserIdWithPagination(Long userId, int limit, int offset);
     
-    /**
-     * 사용자의 특정 상태 쿠폰 히스토리를 조회합니다.
-     */
+    @Query("SELECT ch FROM CouponHistory ch WHERE ch.userId = :userId")
+    List<CouponHistory> findByUserIdWithPagination(@Param("userId") Long userId, Pageable pageable);
+    
     List<CouponHistory> findByUserIdAndStatus(Long userId, CouponHistoryStatus status);
     
-    /**
-     * 만료되었지만 특정 상태인 쿠폰 히스토리들을 조회합니다.
-     */
-    List<CouponHistory> findExpiredHistoriesInStatus(LocalDateTime now, CouponHistoryStatus status);
+    @Query("SELECT ch FROM CouponHistory ch " +
+           "WHERE EXISTS (SELECT 1 FROM Coupon c WHERE c.id = ch.couponId AND c.endDate < :now) " +
+           "AND ch.status = :status")
+    List<CouponHistory> findExpiredHistoriesInStatus(@Param("now") LocalDateTime now, 
+                                                     @Param("status") CouponHistoryStatus status);
     
     /**
-     * 사용자의 사용 가능한 쿠폰 개수를 조회합니다.
+     * @param userId 사용자 ID
+     * @param status 쿠폰 히스토리 상태
+     * @param now 현재 시간 (만료 기준)
+     * @return 사용 가능한 쿠폰 개수
      */
-    long countUsableCouponsByUserId(Long userId);
-} 
+    @Query("SELECT COUNT(ch) FROM CouponHistory ch " +
+           "WHERE ch.userId = :userId AND ch.status = :status " +
+           "AND EXISTS (SELECT 1 FROM Coupon c WHERE c.id = ch.couponId AND c.endDate > :now)")
+    long countUsableCouponsByUserId(@Param("userId") Long userId, 
+                                   @Param("status") CouponHistoryStatus status,
+                                   @Param("now") LocalDateTime now);
+    
+    /**
+     * @param userId 사용자 ID
+     * @return 사용 가능한 쿠폰 개수
+     */
+    default long countUsableCouponsByUserId(Long userId) {
+        return countUsableCouponsByUserId(userId, CouponHistoryStatus.ISSUED, LocalDateTime.now());
+    }
+}

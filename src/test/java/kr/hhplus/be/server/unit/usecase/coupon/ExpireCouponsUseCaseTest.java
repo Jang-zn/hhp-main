@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.ExpireCouponsUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,13 +31,19 @@ class ExpireCouponsUseCaseTest {
     
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private ExpireCouponsUseCase expireCouponsUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        expireCouponsUseCase = new ExpireCouponsUseCase(couponRepositoryPort, couponHistoryRepositoryPort);
+        expireCouponsUseCase = new ExpireCouponsUseCase(couponRepositoryPort, couponHistoryRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test
@@ -52,7 +60,8 @@ class ExpireCouponsUseCaseTest {
                 createExpiredCouponHistory(2L, "EXPIRED2")
         );
         
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(expiredCoupons);
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(expiredHistories);
@@ -63,7 +72,8 @@ class ExpireCouponsUseCaseTest {
         expireCouponsUseCase.execute();
 
         // then
-        verify(couponRepositoryPort).findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED));
+        verify(couponRepositoryPort).findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED)));
         verify(couponHistoryRepositoryPort).findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED));
         verify(couponRepositoryPort, times(2)).save(any(Coupon.class));
         verify(couponHistoryRepositoryPort, times(2)).save(any(CouponHistory.class));
@@ -73,7 +83,8 @@ class ExpireCouponsUseCaseTest {
     @DisplayName("만료될 쿠폰이 없는 경우")
     void expireCoupons_NoCouponsToExpire() {
         // given
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(List.of());
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(List.of());
@@ -82,7 +93,8 @@ class ExpireCouponsUseCaseTest {
         expireCouponsUseCase.execute();
 
         // then
-        verify(couponRepositoryPort).findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED));
+        verify(couponRepositoryPort).findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED)));
         verify(couponHistoryRepositoryPort).findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED));
         verify(couponRepositoryPort, never()).save(any(Coupon.class));
         verify(couponHistoryRepositoryPort, never()).save(any(CouponHistory.class));
@@ -96,7 +108,8 @@ class ExpireCouponsUseCaseTest {
                 createExpiredCoupon(1L, "EXPIRED1", CouponStatus.ACTIVE)
         );
         
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(expiredCoupons);
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(List.of());
@@ -118,7 +131,8 @@ class ExpireCouponsUseCaseTest {
                 createExpiredCouponHistory(1L, "EXPIRED1")
         );
         
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(List.of());
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(expiredHistories);
@@ -141,7 +155,8 @@ class ExpireCouponsUseCaseTest {
         
         List<Coupon> expiredCoupons = List.of(successCoupon, failCoupon);
         
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(expiredCoupons);
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(List.of());
@@ -165,7 +180,8 @@ class ExpireCouponsUseCaseTest {
         
         List<CouponHistory> expiredHistories = List.of(successHistory, failHistory);
         
-        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), eq(CouponStatus.EXPIRED), eq(CouponStatus.DISABLED)))
+        when(couponRepositoryPort.findExpiredCouponsNotInStatus(any(LocalDateTime.class), 
+                eq(List.of(CouponStatus.EXPIRED, CouponStatus.DISABLED))))
                 .thenReturn(List.of());
         when(couponHistoryRepositoryPort.findExpiredHistoriesInStatus(any(LocalDateTime.class), eq(CouponHistoryStatus.ISSUED)))
                 .thenReturn(expiredHistories);

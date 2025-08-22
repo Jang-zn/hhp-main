@@ -3,7 +3,6 @@ package kr.hhplus.be.server.common.util;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 데드락 방지를 위한 락 순서 관리자
@@ -35,7 +34,7 @@ public class LockOrderManager {
         return resourceIds.stream()
                 .distinct()  // 중복 제거
                 .sorted()    // 오름차순 정렬
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -77,6 +76,6 @@ public class LockOrderManager {
                 .filter(id -> id != null)
                 .distinct()
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
     }
 }

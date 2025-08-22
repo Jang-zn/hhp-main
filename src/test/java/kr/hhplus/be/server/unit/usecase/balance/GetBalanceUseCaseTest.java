@@ -6,6 +6,8 @@ import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.balance.GetBalanceUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +37,12 @@ class GetBalanceUseCaseTest {
     @Mock
     private BalanceRepositoryPort balanceRepositoryPort;
 
+    @Mock
+    private CachePort cachePort;
+
+    @Mock
+    private KeyGenerator keyGenerator;
+
 
     private GetBalanceUseCase getBalanceUseCase;
 
@@ -43,7 +51,7 @@ class GetBalanceUseCaseTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         getBalanceUseCase = new GetBalanceUseCase(
-                userRepositoryPort, balanceRepositoryPort
+                userRepositoryPort, balanceRepositoryPort, cachePort, keyGenerator
         );
     }
 

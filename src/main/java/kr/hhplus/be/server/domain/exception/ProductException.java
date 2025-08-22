@@ -40,6 +40,12 @@ public class ProductException extends RuntimeException {
         }
     }
 
+    public static class InvalidProduct extends ProductException {
+        public InvalidProduct(String message) {
+            super(ErrorCode.INVALID_INPUT.getCode(), message);
+        }
+    }
+
     public static class InvalidProductIdNegative extends ProductException {
         public InvalidProductIdNegative() {
             super(ErrorCode.INVALID_PRODUCT_ID.getCode(), ErrorCode.INVALID_PRODUCT_ID.getMessage());

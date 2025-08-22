@@ -15,7 +15,6 @@ import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.domain.service.OrderService;
 
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -47,12 +46,12 @@ public class OrderController {
             // 새로운 products 필드 사용 (수량 정보 포함)
             productQuantities = request.getProducts().stream()
                     .map(p -> new ProductQuantityDto(p.getProductId(), p.getQuantity()))
-                    .collect(Collectors.toList());
+                    .toList();
         } else if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
             // 기존 productIds 필드 사용 (하위 호환성을 위해 수량 1로 설정)
             productQuantities = request.getProductIds().stream()
                     .map(productId -> new ProductQuantityDto(productId, 1))
-                    .collect(Collectors.toList());
+                    .toList();
         } else {
             // Bean Validation으로 이미 검증되었으므로 여기까지 오면 안됨
             productQuantities = List.of();
@@ -120,7 +119,7 @@ public class OrderController {
                         order.getCreatedAt(),
                         List.of()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
     
 } 

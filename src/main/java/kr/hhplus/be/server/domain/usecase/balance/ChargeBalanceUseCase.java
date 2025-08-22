@@ -2,6 +2,9 @@ package kr.hhplus.be.server.domain.usecase.balance;
 
 import kr.hhplus.be.server.domain.entity.Balance;
 import kr.hhplus.be.server.domain.port.storage.BalanceRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,12 +21,14 @@ import java.math.BigDecimal;
 public class ChargeBalanceUseCase {
     
     private final BalanceRepositoryPort balanceRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     private static final BigDecimal MIN_CHARGE_AMOUNT = new BigDecimal("1000");
     private static final BigDecimal MAX_CHARGE_AMOUNT = new BigDecimal("1000000");
     
     /**
-     * 잔액을 충전합니다.
+     * 잔액을 충전합니다 (Write-Through 캐시 적용)
      * 
      * 동시성 제어:
      * - 낙관적 락 (@Version) 사용으로 동시 충전 방지
@@ -46,6 +51,15 @@ public class ChargeBalanceUseCase {
         
         balance.addAmount(amount);
         Balance savedBalance = balanceRepositoryPort.save(balance);
+        
+        // Write-Through: 새로운 잔액을 캐시에 즉시 업데이트
+        try {
+            String cacheKey = keyGenerator.generateBalanceCacheKey(userId);
+            cachePort.put(cacheKey, savedBalance, CacheTTL.USER_BALANCE.getSeconds());
+            log.debug("잔액 캐시 업데이트 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("잔액 캐시 업데이트 실패: userId={}", userId, e);
+        }
         
         log.info("잔액 충전 완료: userId={}, 이전잔액={}, 충전금액={}, 현재잔액={}", 
                 userId, originalAmount, amount, savedBalance.getAmount());

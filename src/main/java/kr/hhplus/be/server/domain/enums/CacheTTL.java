@@ -8,6 +8,12 @@ public enum CacheTTL {
      * 단일 상품 정보 - 1시간
      * 상품 정보는 자주 변경되지 않으므로 상대적으로 긴 TTL 설정
      */
+    PRODUCT_INFO(3600),
+    
+    /**
+     * 단일 상품 정보 - 1시간 (호환성 유지)
+     * 상품 정보는 자주 변경되지 않으므로 상대적으로 긴 TTL 설정
+     */
     PRODUCT_DETAIL(3600),
     
     /**
@@ -42,7 +48,15 @@ public enum CacheTTL {
     /**
      * 사용자 쿠폰 목록 - 5분, 중간 길이 TTL
      */
-    USER_COUPON_LIST(300);
+    USER_COUPON_LIST(300),
+    
+    // === 결제 관련 캐시 ===
+    
+    /**
+     * 결제 상세 정보 - 30분
+     * 결제 정보는 변경되지 않으므로 긴 TTL 설정
+     */
+    PAYMENT_DETAIL(1800);
     
     private final int seconds;
     

@@ -2,15 +2,19 @@ package kr.hhplus.be.server.api.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import kr.hhplus.be.server.api.dto.request.ProductRequest;
+import kr.hhplus.be.server.api.dto.request.CreateProductRequest;
+import kr.hhplus.be.server.api.dto.request.UpdateProductRequest;
 import kr.hhplus.be.server.api.dto.response.ProductResponse;
 import kr.hhplus.be.server.api.docs.annotation.ProductApiDocs;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.service.ProductService;
+import kr.hhplus.be.server.domain.exception.ProductException;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.HttpStatus;
 
 
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +44,7 @@ public class ProductController {
                         product.getPrice(),
                         product.getStock()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @ProductApiDocs(summary = "인기 상품 조회", description = "지정된 기간 동안의 인기 상품을 조회합니다")
@@ -54,6 +58,76 @@ public class ProductController {
                         product.getPrice(),
                         product.getStock()
                 ))
-                .collect(Collectors.toList());
+                .toList();
+    }
+    
+    // ========================= CRUD API 엔드포인트들 =========================
+    
+    @ProductApiDocs(summary = "상품 조회", description = "특정 상품의 상세 정보를 조회합니다")
+    @GetMapping("/{productId}")
+    public ProductResponse getProduct(@PathVariable @Positive Long productId) {
+        var productOpt = productService.getProduct(productId);
+        
+        if (productOpt.isEmpty()) {
+            throw new ProductException.NotFound();
+        }
+        
+        Product product = productOpt.get();
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getPrice(),
+                product.getStock()
+        );
+    }
+    
+    @ProductApiDocs(summary = "상품 생성", description = "새로운 상품을 생성합니다")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductResponse createProduct(@Valid @RequestBody CreateProductRequest request) {
+        Product createdProduct = productService.createProduct(
+                request.getName(),
+                request.getPrice(),
+                request.getStock()
+        );
+        
+        return new ProductResponse(
+                createdProduct.getId(),
+                createdProduct.getName(),
+                createdProduct.getPrice(),
+                createdProduct.getStock()
+        );
+    }
+    
+    @ProductApiDocs(summary = "상품 수정", description = "기존 상품 정보를 수정합니다")
+    @PutMapping("/{productId}")
+    public ProductResponse updateProduct(
+            @PathVariable @Positive Long productId,
+            @Valid @RequestBody UpdateProductRequest request) {
+        
+        if (!request.hasUpdates()) {
+            throw new ProductException.InvalidProduct("수정할 정보가 없습니다.");
+        }
+        
+        Product updatedProduct = productService.updateProduct(
+                productId,
+                request.getName(),
+                request.getPrice(),
+                request.getStock()
+        );
+        
+        return new ProductResponse(
+                updatedProduct.getId(),
+                updatedProduct.getName(),
+                updatedProduct.getPrice(),
+                updatedProduct.getStock()
+        );
+    }
+    
+    @ProductApiDocs(summary = "상품 삭제", description = "상품을 삭제합니다")
+    @DeleteMapping("/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteProduct(@PathVariable @Positive Long productId) {
+        productService.deleteProduct(productId);
     }
 } 

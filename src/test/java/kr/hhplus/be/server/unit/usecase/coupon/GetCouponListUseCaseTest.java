@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponStatus;
 import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -25,6 +27,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Collections;
 import java.util.stream.Stream;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,13 +51,19 @@ class GetCouponListUseCaseTest {
     @Mock
     private CouponHistoryRepositoryPort couponHistoryRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
 
     private GetCouponListUseCase getCouponListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort);
+        getCouponListUseCase = new GetCouponListUseCase(userRepositoryPort, couponHistoryRepositoryPort, cachePort, keyGenerator);
     }
 
     // === 기본 쿠폰 목록 조회 시나리오 ===
@@ -91,7 +102,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(eq(userId), any(Pageable.class))).thenReturn(couponHistories);
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -103,7 +114,7 @@ class GetCouponListUseCaseTest {
         assertThat(result.get(1).getCouponId()).isEqualTo(coupon2.getId());
         
         verify(userRepositoryPort).existsById(userId);
-        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(eq(userId), any(Pageable.class));
     }
 
     @ParameterizedTest
@@ -126,7 +137,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(couponHistories);
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(eq(userId), any(Pageable.class))).thenReturn(couponHistories);
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -146,7 +157,7 @@ class GetCouponListUseCaseTest {
         int offset = 0;
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset)).thenReturn(Collections.emptyList());
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(eq(userId), any(Pageable.class))).thenReturn(Collections.emptyList());
 
         // When
         List<CouponHistory> result = getCouponListUseCase.execute(userId, limit, offset);
@@ -156,7 +167,7 @@ class GetCouponListUseCaseTest {
         assertThat(result).isEmpty();
         
         verify(userRepositoryPort).existsById(userId);
-        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(eq(userId), any(Pageable.class));
     }
 
     // === 예외 처리 시나리오 ===
@@ -239,7 +250,7 @@ class GetCouponListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(userId)).thenReturn(true);
-        when(couponHistoryRepositoryPort.findByUserIdWithPagination(userId, limit, offset))
+        when(couponHistoryRepositoryPort.findByUserIdWithPagination(eq(userId), any(Pageable.class)))
                 .thenReturn(couponHistories);
 
         // When
@@ -250,7 +261,7 @@ class GetCouponListUseCaseTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCouponId()).isEqualTo(coupon.getId());
         
-        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(userId, limit, offset);
+        verify(couponHistoryRepositoryPort).findByUserIdWithPagination(eq(userId), any(Pageable.class));
     }
 
     // === 헬퍼 메서드 ===

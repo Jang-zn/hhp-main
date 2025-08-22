@@ -7,6 +7,8 @@ import kr.hhplus.be.server.domain.enums.CouponHistoryStatus;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.CouponHistoryRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,8 @@ public class IssueCouponUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final CouponRepositoryPort couponRepositoryPort;
     private final CouponHistoryRepositoryPort couponHistoryRepositoryPort;
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     /**
      * 쿠폰 발급을 처리합니다.
@@ -95,6 +99,16 @@ public class IssueCouponUseCase {
                 .build();
         
         CouponHistory savedHistory = couponHistoryRepositoryPort.save(couponHistory);
+        
+        // 쿠폰 발급 후 목록 캐시 무효화
+        try {
+            String pattern = keyGenerator.generateCouponListCachePattern(userId);
+            cachePort.evictByPattern(pattern);
+            log.debug("쿠폰 목록 캐시 무효화 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("쿠폰 발급 캐시 처리 실패: userId={}, couponId={}", userId, couponId, e);
+            // 캐시 오류는 비즈니스 로직에 영향을 주지 않음
+        }
         
         log.info("쿠폰 발급 완료: userId={}, couponId={}, couponCode={}", 
                 userId, couponId, coupon.getCode());

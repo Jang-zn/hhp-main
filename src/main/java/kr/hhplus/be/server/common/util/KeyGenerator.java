@@ -34,6 +34,9 @@ public class KeyGenerator {
     private static final String POPULAR_TYPE = "popular";
     private static final String STATS_TYPE = "stats";
     private static final String HISTORY_TYPE = "history";
+    private static final String RANKING_TYPE = "ranking";
+    private static final String COUNTER_TYPE = "counter";
+    private static final String USER_TYPE = "user";
     
     private static final String SEPARATOR = ":";
     
@@ -212,6 +215,20 @@ public class KeyGenerator {
     }
     
     /**
+     * @param paymentId 결제 ID
+     */
+    public String generatePaymentCacheKey(Long paymentId) {
+        return String.join(SEPARATOR, PAYMENT_DOMAIN, INFO_TYPE, "payment_" + paymentId);
+    }
+    
+    /**
+     * @param couponId 쿠폰 ID
+     */
+    public String generateCouponCacheKey(Long couponId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, INFO_TYPE, "coupon_" + couponId);
+    }
+    
+    /**
      * @param userId 사용자 ID
      * @param limit 조회 개수
      * @param offset 오프셋
@@ -310,5 +327,78 @@ public class KeyGenerator {
      */
     public String generatePopularProductCachePattern() {
         return String.join(SEPARATOR, PRODUCT_DOMAIN, POPULAR_TYPE, "*");
+    }
+    
+    // ========================= 랭킹 시스템 키 생성 메서드들 =========================
+    
+    public String generateDailyRankingKey(String date) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "daily", date);
+    }
+    
+    public String generateWeeklyRankingKey(String week) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "weekly", week);
+    }
+    
+    public String generateMonthlyRankingKey(String month) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, RANKING_TYPE, "monthly", month);
+    }
+    
+    public String generateProductRankingKey(Long productId) {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, "key", "product_" + productId);
+    }
+    
+    // ========================= 선착순 쿠폰 키 생성 메서드들 =========================
+    
+    public String generateCouponCounterKey(Long couponId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, COUNTER_TYPE, "coupon_" + couponId);
+    }
+    
+    public String generateCouponUserKey(Long couponId, Long userId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, USER_TYPE, "coupon_" + couponId + "_user_" + userId);
+    }
+    
+    // ========================= Phase 4: 이벤트 기반 캐시 무효화를 위한 메서드들 =========================
+    
+    /**
+     * 상품 목록 캐시 무효화 패턴 (일반 목록)
+     * @return 무효화 패턴 (예: "product:list:*")
+     */
+    public String generateProductListCachePattern() {
+        return String.join(SEPARATOR, PRODUCT_DOMAIN, LIST_TYPE, "*");
+    }
+    
+    /**
+     * 특정 상품과 관련된 주문 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "order:*:*product_1*")
+     */
+    public String generateOrderCachePatternByProduct(Long productId) {
+        return String.join(SEPARATOR, ORDER_DOMAIN, "*", "*product_" + productId + "*");
+    }
+    
+    /**
+     * 특정 상품과 관련된 쿠폰 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "coupon:*:*product_1*")
+     */
+    public String generateCouponCachePatternByProduct(Long productId) {
+        return String.join(SEPARATOR, COUPON_DOMAIN, "*", "*product_" + productId + "*");
+    }
+    
+    /**
+     * 랭킹 관련 모든 캐시 무효화 패턴
+     * @return 무효화 패턴 (예: "product:ranking:*")
+     */
+    public String generateRankingCachePattern() {
+        return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*");
+    }
+    
+    /**
+     * 특정 상품 관련 랭킹 캐시 무효화 패턴
+     * @param productId 상품 ID
+     * @return 무효화 패턴 (예: "product:ranking:*product_1*")
+     */
+    public String generateRankingCachePattern(Long productId) {
+        return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*product_" + productId + "*");
     }
 }

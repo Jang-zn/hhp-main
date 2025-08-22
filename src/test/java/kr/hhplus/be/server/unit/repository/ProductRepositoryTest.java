@@ -1,26 +1,19 @@
-package kr.hhplus.be.server.unit.adapter.storage.jpa.product;
+package kr.hhplus.be.server.unit.repository;
 
-import kr.hhplus.be.server.adapter.storage.jpa.ProductJpaRepository;
+import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.util.TestBuilder;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -28,35 +21,14 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DataJpaTest
-@Testcontainers
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@ActiveProfiles("test")
 @DisplayName("JPA 상품 저장소 비즈니스 시나리오")
-class ProductJpaRepositoryTest {
-
-    @Container
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
-            .withDatabaseName("test_db")
-            .withUsername("test")
-            .withPassword("test");
-    
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", mysql::getJdbcUrl);
-        registry.add("spring.datasource.username", mysql::getUsername);
-        registry.add("spring.datasource.password", mysql::getPassword);
-    }
+class ProductRepositoryTest extends RepositoryTestBase {
 
     @Autowired
     private TestEntityManager testEntityManager;
     
-    private ProductJpaRepository productJpaRepository;
-
-    @BeforeEach
-    void setUp() {
-        productJpaRepository = new ProductJpaRepository(testEntityManager.getEntityManager());
-    }
+    @Autowired
+    private ProductRepositoryPort productRepositoryPort;
 
     @Test
     @DisplayName("새로운 상품을 저장할 수 있다")
@@ -70,7 +42,7 @@ class ProductJpaRepositoryTest {
                 .build();
 
         // When
-        Product savedProduct = productJpaRepository.save(product);
+        Product savedProduct = productRepositoryPort.save(product);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -96,7 +68,7 @@ class ProductJpaRepositoryTest {
         testEntityManager.clear();
 
         // When
-        Optional<Product> foundProduct = productJpaRepository.findById(savedProduct.getId());
+        Optional<Product> foundProduct = productRepositoryPort.findById(savedProduct.getId());
 
         // Then
         assertThat(foundProduct).isPresent();
@@ -117,7 +89,7 @@ class ProductJpaRepositoryTest {
         testEntityManager.clear();
 
         // When & Then - 기본 조회 기능 확인
-        Optional<Product> found = productJpaRepository.findById(product.getId());
+        Optional<Product> found = productRepositoryPort.findById(product.getId());
         assertThat(found).isPresent();
         assertThat(found.get().getName()).isEqualTo("테스트상품");
     }
@@ -135,7 +107,7 @@ class ProductJpaRepositoryTest {
                 .build();
 
         // When
-        Product savedProduct = productJpaRepository.save(product);
+        Product savedProduct = productRepositoryPort.save(product);
         testEntityManager.flush();
         testEntityManager.clear();
 
@@ -153,7 +125,7 @@ class ProductJpaRepositoryTest {
         Long nonExistentId = 999L;
 
         // When
-        Optional<Product> foundProduct = productJpaRepository.findById(nonExistentId);
+        Optional<Product> foundProduct = productRepositoryPort.findById(nonExistentId);
 
         // Then
         assertThat(foundProduct).isEmpty();
@@ -163,11 +135,71 @@ class ProductJpaRepositoryTest {
     @DisplayName("null 상품 저장 시도는 예외가 발생한다")
     void throwsExceptionWhenSavingNullProduct() {
         // When & Then
-        assertThatThrownBy(() -> productJpaRepository.save(null))
+        assertThatThrownBy(() -> productRepositoryPort.save(null))
                 .isInstanceOf(Exception.class);
     }
 
-    // === 헬퍼 메서드 ===
+    @Test
+    @DisplayName("null ID 목록에 대해 빈 리스트 반환")
+    void findByIds_WithNullIds_ReturnsEmptyList() {
+        // when
+        List<Product> result = productRepositoryPort.findByIds(null);
+        
+        // then
+        assertThat(result).isEmpty();
+    }
+    
+    @Test
+    @DisplayName("빈 ID 목록에 대해 빈 리스트 반환")
+    void findByIds_WithEmptyIds_ReturnsEmptyList() {
+        // when
+        List<Product> result = productRepositoryPort.findByIds(Collections.emptyList());
+        
+        // then
+        assertThat(result).isEmpty();
+    }
+    
+    @Test
+    @DisplayName("유효한 ID 목록에 대해 ID 순으로 정렬된 결과 반환")
+    void findByIds_WithValidIds_ReturnsIdSortedResults() {
+        // given
+        Product product1 = testEntityManager.persistAndFlush(
+            TestBuilder.ProductBuilder.defaultProduct()
+                .name("Product 1")
+                .price(new BigDecimal("1000"))
+                .stock(10)
+                .reservedStock(0)
+                .build()
+        );
+        Product product2 = testEntityManager.persistAndFlush(
+            TestBuilder.ProductBuilder.defaultProduct()
+                .name("Product 2")
+                .price(new BigDecimal("2000"))
+                .stock(20)
+                .reservedStock(0)
+                .build()
+        );
+        Product product3 = testEntityManager.persistAndFlush(
+            TestBuilder.ProductBuilder.defaultProduct()
+                .name("Product 3")
+                .price(new BigDecimal("3000"))
+                .stock(30)
+                .reservedStock(0)
+                .build()
+        );
+        testEntityManager.clear();
+        
+        List<Long> ids = Arrays.asList(product3.getId(), product1.getId(), product2.getId());
+        
+        // when
+        List<Product> result = productRepositoryPort.findByIds(ids);
+        
+        // then
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).getId()).isEqualTo(product1.getId());
+        assertThat(result.get(1).getId()).isEqualTo(product2.getId());
+        assertThat(result.get(2).getId()).isEqualTo(product3.getId());
+    }
     
     static Stream<Arguments> provideProductData() {
         return Stream.of(

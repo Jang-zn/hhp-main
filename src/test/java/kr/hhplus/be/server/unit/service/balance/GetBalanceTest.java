@@ -58,7 +58,7 @@ class GetBalanceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        balanceService = new BalanceService(transactionTemplate, chargeBalanceUseCase, getBalanceUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
+        balanceService = new BalanceService(transactionTemplate, chargeBalanceUseCase, getBalanceUseCase, lockingPort, userRepositoryPort, keyGenerator);
     }
 
     @Test

@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.product.GetPopularProductListUseCase;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,13 +27,18 @@ class GetPopularProductListUseCaseTest {
     @Mock
     private ProductRepositoryPort productRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
 
     private GetPopularProductListUseCase getPopularProductListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getPopularProductListUseCase = new GetPopularProductListUseCase(productRepositoryPort);
+        getPopularProductListUseCase = new GetPopularProductListUseCase(productRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test

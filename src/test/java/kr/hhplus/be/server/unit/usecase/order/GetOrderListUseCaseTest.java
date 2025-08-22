@@ -4,6 +4,8 @@ import kr.hhplus.be.server.domain.entity.Order;
 import kr.hhplus.be.server.domain.entity.User;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.usecase.order.GetOrderListUseCase;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
@@ -25,6 +27,9 @@ import java.util.Collections;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -41,13 +46,15 @@ class GetOrderListUseCaseTest {
 
     @Mock private UserRepositoryPort userRepositoryPort;
     @Mock private OrderRepositoryPort orderRepositoryPort;
+    @Mock private CachePort cachePort;
+    @Mock private KeyGenerator keyGenerator;
     
     private GetOrderListUseCase getOrderListUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getOrderListUseCase = new GetOrderListUseCase(userRepositoryPort, orderRepositoryPort);
+        getOrderListUseCase = new GetOrderListUseCase(userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator);
     }
 
     @Test
@@ -62,8 +69,13 @@ class GetOrderListUseCaseTest {
                 .id(2L).userId(customer.getId()).totalAmount(new BigDecimal("80000")).build()
         );
         
+        // 캐시 설정
+        String cacheKey = "order:list:user_1_limit_50_offset_0";
+        when(keyGenerator.generateOrderListCacheKey(customer.getId(), 50, 0)).thenReturn(cacheKey);
+        when(cachePort.get(cacheKey, List.class)).thenReturn(null); // 캐시 미스
+        
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -73,7 +85,11 @@ class GetOrderListUseCaseTest {
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("120000"));
         assertThat(result.get(1).getTotalAmount()).isEqualTo(new BigDecimal("80000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
+        // 캐시 검증
+        verify(keyGenerator).generateOrderListCacheKey(customer.getId(), 50, 0);
+        verify(cachePort).get(cacheKey, List.class);
+        verify(cachePort).put(eq(cacheKey), eq(orders), anyInt());
+        verify(orderRepositoryPort).findByUserId(eq(customer.getId()), any(Pageable.class));
     }
 
     @Test
@@ -87,7 +103,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(dbOrders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(dbOrders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -96,7 +112,7 @@ class GetOrderListUseCaseTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTotalAmount()).isEqualTo(new BigDecimal("150000"));
         
-        verify(orderRepositoryPort).findByUserId(customer.getId(), 50, 0);
+        verify(orderRepositoryPort).findByUserId(eq(customer.getId()), any(Pageable.class));
     }
 
     @Test
@@ -107,7 +123,7 @@ class GetOrderListUseCaseTest {
             .id(1L).name("신규고객").build();
         
         when(userRepositoryPort.existsById(newCustomer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(newCustomer.getId(), 50, 0)).thenReturn(Collections.emptyList());
+        when(orderRepositoryPort.findByUserId(eq(newCustomer.getId()), any(Pageable.class))).thenReturn(Collections.emptyList());
 
         // When
         List<Order> result = getOrderListUseCase.execute(newCustomer.getId());
@@ -133,7 +149,7 @@ class GetOrderListUseCaseTest {
         }
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
 
         // When
         List<Order> result = getOrderListUseCase.execute(customer.getId());
@@ -157,7 +173,7 @@ class GetOrderListUseCaseTest {
             .isInstanceOf(UserException.NotFound.class)
             .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
             
-        verify(orderRepositoryPort, never()).findByUserId(any(Long.class), anyInt(), anyInt());
+        verify(orderRepositoryPort, never()).findByUserId(any(Long.class), any(Pageable.class));
     }
 
 
@@ -177,7 +193,7 @@ class GetOrderListUseCaseTest {
             );
             
             when(userRepositoryPort.existsById(customerId)).thenReturn(true);
-            when(orderRepositoryPort.findByUserId(customerId, 50, 0)).thenReturn(orders);
+            when(orderRepositoryPort.findByUserId(eq(customerId), any(Pageable.class))).thenReturn(orders);
         }
         
         // When
@@ -209,7 +225,7 @@ class GetOrderListUseCaseTest {
         );
         
         when(userRepositoryPort.existsById(customer.getId())).thenReturn(true);
-        when(orderRepositoryPort.findByUserId(customer.getId(), 50, 0)).thenReturn(orders);
+        when(orderRepositoryPort.findByUserId(eq(customer.getId()), any(Pageable.class))).thenReturn(orders);
         
         // When
         int numberOfRequests = 5;

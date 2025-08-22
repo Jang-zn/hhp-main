@@ -3,15 +3,14 @@ package kr.hhplus.be.server.adapter.cache;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RBucket;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
+import org.redisson.api.*;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * Redis(Redisson)를 이용한 캐시 구현체
@@ -270,6 +269,132 @@ public class RedisCacheAdapter implements CachePort {
         } catch (Exception e) {
             log.error("Error getting cache TTL: key={}", cacheKey, e);
             return -2; // 에러 시 키 없음으로 처리
+        }
+    }
+    
+    // ========================= 상품 랭킹 관련 메서드 구현 =========================
+    
+    @Override
+    public void addProductScore(String rankingKey, String productKey, int orderQuantity) {
+        try {
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
+            ranking.addScore(productKey, orderQuantity);
+            
+            ranking.expire(7, TimeUnit.DAYS);
+            log.debug("Product score added: rankingKey={}, productKey={}, quantity={}", prefixedKey, productKey, orderQuantity);
+        } catch (Exception e) {
+            log.error("Error adding product score: rankingKey={}, productKey={}, quantity={}", rankingKey, productKey, orderQuantity, e);
+        }
+    }
+    
+    @Override
+    public List<Long> getTopProductsByOrder(String rankingKey, int limit) {
+        try {
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
+            return ranking.entryRangeReversed(0, limit - 1)
+                    .stream()
+                    .map(entry -> {
+                        String[] parts = entry.getValue().split(":");
+                        return Long.parseLong(parts[parts.length - 1].replace("product_", ""));
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error getting top products: rankingKey={}, limit={}", CACHE_KEY_PREFIX + rankingKey, limit, e);
+            return List.of();
+        }
+    }
+    
+    @Override
+    public List<Long> getProductRanking(String rankingKey, int offset, int limit) {
+        try {
+            String prefixedKey = CACHE_KEY_PREFIX + rankingKey;
+            RScoredSortedSet<String> ranking = redissonClient.getScoredSortedSet(prefixedKey);
+            return ranking.entryRangeReversed(offset, offset + limit - 1)
+                    .stream()
+                    .map(entry -> {
+                        String[] parts = entry.getValue().split(":");
+                        return Long.parseLong(parts[parts.length - 1].replace("product_", ""));
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error getting product ranking: rankingKey={}, offset={}, limit={}", CACHE_KEY_PREFIX + rankingKey, offset, limit, e);
+            return List.of();
+        }
+    }
+    
+    // ========================= 선착순 쿠폰 관련 메서드 구현 =========================
+    
+    @Override
+    public long issueCouponAtomically(String couponCounterKey, String couponUserKey, long maxCount) {
+        String lockKey = couponCounterKey + ":lock";
+        RLock lock = redissonClient.getLock(lockKey);
+        
+        try {
+            // 분산 락 획득 (최대 10초 대기, 30초 후 자동 해제)
+            if (!lock.tryLock(10, 30, TimeUnit.SECONDS)) {
+                log.warn("Failed to acquire lock for coupon issuance: lockKey={}", lockKey);
+                return -1;
+            }
+            
+            try {
+                RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
+                
+                // 이미 발급받은 사용자인지 확인 (원자적 확인 및 설정)
+                if (!userBucket.trySet("issued", 30, TimeUnit.DAYS)) {
+                    log.debug("User already issued coupon: userKey={}", couponUserKey);
+                    return -1;
+                }
+                
+                RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
+                long newCount = counter.incrementAndGet();
+                
+                // 최대 수량 초과 확인
+                if (newCount > maxCount) {
+                    // 롤백: 사용자 키 삭제 및 카운터 감소
+                    userBucket.delete();
+                    counter.decrementAndGet();
+                    log.debug("Coupon issuance exceeded max count: counter={}, maxCount={}", newCount, maxCount);
+                    return -1;
+                }
+                
+                log.debug("Coupon issued atomically: counter={}, user={}, issueNumber={}", couponCounterKey, couponUserKey, newCount);
+                return newCount;
+                
+            } finally {
+                lock.unlock();
+            }
+            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Thread interrupted while acquiring lock for coupon issuance: counter={}, user={}", couponCounterKey, couponUserKey, e);
+            return -1;
+        } catch (Exception e) {
+            log.error("Error issuing coupon atomically: counter={}, user={}, maxCount={}", couponCounterKey, couponUserKey, maxCount, e);
+            return -1;
+        }
+    }
+    
+    @Override
+    public long getCouponCount(String couponCounterKey) {
+        try {
+            RAtomicLong counter = redissonClient.getAtomicLong(couponCounterKey);
+            return counter.get();
+        } catch (Exception e) {
+            log.error("Error getting coupon count: key={}", couponCounterKey, e);
+            return 0;
+        }
+    }
+    
+    @Override
+    public boolean hasCouponIssued(String couponUserKey) {
+        try {
+            RBucket<String> userBucket = redissonClient.getBucket(couponUserKey);
+            return userBucket.isExists();
+        } catch (Exception e) {
+            log.error("Error checking coupon issued: key={}", couponUserKey, e);
+            return false;
         }
     }
 }

@@ -3,6 +3,8 @@ package kr.hhplus.be.server.unit.usecase;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.port.storage.ProductRepositoryPort;
 import kr.hhplus.be.server.domain.usecase.product.GetProductUseCase;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.exception.*;
 import kr.hhplus.be.server.api.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,13 +34,19 @@ class GetProductUseCaseTest {
     @Mock
     private ProductRepositoryPort productRepositoryPort;
     
+    @Mock
+    private CachePort cachePort;
+    
+    @Mock
+    private KeyGenerator keyGenerator;
+    
 
     private GetProductUseCase getProductUseCase;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        getProductUseCase = new GetProductUseCase(productRepositoryPort);
+        getProductUseCase = new GetProductUseCase(productRepositoryPort, cachePort, keyGenerator);
     }
 
     @Nested
@@ -136,8 +144,84 @@ class GetProductUseCaseTest {
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
         }
+    }
+
+    @Nested
+    @DisplayName("에러 처리 테스트")
+    class ErrorHandlingTests {
         
+        @Test
+        @DisplayName("캐시 GET 실패 시에도 DB 조회는 정상 작동한다")
+        void cacheGetFailure_DbStillWorks() {
+            // given
+            Long productId = 1L;
+            Product expectedProduct = createProduct("테스트상품", "10000", 50);
+            String cacheKey = "product:info:product_1";
+            
+            when(keyGenerator.generateProductCacheKey(productId)).thenReturn(cacheKey);
+            when(cachePort.get(cacheKey, Product.class)).thenThrow(new RuntimeException("Cache GET failure"));
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(expectedProduct));
+            
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
+            
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getName()).isEqualTo("테스트상품");
+            
+            // 캐시 실패에도 불구하고 DB는 호출되어야 함
+            verify(productRepositoryPort).findById(productId);
+        }
         
+        @Test
+        @DisplayName("캐시 PUT 실패 시에도 DB 결과는 정상 반환된다")
+        void cachePutFailure_DbResultStillReturned() {
+            // given
+            Long productId = 2L;
+            Product expectedProduct = createProduct("테스트상품2", "20000", 30);
+            String cacheKey = "product:info:product_2";
+            
+            when(keyGenerator.generateProductCacheKey(productId)).thenReturn(cacheKey);
+            when(cachePort.get(cacheKey, Product.class)).thenReturn(null); // 캐시 미스
+            when(productRepositoryPort.findById(productId)).thenReturn(Optional.of(expectedProduct));
+            doThrow(new RuntimeException("Cache PUT failure")).when(cachePort)
+                    .put(eq(cacheKey), eq(expectedProduct), anyInt());
+            
+            // when
+            Optional<Product> result = getProductUseCase.execute(productId);
+            
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getName()).isEqualTo("테스트상품2");
+            
+            verify(productRepositoryPort).findById(productId);
+        }
+        
+        @Test
+        @DisplayName("상품 목록 조회 시 캐시 실패해도 DB 조회는 정상 작동한다")
+        void productListCacheFailure_DbStillWorks() {
+            // given
+            int limit = 10;
+            int offset = 0;
+            List<Product> expectedProducts = List.of(
+                    createProduct("상품1", "10000", 10),
+                    createProduct("상품2", "20000", 20)
+            );
+            String cacheKey = "product:list:limit_10_offset_0";
+            
+            when(keyGenerator.generateProductListCacheKey(limit, offset)).thenReturn(cacheKey);
+            when(cachePort.getList(cacheKey)).thenThrow(new RuntimeException("Cache LIST failure"));
+            when(productRepositoryPort.findAllWithPagination(limit, offset)).thenReturn(expectedProducts);
+            
+            // when
+            List<Product> result = getProductUseCase.execute(limit, offset);
+            
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).getName()).isEqualTo("상품1");
+            
+            verify(productRepositoryPort).findAllWithPagination(limit, offset);
+        }
     }
     
     private Product createProduct(String name, String price, int stock) {

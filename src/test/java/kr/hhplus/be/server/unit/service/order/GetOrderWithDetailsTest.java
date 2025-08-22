@@ -9,7 +9,9 @@ import kr.hhplus.be.server.domain.usecase.coupon.ApplyCouponUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.storage.OrderRepositoryPort;
+import kr.hhplus.be.server.domain.port.storage.OrderItemRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import org.springframework.context.ApplicationEventPublisher;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,10 +66,16 @@ class GetOrderWithDetailsTest {
     private OrderRepositoryPort orderRepositoryPort;
     
     @Mock
+    private OrderItemRepositoryPort orderItemRepositoryPort;
+    
+    @Mock
     private CachePort cachePort;
     
     @Mock
     private KeyGenerator keyGenerator;
+    
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
     
     private OrderService orderService;
     
@@ -77,7 +85,8 @@ class GetOrderWithDetailsTest {
         orderService = new OrderService(
             transactionTemplate, createOrderUseCase, getOrderUseCase, getOrderListUseCase, 
             validateOrderUseCase, completeOrderUseCase, createPaymentUseCase, deductBalanceUseCase, 
-            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, cachePort, keyGenerator
+            applyCouponUseCase, lockingPort, userRepositoryPort, orderRepositoryPort, 
+            orderItemRepositoryPort, keyGenerator, eventPublisher
         );
     }
 
@@ -105,9 +114,6 @@ class GetOrderWithDetailsTest {
         assertThat(result.getId()).isEqualTo(orderId);
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(keyGenerator).generateOrderCacheKey(orderId);
-        verify(cachePort).get(eq(cacheKey), eq(Order.class));
-        verify(cachePort).put(eq(cacheKey), eq(expectedOrder), anyInt());
         verify(getOrderUseCase).execute(orderId, userId);
     }
 }

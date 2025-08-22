@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.service.CouponService;
 import kr.hhplus.be.server.domain.usecase.coupon.GetCouponListUseCase;
 import kr.hhplus.be.server.domain.usecase.coupon.IssueCouponUseCase;
+import kr.hhplus.be.server.domain.usecase.coupon.GetCouponByIdUseCase;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
 import kr.hhplus.be.server.domain.port.storage.UserRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
@@ -44,6 +45,9 @@ class GetCouponListTest {
     private IssueCouponUseCase issueCouponUseCase;
     
     @Mock
+    private GetCouponByIdUseCase getCouponByIdUseCase;
+    
+    @Mock
     private LockingPort lockingPort;
     
     @Mock
@@ -62,7 +66,7 @@ class GetCouponListTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        couponService = new CouponService(transactionTemplate, getCouponListUseCase, issueCouponUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
+        couponService = new CouponService(transactionTemplate, getCouponListUseCase, issueCouponUseCase, getCouponByIdUseCase, lockingPort, userRepositoryPort, cachePort, keyGenerator);
         
         Coupon coupon1 = Coupon.builder()
             .id(1L)
@@ -127,9 +131,6 @@ class GetCouponListTest {
             assertThat(result.get(1).getCouponId()).isEqualTo(2L);
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -155,9 +156,6 @@ class GetCouponListTest {
             assertThat(result).isEmpty();
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
         
@@ -201,9 +199,6 @@ class GetCouponListTest {
             assertThat(result).hasSize(1);
             
             verify(userRepositoryPort).existsById(userId);
-            verify(keyGenerator).generateCouponListCacheKey(userId, limit, offset);
-            verify(cachePort).getList(eq(cacheKey));
-            verify(cachePort).put(eq(cacheKey), any(), anyInt());
             verify(getCouponListUseCase).execute(userId, limit, offset);
         }
     }
