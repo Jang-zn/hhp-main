@@ -17,8 +17,7 @@ import java.time.LocalDateTime;
 @Table(name = "event_log",
        indexes = {
            @Index(name = "idx_event_log_status", columnList = "status"),
-           @Index(name = "idx_event_log_correlation", columnList = "correlationId"),
-           @Index(name = "idx_event_log_external_status", columnList = "isExternal, status")
+           @Index(name = "idx_event_log_correlation", columnList = "correlationId")
        })
 public class EventLog extends BaseEntity {
 
@@ -35,9 +34,6 @@ public class EventLog extends BaseEntity {
     private EventStatus status;
 
     // STEP 15 추가 필드들
-    @Builder.Default
-    private boolean isExternal = false; // 외부 시스템 전송 여부
-
     private String externalEndpoint; // 전송 대상 엔드포인트
 
     @Builder.Default

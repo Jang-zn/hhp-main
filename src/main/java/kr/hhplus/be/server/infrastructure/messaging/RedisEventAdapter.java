@@ -50,7 +50,7 @@ public class RedisEventAdapter implements EventPort {
             // EventLog에 저장
             EventLog eventLog = saveEventLog(topic, event);
             
-            // 비즈니스 로직 처리 (모든 이벤트 비동기 처리)
+            // 비즈니스 로직 처리
             handleEvent(topic, event);
             
             // Redis Streams로 처리
@@ -98,7 +98,6 @@ public class RedisEventAdapter implements EventPort {
             .eventType(determineEventType(event))
             .payload(serializeEvent(event))
             .status(EventStatus.PENDING)
-            .isExternal(true) // 모든 이벤트를 외부 전송용으로 통일
             .externalEndpoint(determineEndpoint(topic))
             .correlationId(generateCorrelationId())
             .build();
@@ -298,7 +297,7 @@ public class RedisEventAdapter implements EventPort {
             invalidateProductListCaches();
             invalidateOrderCaches(productId);
             invalidateCouponCaches(productId);
-            invalidateRankingCaches(); // 삭제 시에는 랭킹도 재계산 필요
+            invalidateRankingCaches();
             
             log.debug("All product-related caches invalidated after deletion: productId={}", productId);
             
