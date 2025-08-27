@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.domain.entity.EventLog;
 import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
-import kr.hhplus.be.server.domain.port.messaging.EventPort;
+import kr.hhplus.be.server.domain.port.event.EventPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.common.util.KeyGenerator;
