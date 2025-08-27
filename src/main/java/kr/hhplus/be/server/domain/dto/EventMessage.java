@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.infrastructure.messaging.dto;
+package kr.hhplus.be.server.domain.dto;
 
 import lombok.Builder;
 import lombok.Getter;

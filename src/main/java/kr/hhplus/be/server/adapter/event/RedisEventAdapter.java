@@ -1,4 +1,4 @@
-package kr.hhplus.be.server.infrastructure.messaging;
+package kr.hhplus.be.server.adapter.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,22 +12,18 @@ import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.enums.ProductEventType;
 import kr.hhplus.be.server.domain.enums.EventTopic;
-import kr.hhplus.be.server.infrastructure.messaging.dto.EventMessage;
+import kr.hhplus.be.server.domain.dto.EventMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.redisson.api.RedissonClient;
 import org.redisson.api.RStream;
-import org.redisson.api.stream.StreamAddArgs;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 import java.util.UUID;
 
 @Component
