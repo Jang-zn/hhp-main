@@ -4,11 +4,13 @@ import kr.hhplus.be.server.domain.entity.*;
 import kr.hhplus.be.server.domain.enums.PaymentStatus;
 import kr.hhplus.be.server.domain.port.storage.*;
 import kr.hhplus.be.server.domain.port.locking.LockingPort;
-import kr.hhplus.be.server.domain.port.messaging.MessagingPort;
+import kr.hhplus.be.server.domain.port.event.EventPort;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.enums.CacheTTL;
 import kr.hhplus.be.server.domain.exception.*;
+import kr.hhplus.be.server.domain.event.PaymentCompletedEvent;
+import kr.hhplus.be.server.domain.enums.EventTopic;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -32,7 +34,7 @@ public class PayOrderUseCase {
     private final ProductRepositoryPort productRepositoryPort;
     private final EventLogRepositoryPort eventLogRepositoryPort;
     private final LockingPort lockingPort;
-    private final MessagingPort messagingPort;
+    private final EventPort eventPort;
     private final CachePort cachePort;
     private final KeyGenerator keyGenerator;
     
@@ -131,6 +133,17 @@ public class PayOrderUseCase {
             
             log.info("결제 완료: paymentId={}, orderId={}, userId={}, amount={}", 
                     savedPayment.getId(), orderId, userId, finalAmount);
+            
+            // 결제 완료 이벤트 발행 (외부 데이터 플랫폼 동기화용)
+            try {
+                PaymentCompletedEvent paymentEvent = new PaymentCompletedEvent(
+                    savedPayment.getId(), orderId, userId, finalAmount);
+                eventPort.publish(EventTopic.DATA_PLATFORM_PAYMENT_COMPLETED.getTopic(), paymentEvent);
+                
+                log.debug("결제 완료 이벤트 발행: paymentId={}", savedPayment.getId());
+            } catch (Exception e) {
+                log.warn("결제 완료 이벤트 발행 실패 - 비즈니스 로직에는 영향 없음", e);
+            }
             
             // 캐시 무효화 및 업데이트
             invalidateRelatedCache(userId, orderId, savedBalance, savedPayment);
