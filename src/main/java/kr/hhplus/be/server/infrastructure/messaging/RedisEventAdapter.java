@@ -13,6 +13,7 @@ import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import kr.hhplus.be.server.domain.entity.Product;
 import kr.hhplus.be.server.domain.enums.ProductEventType;
+import kr.hhplus.be.server.domain.enums.EventTopic;
 import kr.hhplus.be.server.infrastructure.messaging.dto.EventMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -160,9 +161,9 @@ public class RedisEventAdapter implements EventPort {
     
     private void handleEvent(String topic, Object event) {
         try {
-            if (topic.equals("order.completed") && event instanceof OrderCompletedEvent) {
+            if (topic.equals(EventTopic.ORDER_COMPLETED.getTopic()) && event instanceof OrderCompletedEvent) {
                 handleOrderCompleted((OrderCompletedEvent) event);
-            } else if (topic.startsWith("product.") && event instanceof ProductUpdatedEvent) {
+            } else if (isProductEvent(topic) && event instanceof ProductUpdatedEvent) {
                 handleProductUpdated((ProductUpdatedEvent) event);
             }
             // 추가 이벤트 처리는 여기에...
@@ -365,6 +366,12 @@ public class RedisEventAdapter implements EventPort {
     private void updateEventLogOnFailure(String topic, Exception e) {
         // 실패 처리 로직 (나중에 재시도할 수 있도록 정보 저장)
         log.error("이벤트 발행 실패로 인한 상태 업데이트 필요: topic={}", topic, e);
+    }
+    
+    private boolean isProductEvent(String topic) {
+        return topic.equals(EventTopic.PRODUCT_CREATED.getTopic()) ||
+               topic.equals(EventTopic.PRODUCT_UPDATED.getTopic()) ||
+               topic.equals(EventTopic.PRODUCT_DELETED.getTopic());
     }
     
 }
