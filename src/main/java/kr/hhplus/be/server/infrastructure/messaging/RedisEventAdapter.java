@@ -7,11 +7,16 @@ import kr.hhplus.be.server.domain.enums.EventStatus;
 import kr.hhplus.be.server.domain.enums.EventType;
 import kr.hhplus.be.server.domain.port.messaging.EventPort;
 import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
+import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
+import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
+import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
+import kr.hhplus.be.server.domain.entity.Product;
+import kr.hhplus.be.server.domain.enums.ProductEventType;
 import kr.hhplus.be.server.infrastructure.messaging.dto.EventMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.ApplicationEventPublisher;
 import org.redisson.api.RedissonClient;
 import org.redisson.api.RStream;
 import org.redisson.api.stream.StreamAddArgs;
@@ -19,6 +24,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,66 +37,39 @@ public class RedisEventAdapter implements EventPort {
     
     private final RedissonClient redissonClient;
     private final EventLogRepositoryPort eventLogRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper;
-    
-    @Override
-    public void publish(String topic, Object event) {
-        log.debug("Redis 동기 이벤트 발행: topic={}, event={}", topic, event.getClass().getSimpleName());
-        
-        try {
-            // EventLog에 저장
-            EventLog eventLog = saveEventLog(topic, event, false);
-            
-            // 내부 이벤트 판단 (topic 기반)
-            if (isInternalEvent(topic)) {
-                // 내부 이벤트: ApplicationEventPublisher로 위임
-                applicationEventPublisher.publishEvent(event);
-                log.debug("내부 이벤트 ApplicationEventPublisher 위임: topic={}", topic);
-            } else {
-                // 외부 이벤트: Redis Streams로 처리
-                publishToRedisStream(eventLog, event, true);
-                log.debug("외부 이벤트 Redis Streams 발행: topic={}", topic);
-            }
-            
-            // 성공 시 상태 업데이트
-            eventLog.updateStatus(EventStatus.PUBLISHED);
-            eventLogRepository.save(eventLog);
-            
-            log.debug("Redis 동기 이벤트 발행 성공: topic={}", topic);
-            
-        } catch (Exception e) {
-            log.error("Redis 동기 이벤트 발행 실패: topic={}", topic, e);
-            throw new RuntimeException("Redis publish failed", e);
-        }
-    }
+    private final CachePort cachePort;
+    private final KeyGenerator keyGenerator;
     
     @Override
     @Async("messagingExecutor")
-    public void publishAsync(String topic, Object event) {
-        log.debug("Redis 비동기 이벤트 발행: topic={}, event={}", topic, event.getClass().getSimpleName());
+    public void publish(String topic, Object event) {
+        log.debug("Redis 이벤트 발행: topic={}, event={}", topic, event.getClass().getSimpleName());
         
         try {
-            // EventLog에 저장 (외부 전송용)
-            EventLog eventLog = saveEventLog(topic, event, true);
+            // EventLog에 저장
+            EventLog eventLog = saveEventLog(topic, event);
             
-            // Redis Streams로 비동기 발행 (순서 보장, 재처리 가능)
-            publishToRedisStream(eventLog, event, false);
+            // 비즈니스 로직 처리 (모든 이벤트 비동기 처리)
+            handleEvent(topic, event);
+            
+            // Redis Streams로 처리
+            publishToRedisStream(eventLog, event);
             
             // 성공 시 상태 업데이트
             eventLog.updateStatus(EventStatus.PUBLISHED);
             eventLogRepository.save(eventLog);
             
-            log.debug("Redis 비동기 이벤트 발행 성공: topic={}", topic);
+            log.debug("Redis 이벤트 발행 성공: topic={}", topic);
             
         } catch (Exception e) {
-            log.error("Redis 비동기 이벤트 발행 실패: topic={}", topic, e);
-            // 비동기는 실패해도 비즈니스 로직에 영향 주지 않음
+            log.error("Redis 이벤트 발행 실패: topic={}", topic, e);
             updateEventLogOnFailure(topic, e);
         }
     }
     
-    private void publishToRedisStream(EventLog eventLog, Object event, boolean isSync) throws JsonProcessingException {
+    
+    private void publishToRedisStream(EventLog eventLog, Object event) throws JsonProcessingException {
         String streamKey = "stream:" + eventLog.getCorrelationId().substring(0, 8); // 간단한 파티셔닝
         
         // 모든 데이터를 하나의 JSON으로 직렬화
@@ -113,13 +93,13 @@ public class RedisEventAdapter implements EventPort {
         log.debug("Redis Streams 메시지 발행 완료: streamKey={}, messageId={}", streamKey, messageId);
     }
     
-    private EventLog saveEventLog(String topic, Object event, boolean isAsync) {
+    private EventLog saveEventLog(String topic, Object event) {
         EventLog eventLog = EventLog.builder()
             .eventType(determineEventType(event))
             .payload(serializeEvent(event))
             .status(EventStatus.PENDING)
-            .isExternal(isAsync || !isInternalEvent(topic)) // 비동기이거나 외부 토픽이면 외부 전송용
-            .externalEndpoint(determineEndpoint(topic, isAsync))
+            .isExternal(true) // 모든 이벤트를 외부 전송용으로 통일
+            .externalEndpoint(determineEndpoint(topic))
             .correlationId(generateCorrelationId())
             .build();
             
@@ -169,8 +149,8 @@ public class RedisEventAdapter implements EventPort {
         }
     }
     
-    private String determineEndpoint(String topic, boolean isAsync) {
-        return "redis://streams/" + topic + (isAsync ? ":async" : ":sync");
+    private String determineEndpoint(String topic) {
+        return "redis://streams/" + topic + ":async";
     }
     
     private String generateCorrelationId() {
@@ -178,17 +158,209 @@ public class RedisEventAdapter implements EventPort {
                UUID.randomUUID().toString().substring(0, 8);
     }
     
-    /**
-     * 내부 이벤트 여부 판단 (ApplicationEventPublisher 위임용)
-     * 내부 이벤트: Spring 내부 처리 (랭킹 업데이트 등)
-     * 외부 이벤트: Redis Streams 처리 (데이터 플랫폼 연동 등)
-     */
-    private boolean isInternalEvent(String topic) {
-        return topic.startsWith("order.") ||
-               topic.startsWith("product.") ||
-               topic.startsWith("balance.") ||
-               topic.startsWith("coupon.") ||
-               topic.startsWith("internal.");
+    
+    private void handleEvent(String topic, Object event) {
+        try {
+            if (topic.equals("order.completed") && event instanceof OrderCompletedEvent) {
+                handleOrderCompleted((OrderCompletedEvent) event);
+            } else if (topic.startsWith("product.") && event instanceof ProductUpdatedEvent) {
+                handleProductUpdated((ProductUpdatedEvent) event);
+            }
+            // 추가 이벤트 처리는 여기에...
+        } catch (Exception e) {
+            log.error("이벤트 처리 실패: topic={}, event={}", topic, event.getClass().getSimpleName(), e);
+        }
+    }
+    
+    private void handleOrderCompleted(OrderCompletedEvent event) {
+        log.debug("Processing order completed event: orderId={}", event.getOrderId());
+        
+        try {
+            String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String dailyRankingKey = keyGenerator.generateDailyRankingKey(today);
+            
+            for (OrderCompletedEvent.ProductOrderInfo productOrder : event.getProductOrders()) {
+                Long productId = productOrder.getProductId();
+                int quantity = productOrder.getQuantity();
+                
+                String productKey = keyGenerator.generateProductRankingKey(productId);
+                cachePort.addProductScore(dailyRankingKey, productKey, quantity);
+                
+                log.debug("Updated product ranking: productId={}, quantity={}, date={}", 
+                         productId, quantity, today);
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to update product ranking for order: orderId={}", 
+                     event.getOrderId(), e);
+        }
+    }
+    
+    private void handleProductUpdated(ProductUpdatedEvent event) {
+        if (event == null) {
+            log.warn("ProductUpdatedEvent is null, skipping");
+            return;
+        }
+        
+        log.debug("Processing product updated event: productId={}, eventType={}", 
+                 event.getProductId(), event.getEventType());
+        
+        try {
+            switch (event.getEventType()) {
+                case CREATED -> handleProductCreated(event);
+                case UPDATED -> handleProductFullUpdate(event);
+                case STOCK_UPDATED -> handleStockUpdated(event);
+                case DELETED -> handleProductDeleted(event);
+                default -> log.warn("Unknown event type: {}", event.getEventType());
+            }
+            
+            log.debug("Product updated event processed successfully: productId={}", 
+                     event.getProductId());
+            
+        } catch (Exception e) {
+            log.error("Failed to process product updated event: productId={}, eventType={}", 
+                     event.getProductId(), event.getEventType(), e);
+        }
+    }
+    
+    // 캐시 TTL (1시간)
+    private static final int PRODUCT_CACHE_TTL = 3600;
+    
+    private void handleProductCreated(ProductUpdatedEvent event) {
+        try {
+            String productCacheKey = keyGenerator.generateProductCacheKey(event.getProductId());
+            Product product = buildProductFromEvent(event);
+            
+            cachePort.put(productCacheKey, product, PRODUCT_CACHE_TTL);
+            log.debug("Product cached after creation: productId={}", event.getProductId());
+            
+        } catch (Exception e) {
+            log.error("Failed to cache created product: productId={}", event.getProductId(), e);
+        }
+    }
+    
+    private void handleProductFullUpdate(ProductUpdatedEvent event) {
+        Long productId = event.getProductId();
+        
+        try {
+            // 1. 개별 상품 캐시 갱신
+            String productCacheKey = keyGenerator.generateProductCacheKey(productId);
+            Product product = buildProductFromEvent(event);
+            cachePort.put(productCacheKey, product, PRODUCT_CACHE_TTL);
+            
+            // 2. 상품 목록 관련 캐시 무효화
+            invalidateProductListCaches();
+            
+            // 3. 주문 관련 캐시 무효화 (가격 변경으로 인한 주문 검증 필요)
+            invalidateOrderCaches(productId);
+            
+            // 4. 가격 변경 시 쿠폰 관련 캐시도 무효화
+            if (event.isPriceChanged()) {
+                invalidateCouponCaches(productId);
+            }
+            
+            log.debug("Product caches invalidated after update: productId={}, priceChanged={}", 
+                     productId, event.isPriceChanged());
+            
+        } catch (Exception e) {
+            log.error("Failed to handle product update: productId={}", productId, e);
+        }
+    }
+    
+    private void handleStockUpdated(ProductUpdatedEvent event) {
+        Long productId = event.getProductId();
+        
+        try {
+            // 1. 개별 상품 캐시 갱신
+            String productCacheKey = keyGenerator.generateProductCacheKey(productId);
+            Product product = buildProductFromEvent(event);
+            cachePort.put(productCacheKey, product, PRODUCT_CACHE_TTL);
+            
+            // 2. 주문 관련 캐시만 무효화 (재고 변경으로 인한 주문 가능 여부 변경)
+            invalidateOrderCaches(productId);
+            
+            log.debug("Product stock updated and order caches invalidated: productId={}", productId);
+            
+        } catch (Exception e) {
+            log.error("Failed to handle stock update: productId={}", productId, e);
+        }
+    }
+    
+    private void handleProductDeleted(ProductUpdatedEvent event) {
+        Long productId = event.getProductId();
+        
+        try {
+            // 1. 개별 상품 캐시 완전 제거
+            String productCacheKey = keyGenerator.generateProductCacheKey(productId);
+            cachePort.evict(productCacheKey);
+            
+            // 2. 모든 관련 도메인 캐시 무효화
+            invalidateProductListCaches();
+            invalidateOrderCaches(productId);
+            invalidateCouponCaches(productId);
+            invalidateRankingCaches(); // 삭제 시에는 랭킹도 재계산 필요
+            
+            log.debug("All product-related caches invalidated after deletion: productId={}", productId);
+            
+        } catch (Exception e) {
+            log.error("Failed to handle product deletion: productId={}", productId, e);
+        }
+    }
+    
+    private void invalidateProductListCaches() {
+        try {
+            String productListPattern = keyGenerator.generateProductListCachePattern();
+            String popularProductPattern = keyGenerator.generatePopularProductCachePattern();
+            
+            cachePort.evictByPattern(productListPattern);
+            cachePort.evictByPattern(popularProductPattern);
+            
+            log.debug("Product list caches invalidated");
+        } catch (Exception e) {
+            log.error("Failed to invalidate product list caches", e);
+        }
+    }
+    
+    private void invalidateOrderCaches(Long productId) {
+        try {
+            String orderCachePattern = keyGenerator.generateOrderCachePatternByProduct(productId);
+            cachePort.evictByPattern(orderCachePattern);
+            
+            log.debug("Order caches invalidated for product: {}", productId);
+        } catch (Exception e) {
+            log.error("Failed to invalidate order caches for product: {}", productId, e);
+        }
+    }
+    
+    private void invalidateCouponCaches(Long productId) {
+        try {
+            String couponCachePattern = keyGenerator.generateCouponCachePatternByProduct(productId);
+            cachePort.evictByPattern(couponCachePattern);
+            
+            log.debug("Coupon caches invalidated for product: {}", productId);
+        } catch (Exception e) {
+            log.error("Failed to invalidate coupon caches for product: {}", productId, e);
+        }
+    }
+    
+    private void invalidateRankingCaches() {
+        try {
+            String rankingPattern = keyGenerator.generateRankingCachePattern();
+            cachePort.evictByPattern(rankingPattern);
+            
+            log.debug("Ranking caches invalidated");
+        } catch (Exception e) {
+            log.error("Failed to invalidate ranking caches", e);
+        }
+    }
+    
+    private Product buildProductFromEvent(ProductUpdatedEvent event) {
+        return Product.builder()
+                .id(event.getProductId())
+                .name(event.getProductName())
+                .price(event.getPrice())
+                .stock(event.getStock())
+                .build();
     }
     
     private void updateEventLogOnFailure(String topic, Exception e) {
