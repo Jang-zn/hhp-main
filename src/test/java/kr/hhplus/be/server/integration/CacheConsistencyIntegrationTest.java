@@ -1,16 +1,16 @@
 package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.enums.ProductEventType;
+import kr.hhplus.be.server.domain.enums.EventTopic;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.port.event.EventPort;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private EventPort eventPort;
     
     @Autowired
     private CachePort cachePort;
@@ -62,7 +62,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 testProductId, "새 상품", new BigDecimal("15000"), 50);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_CREATED.getTopic(), event);
         
         // 비동기 이벤트 처리 대기
         Thread.sleep(100);
@@ -101,7 +101,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 "테스트 상품", new BigDecimal("10000"), 100);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_UPDATED.getTopic(), event);
         
         // 비동기 이벤트 처리 대기
         Thread.sleep(200);
@@ -130,7 +130,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         ProductUpdatedEvent event = ProductUpdatedEvent.deleted(testProductId);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_DELETED.getTopic(), event);
         
         // 비동기 이벤트 처리 대기
         Thread.sleep(100);
@@ -152,7 +152,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 testProductId, "테스트 상품", new BigDecimal("10000"), 200, 100);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_UPDATED.getTopic(), event);
         
         // 비동기 이벤트 처리 대기
         Thread.sleep(100);
@@ -180,7 +180,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 ProductUpdatedEvent event = ProductUpdatedEvent.created(
                         (long) productId, "상품" + productId, 
                         new BigDecimal("1000"), 50);
-                eventPublisher.publishEvent(event);
+                eventPort.publish(EventTopic.PRODUCT_CREATED.getTopic(), event);
             }, executor);
         }
         
