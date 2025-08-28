@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 비동기 작업을 위한 스레드풀 설정
@@ -43,11 +44,8 @@ public class AsyncConfig implements AsyncConfigurer {
         // 디버깅용 스레드 이름 설정
         executor.setThreadNamePrefix("Async-");
         
-        // 스레드풀 포화 시 처리 전략
-        executor.setRejectedExecutionHandler((r, executor1) -> {
-            log.warn("Async executor rejected task: {}. " +
-                    "Consider increasing pool size or queue capacity", r.toString());
-        });
+        // 스레드풀 포화 시 처리 전략 - 호출자 스레드에서 실행하여 백프레셔 적용
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         
         executor.initialize();
         return executor;
