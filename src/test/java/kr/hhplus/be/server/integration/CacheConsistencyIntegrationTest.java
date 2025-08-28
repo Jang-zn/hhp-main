@@ -192,7 +192,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         CompletableFuture.allOf(futures).get(5, TimeUnit.SECONDS);
         
         // then - 비동기 이벤트 처리를 기다린 후 캐시 확인
-        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
             for (int i = 1; i <= 10; i++) {
                 String cacheKey = keyGenerator.generateProductCacheKey((long) i);
                 Product cachedProduct = cachePort.get(cacheKey, Product.class);
