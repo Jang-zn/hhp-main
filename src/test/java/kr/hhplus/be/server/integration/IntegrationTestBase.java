@@ -138,7 +138,6 @@ public abstract class IntegrationTestBase {
                 // EventLog 테이블 완전 초기화 (TRUNCATE 방식)
                 long beforeCount = eventLogRepository.count();
                 eventLogRepository.deleteAll();
-                eventLogRepository.flush(); // 강제로 DB에 반영
                 long afterCount = eventLogRepository.count();
                 System.out.println("EventLog 테이블 초기화 완료: " + beforeCount + " -> " + afterCount + " 건");
             } catch (Exception e) {
