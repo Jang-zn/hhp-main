@@ -2,6 +2,7 @@ package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.event.EventPort;
+import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import org.redisson.api.RedissonClient;
@@ -54,6 +55,9 @@ public abstract class IntegrationTestBase {
     
     @Autowired 
     private RedissonClient redissonClient;
+    
+    @Autowired(required = false)
+    private EventLogRepositoryPort eventLogRepository;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -66,18 +70,26 @@ public abstract class IntegrationTestBase {
     }
 
     /**
-     * 각 테스트마다 Redis 캐시를 완전히 정리하여 테스트 간 독립성 보장
+     * 각 테스트마다 Redis 캐시와 EventLog 테이블을 완전히 정리하여 테스트 간 독립성 보장
      * 
      * evictByPattern("*") 대신 직접 구현하여 모든 Redis 자료구조 타입 처리
      */
     @BeforeEach
-    void clearRedisCache() {
+    void clearTestData() {
         try {
-            // 테스트 환경에서만 사용: 모든 Redis 키 삭제
+            // 1. 모든 Redis 키 삭제
             clearAllRedisKeys();
         } catch (Exception e) {
             // Redis 연결 문제 등으로 실패해도 테스트는 계속 진행
             System.err.println("Redis 캐시 정리 실패 (테스트는 계속 진행): " + e.getMessage());
+        }
+        
+        try {
+            // 2. EventLog 테이블 데이터 삭제 (EventPort 테스트에서 중요)
+            clearEventLogData();
+        } catch (Exception e) {
+            // EventLog 정리 실패해도 테스트는 계속 진행
+            System.err.println("EventLog 데이터 정리 실패 (테스트는 계속 진행): " + e.getMessage());
         }
     }
     
@@ -111,6 +123,23 @@ public abstract class IntegrationTestBase {
         }
         
         System.out.println("Redis 테스트 캐시 초기화 완료: " + deletedCount + "개 키 삭제");
+    }
+    
+    /**
+     * EventLog 테이블 데이터 완전 정리
+     * 
+     * 테스트 격리를 위해 이전 테스트에서 생성된 모든 EventLog 레코드 삭제
+     */
+    private void clearEventLogData() {
+        if (eventLogRepository != null) {
+            try {
+                // 모든 EventLog 삭제
+                eventLogRepository.deleteAll();
+                System.out.println("EventLog 테이블 초기화 완료");
+            } catch (Exception e) {
+                System.err.println("EventLog 삭제 중 오류: " + e.getMessage());
+            }
+        }
     }
     
     @TestConfiguration

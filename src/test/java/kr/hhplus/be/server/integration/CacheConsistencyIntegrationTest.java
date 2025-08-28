@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.enums.EventTopic;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
 import kr.hhplus.be.server.domain.port.event.EventPort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,9 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     @Autowired
     private CachePort cachePort;
     
+    @Autowired
+    private KeyGenerator keyGenerator;
+    
     private Long testProductId;
     private Product testProduct;
     
@@ -69,7 +73,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         
         // then
         // 개별 상품 캐시가 저장되었는지 확인
-        String productCacheKey = "product:info:product_" + testProductId;
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
         Product cachedProduct = cachePort.get(productCacheKey, Product.class);
         assertThat(cachedProduct).isNotNull();
         assertThat(cachedProduct.getName()).isEqualTo("새 상품");
@@ -85,9 +89,9 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     void productUpdatedEvent_ShouldInvalidateAllRelatedCaches() throws InterruptedException {
         // given
         // 1. 먼저 관련 캐시들을 설정
-        String productCacheKey = "product:info:product_" + testProductId;
-        String productListCacheKey = "product:list:limit_10_offset_0";
-        String popularProductCacheKey = "product:popular:period_1_limit_5_offset_0";
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
+        String productListCacheKey = keyGenerator.generateProductListCacheKey(10, 0);
+        String popularProductCacheKey = keyGenerator.generatePopularProductListCacheKey(1, 5, 0);
         
         cachePort.put(productCacheKey, testProduct, 3600);
         cachePort.put(productListCacheKey, java.util.List.of(testProduct), 3600);
@@ -121,7 +125,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     @DisplayName("상품 삭제 이벤트 시 모든 관련 캐시가 완전히 제거된다")
     void productDeletedEvent_ShouldRemoveAllRelatedCaches() throws InterruptedException {
         // given
-        String productCacheKey = "product:info:product_" + testProductId;
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
         cachePort.put(productCacheKey, testProduct, 3600);
         
         // 캐시가 저장되었는지 확인
@@ -145,7 +149,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     @DisplayName("재고 수정 이벤트 시 개별 상품 캐시만 갱신된다")
     void stockUpdatedEvent_ShouldOnlyUpdateIndividualProductCache() throws InterruptedException {
         // given
-        String productCacheKey = "product:info:product_" + testProductId;
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
         cachePort.put(productCacheKey, testProduct, 3600);
         
         ProductUpdatedEvent event = ProductUpdatedEvent.stockUpdated(
@@ -190,7 +194,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         
         // then
         for (int i = 1; i <= 10; i++) {
-            String cacheKey = "product:info:product_" + i;
+            String cacheKey = keyGenerator.generateProductCacheKey((long) i);
             Product cachedProduct = cachePort.get(cacheKey, Product.class);
             assertThat(cachedProduct).isNotNull();
             assertThat(cachedProduct.getName()).isEqualTo("상품" + i);
