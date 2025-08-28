@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
@@ -32,6 +34,7 @@ import static org.awaitility.Awaitility.await;
  * 실제 Redis 환경에서 이벤트 발행 및 처리 검증
  */
 @ActiveProfiles("integration")
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 class EventPortIntegrationTest extends IntegrationTestBase {
 
     @Autowired
