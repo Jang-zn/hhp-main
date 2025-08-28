@@ -224,7 +224,7 @@ public class RedisEventConsumer {
                 OrderCompletedEvent orderEvent = objectMapper.readValue(payloadJson, OrderCompletedEvent.class);
                 handleOrderCompleted(orderEvent);
             }
-            case "PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED" -> {
+            case "PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED", "PRODUCT_STOCK_SYNC" -> {
                 ProductUpdatedEvent productEvent = objectMapper.readValue(payloadJson, ProductUpdatedEvent.class);
                 handleProductUpdated(productEvent);
             }
@@ -248,8 +248,8 @@ public class RedisEventConsumer {
                 Long productId = productOrder.getProductId();
                 int quantity = productOrder.getQuantity();
                 
-                String productKey = keyGenerator.generateProductRankingKey(productId);
-                cachePort.addProductScore(dailyRankingKey, productKey, quantity);
+                // addProductScore는 productId를 String으로 직접 전달 (productKey 생성 불필요)
+                cachePort.addProductScore(dailyRankingKey, productId.toString(), quantity);
                 
                 log.debug("Updated product ranking: productId={}, quantity={}, date={}", 
                          productId, quantity, today);

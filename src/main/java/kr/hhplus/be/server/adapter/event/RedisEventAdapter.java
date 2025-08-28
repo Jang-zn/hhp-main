@@ -63,8 +63,8 @@ public class RedisEventAdapter implements EventPort {
     
     
     private void publishToRedisStream(EventLog eventLog, Object event) throws JsonProcessingException {
-        // 향상된 파티셔닝 전략: correlationId 기반으로 스트림 분산
-        String streamKey = "stream:" + eventLog.getCorrelationId().substring(0, 8);
+        // 향상된 파티셔닝 전략: correlationId 해시 기반으로 스트림 분산 (Consumer와 일치)
+        String streamKey = "stream:" + String.format("%02x", Math.abs(eventLog.getCorrelationId().hashCode()) % 256);
         
         long streamStartTime = System.currentTimeMillis();
         
@@ -136,7 +136,7 @@ public class RedisEventAdapter implements EventPort {
                 // 기존 로직 유지 (backward compatibility)
                 if (className.contains("Order")) {
                     if (className.contains("Completed")) {
-                        yield EventType.ORDER_CREATED;
+                        yield EventType.ORDER_COMPLETED;
                     }
                     yield EventType.ORDER_DATA_SYNC;
                 } else if (className.contains("Payment")) {
