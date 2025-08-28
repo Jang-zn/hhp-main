@@ -7,6 +7,7 @@ public enum EventTopic {
     
     // 내부 도메인 이벤트
     ORDER_COMPLETED("order.completed"),
+    PAYMENT_COMPLETED("payment.completed"),
     PRODUCT_CREATED("product.created"),
     PRODUCT_UPDATED("product.updated"),
     PRODUCT_DELETED("product.deleted"),

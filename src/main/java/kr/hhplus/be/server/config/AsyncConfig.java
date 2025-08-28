@@ -6,9 +6,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 비동기 작업을 위한 스레드풀 설정
@@ -19,6 +21,7 @@ import java.util.concurrent.Executor;
 @Slf4j
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig implements AsyncConfigurer {
 
     /**
@@ -43,11 +46,35 @@ public class AsyncConfig implements AsyncConfigurer {
         // 디버깅용 스레드 이름 설정
         executor.setThreadNamePrefix("Async-");
         
-        // 스레드풀 포화 시 처리 전략
-        executor.setRejectedExecutionHandler((r, executor1) -> {
-            log.warn("Async executor rejected task: {}. " +
-                    "Consider increasing pool size or queue capacity", r.toString());
-        });
+        // 스레드풀 포화 시 처리 전략 - 호출자 스레드에서 실행하여 백프레셔 적용
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * 메시징 전용 비동기 실행기
+     * 
+     * 이벤트 발행 및 소비 전용 스레드풀
+     * - 기본 스레드풀과 분리하여 이벤트 처리 성능 최적화
+     * - Redis Streams Publisher/Consumer 전용
+     */
+    @Bean(name = "messagingExecutor")
+    public Executor messagingExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        
+        // 메시징 전용 스레드풀 설정
+        executor.setCorePoolSize(5);            // 메시징 전용 기본 스레드
+        executor.setMaxPoolSize(15);            // 메시징 전용 최대 스레드
+        executor.setQueueCapacity(200);         // 이벤트 처리용 큰 큐
+        executor.setKeepAliveSeconds(120);      // 더 긴 유휴 스레드 유지
+        
+        // 디버깅용 스레드 이름 설정
+        executor.setThreadNamePrefix("Messaging-");
+        
+        // 메시징에서는 백프레셔보다는 큐잉 우선
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         
         executor.initialize();
         return executor;

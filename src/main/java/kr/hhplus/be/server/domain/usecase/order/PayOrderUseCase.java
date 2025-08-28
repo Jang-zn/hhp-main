@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -137,7 +138,7 @@ public class PayOrderUseCase {
             // 결제 완료 이벤트 발행 (외부 데이터 플랫폼 동기화용)
             try {
                 PaymentCompletedEvent paymentEvent = new PaymentCompletedEvent(
-                    savedPayment.getId(), orderId, userId, finalAmount);
+                    savedPayment.getId(), orderId, userId, finalAmount, LocalDateTime.now());
                 eventPort.publish(EventTopic.DATA_PLATFORM_PAYMENT_COMPLETED.getTopic(), paymentEvent);
                 
                 log.debug("결제 완료 이벤트 발행: paymentId={}", savedPayment.getId());
