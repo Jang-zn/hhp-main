@@ -2,5 +2,7 @@ package kr.hhplus.be.server.domain.enums;
 
 public enum EventStatus {
     PENDING,
-    PUBLISHED
+    PUBLISHED,
+    COMPLETED,
+    FAILED
 } 

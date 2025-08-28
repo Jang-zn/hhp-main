@@ -20,11 +20,12 @@ import kr.hhplus.be.server.domain.exception.CommonException;
 import kr.hhplus.be.server.domain.exception.UserException;
 import kr.hhplus.be.server.domain.exception.OrderException;
 import kr.hhplus.be.server.domain.event.OrderCompletedEvent;
+import kr.hhplus.be.server.domain.enums.EventTopic;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.context.ApplicationEventPublisher;
+import kr.hhplus.be.server.domain.port.event.EventPort;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -54,7 +55,7 @@ public class OrderService {
     private final OrderRepositoryPort orderRepositoryPort;
     private final OrderItemRepositoryPort orderItemRepositoryPort;
     private final KeyGenerator keyGenerator;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPort eventPort;
     
 
     /**
@@ -191,7 +192,7 @@ public class OrderService {
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
             
-            // 주문 완료 이벤트 발행 (랭킹 업데이트용)
+            // 주문 완료 이벤트 발행
             Order updatedOrder = orderRepositoryPort.findById(orderId).orElse(null);
             if (updatedOrder != null) {
                 var orderItems = orderItemRepositoryPort.findByOrderId(orderId);
@@ -201,7 +202,9 @@ public class OrderService {
                             .toList();
                     
                     OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
-                    eventPublisher.publishEvent(event);
+                    
+                    // 주문 완료 이벤트 발행
+                    eventPort.publish(EventTopic.ORDER_COMPLETED.getTopic(), event);
                     
                     log.debug("주문 완료 이벤트 발행: orderId={}, productCount={}", 
                              orderId, productOrders.size());

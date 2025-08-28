@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.context.annotation.Import;
 
 /**
  * 주문 완료 이벤트 기반 상품 랭킹 업데이트 통합 테스트
@@ -41,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * TODO: 실제 API 구조에 맞게 수정 필요
  */
 @DisplayName("주문 완료 이벤트 기반 상품 랭킹 통합 테스트")
+@Import(IntegrationTestBase.TestEventConfiguration.class)
 public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
 
     @Autowired
