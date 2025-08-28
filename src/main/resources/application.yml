@@ -180,3 +180,7 @@ spring:
   retry:
     enabled: false  # 통합 테스트에서는 재시도 비활성화
 
+# Messaging 설정 - 통합 테스트에서는 실제 EventPort + Consumer 파이프라인 사용
+messaging:
+  type: redis
+
