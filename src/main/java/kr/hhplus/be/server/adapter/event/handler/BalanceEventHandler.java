@@ -144,8 +144,7 @@ public class BalanceEventHandler {
     private BalanceUpdatedEvent parseBalanceEvent(EventMessage eventMessage) {
         try {
             Object payload = eventMessage.getPayload();
-            String payloadJson = objectMapper.writeValueAsString(payload);
-            return objectMapper.readValue(payloadJson, BalanceUpdatedEvent.class);
+            return objectMapper.convertValue(payload, BalanceUpdatedEvent.class);
         } catch (Exception e) {
             log.error("BalanceUpdatedEvent 파싱 실패: eventId={}", eventMessage.getEventId(), e);
             throw new RuntimeException("BalanceUpdatedEvent 파싱 실패", e);
