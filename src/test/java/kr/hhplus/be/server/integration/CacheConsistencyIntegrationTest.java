@@ -1,16 +1,17 @@
 package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.domain.entity.Product;
-import kr.hhplus.be.server.domain.enums.ProductEventType;
+import kr.hhplus.be.server.domain.enums.EventTopic;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.port.event.EventPort;
+import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.util.TestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  * Phase 4: 도메인 간 캐시 일관성 검증 통합 테스트
@@ -35,10 +37,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private EventPort eventPort;
     
     @Autowired
     private CachePort cachePort;
+    
+    @Autowired
+    private KeyGenerator keyGenerator;
     
     private Long testProductId;
     private Product testProduct;
@@ -62,16 +67,17 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 testProductId, "새 상품", new BigDecimal("15000"), 50);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_CREATED.getTopic(), event);
         
-        // 비동기 이벤트 처리 대기
-        Thread.sleep(100);
+        // then - 비동기 이벤트 처리를 기다린 후 캐시 확인 (Consumer 스케줄링 고려)
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
+        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+            Product cachedProduct = cachePort.get(productCacheKey, Product.class);
+            assertThat(cachedProduct).isNotNull();
+        });
         
-        // then
-        // 개별 상품 캐시가 저장되었는지 확인
-        String productCacheKey = "product:info:product_" + testProductId;
+        // 개별 상품 캐시 내용 검증
         Product cachedProduct = cachePort.get(productCacheKey, Product.class);
-        assertThat(cachedProduct).isNotNull();
         assertThat(cachedProduct.getName()).isEqualTo("새 상품");
         assertThat(cachedProduct.getPrice()).isEqualByComparingTo(new BigDecimal("15000"));
         
@@ -85,9 +91,9 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     void productUpdatedEvent_ShouldInvalidateAllRelatedCaches() throws InterruptedException {
         // given
         // 1. 먼저 관련 캐시들을 설정
-        String productCacheKey = "product:info:product_" + testProductId;
-        String productListCacheKey = "product:list:limit_10_offset_0";
-        String popularProductCacheKey = "product:popular:period_1_limit_5_offset_0";
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
+        String productListCacheKey = keyGenerator.generateProductListCacheKey(10, 0);
+        String popularProductCacheKey = keyGenerator.generatePopularProductListCacheKey(1, 5, 0);
         
         cachePort.put(productCacheKey, testProduct, 3600);
         cachePort.put(productListCacheKey, java.util.List.of(testProduct), 3600);
@@ -101,16 +107,18 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 "테스트 상품", new BigDecimal("10000"), 100);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_UPDATED.getTopic(), event);
         
-        // 비동기 이벤트 처리 대기
-        Thread.sleep(200);
+        // 비동기 이벤트 처리를 기다린 후 캐시 확인
+        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+            Product updatedCachedProduct = cachePort.get(productCacheKey, Product.class);
+            assertThat(updatedCachedProduct).isNotNull();
+            assertThat(updatedCachedProduct.getName()).isEqualTo("수정된 상품");
+        });
         
         // then
         // 개별 상품 캐시는 새 값으로 갱신되었는지 확인
         Product updatedCachedProduct = cachePort.get(productCacheKey, Product.class);
-        assertThat(updatedCachedProduct).isNotNull();
-        assertThat(updatedCachedProduct.getName()).isEqualTo("수정된 상품");
         assertThat(updatedCachedProduct.getPrice()).isEqualByComparingTo(new BigDecimal("20000"));
         
         // 목록 캐시들은 무효화되었는지 확인은 실제 Redis 연동 시에만 가능
@@ -121,7 +129,7 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
     @DisplayName("상품 삭제 이벤트 시 모든 관련 캐시가 완전히 제거된다")
     void productDeletedEvent_ShouldRemoveAllRelatedCaches() throws InterruptedException {
         // given
-        String productCacheKey = "product:info:product_" + testProductId;
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
         cachePort.put(productCacheKey, testProduct, 3600);
         
         // 캐시가 저장되었는지 확인
@@ -130,40 +138,36 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         ProductUpdatedEvent event = ProductUpdatedEvent.deleted(testProductId);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_DELETED.getTopic(), event);
         
-        // 비동기 이벤트 처리 대기
-        Thread.sleep(100);
-        
-        // then
-        // 개별 상품 캐시가 완전히 제거되었는지 확인
-        Product deletedCachedProduct = cachePort.get(productCacheKey, Product.class);
-        assertThat(deletedCachedProduct).isNull();
+        // then - 비동기 이벤트 처리를 기다린 후 캐시 확인
+        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+            Product deletedCachedProduct = cachePort.get(productCacheKey, Product.class);
+            assertThat(deletedCachedProduct).isNull();
+        });
     }
     
     @Test
     @DisplayName("재고 수정 이벤트 시 개별 상품 캐시만 갱신된다")
     void stockUpdatedEvent_ShouldOnlyUpdateIndividualProductCache() throws InterruptedException {
         // given
-        String productCacheKey = "product:info:product_" + testProductId;
+        String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
         cachePort.put(productCacheKey, testProduct, 3600);
         
         ProductUpdatedEvent event = ProductUpdatedEvent.stockUpdated(
                 testProductId, "테스트 상품", new BigDecimal("10000"), 200, 100);
         
         // when
-        eventPublisher.publishEvent(event);
+        eventPort.publish(EventTopic.PRODUCT_UPDATED.getTopic(), event);
         
-        // 비동기 이벤트 처리 대기
-        Thread.sleep(100);
-        
-        // then
-        // 개별 상품 캐시의 재고가 업데이트되었는지 확인
-        Product updatedCachedProduct = cachePort.get(productCacheKey, Product.class);
-        assertThat(updatedCachedProduct).isNotNull();
-        assertThat(updatedCachedProduct.getStock()).isEqualTo(200);
-        assertThat(updatedCachedProduct.getName()).isEqualTo("테스트 상품");
-        assertThat(updatedCachedProduct.getPrice()).isEqualByComparingTo(new BigDecimal("10000"));
+        // then - 비동기 이벤트 처리를 기다린 후 캐시 확인
+        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+            Product updatedCachedProduct = cachePort.get(productCacheKey, Product.class);
+            assertThat(updatedCachedProduct).isNotNull();
+            assertThat(updatedCachedProduct.getStock()).isEqualTo(200);
+            assertThat(updatedCachedProduct.getName()).isEqualTo("테스트 상품");
+            assertThat(updatedCachedProduct.getPrice()).isEqualByComparingTo(new BigDecimal("10000"));
+        });
     }
     
     @Test
@@ -180,21 +184,22 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
                 ProductUpdatedEvent event = ProductUpdatedEvent.created(
                         (long) productId, "상품" + productId, 
                         new BigDecimal("1000"), 50);
-                eventPublisher.publishEvent(event);
+                eventPort.publish(EventTopic.PRODUCT_CREATED.getTopic(), event);
             }, executor);
         }
         
         // 모든 이벤트 처리 완료 대기
         CompletableFuture.allOf(futures).get(5, TimeUnit.SECONDS);
-        Thread.sleep(200); // 비동기 이벤트 처리 대기
         
-        // then
-        for (int i = 1; i <= 10; i++) {
-            String cacheKey = "product:info:product_" + i;
-            Product cachedProduct = cachePort.get(cacheKey, Product.class);
-            assertThat(cachedProduct).isNotNull();
-            assertThat(cachedProduct.getName()).isEqualTo("상품" + i);
-        }
+        // then - 비동기 이벤트 처리를 기다린 후 캐시 확인
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
+            for (int i = 1; i <= 10; i++) {
+                String cacheKey = keyGenerator.generateProductCacheKey((long) i);
+                Product cachedProduct = cachePort.get(cacheKey, Product.class);
+                assertThat(cachedProduct).isNotNull();
+                assertThat(cachedProduct.getName()).isEqualTo("상품" + i);
+            }
+        });
         
         executor.shutdown();
     }

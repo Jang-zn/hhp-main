@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.context.annotation.Import;
 
 /**
  * 주문 완료 이벤트 기반 상품 랭킹 업데이트 통합 테스트
@@ -38,7 +39,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Why: 실제 주문 결제 완료 시 이벤트를 통한 인기상품 랭킹 실시간 업데이트 검증
  * How: 주문 → 결제 → 이벤트 발행 → 랭킹 업데이트 전체 플로우 테스트
  * 
- * TODO: 실제 API 구조에 맞게 수정 필요
  */
 @DisplayName("주문 완료 이벤트 기반 상품 랭킹 통합 테스트")
 public class ProductRankingEventIntegrationTest extends IntegrationTestBase {

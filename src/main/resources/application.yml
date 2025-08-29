@@ -18,6 +18,20 @@ springdoc:
     operations-sorter: alpha
   show-actuator: false
 
+# Actuator 설정 (모니터링용)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,threaddump,configprops
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      simple:
+        enabled: true
+
 
 ---
 # JPA + MySQL 환경 (일반적인 모든 환경)
@@ -52,6 +66,37 @@ spring:
       port: 6379
       password: 
       timeout: 2000
+  
+  # Async 스레드풀 설정
+  task:
+    execution:
+      pool:
+        core-size: 5          # 기본 스레드 수
+        max-size: 20          # 최대 스레드 수
+        queue-capacity: 50    # 큐 용량
+        keep-alive: 60s       # 유휴 스레드 유지 시간
+      thread-name-prefix: "Spring-Async-"
+    scheduling:
+      pool:
+        size: 5               # 스케줄링 스레드풀 크기
+      thread-name-prefix: "Spring-Scheduling-"
+
+# Messaging 설정 (STEP 15/16용)
+messaging:
+  type: redis                    # redis, kafka, inmemory
+  redis:
+    stream:
+      consumer-group: "hhplus-consumers"
+      max-pending: 1000
+      block-time: 5000          # 5초 블로킹
+    pub-sub:
+      timeout: 3000             # 3초 타임아웃
+  retry:
+    max-attempts: 3
+    backoff:
+      initial: 1000             # 1초
+      multiplier: 2.0
+      max: 30000               # 30초
 
 ---
 # TestContainers 환경 (통합 테스트용)
@@ -134,4 +179,8 @@ spring:
         format_sql: true
   retry:
     enabled: false  # 통합 테스트에서는 재시도 비활성화
+
+# Messaging 설정 - 통합 테스트에서는 실제 EventPort + Consumer 파이프라인 사용
+messaging:
+  type: redis
 

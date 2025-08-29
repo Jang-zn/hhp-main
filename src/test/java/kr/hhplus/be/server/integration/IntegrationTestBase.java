@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.integration;
 
 import kr.hhplus.be.server.domain.port.cache.CachePort;
+import kr.hhplus.be.server.domain.port.storage.EventLogRepositoryPort;
 import org.redisson.api.RedissonClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,9 @@ public abstract class IntegrationTestBase {
     
     @Autowired 
     private RedissonClient redissonClient;
+    
+    @Autowired(required = false)
+    private EventLogRepositoryPort eventLogRepository;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -60,50 +64,88 @@ public abstract class IntegrationTestBase {
     }
 
     /**
-     * 각 테스트마다 Redis 캐시를 완전히 정리하여 테스트 간 독립성 보장
+     * 각 테스트마다 Redis 캐시와 EventLog 테이블을 완전히 정리하여 테스트 간 독립성 보장
      * 
      * evictByPattern("*") 대신 직접 구현하여 모든 Redis 자료구조 타입 처리
      */
     @BeforeEach
-    void clearRedisCache() {
+    void clearTestData() {
         try {
-            // 테스트 환경에서만 사용: 모든 Redis 키 삭제
+            // 1. 모든 Redis 키 삭제
             clearAllRedisKeys();
         } catch (Exception e) {
             // Redis 연결 문제 등으로 실패해도 테스트는 계속 진행
             System.err.println("Redis 캐시 정리 실패 (테스트는 계속 진행): " + e.getMessage());
         }
+        
+        try {
+            // 2. EventLog 테이블 데이터 삭제 (EventPort 테스트에서 중요)
+            clearEventLogData();
+        } catch (Exception e) {
+            // EventLog 정리 실패해도 테스트는 계속 진행
+            System.err.println("EventLog 데이터 정리 실패 (테스트는 계속 진행): " + e.getMessage());
+        }
     }
     
     /**
-     * 테스트 환경 전용: Redis의 모든 키를 삭제
+     * 테스트 환경 전용: Redis 통으로 초기화
      * 
-     * RBucket, RScoredSortedSet, RMap, RList 등 모든 자료구조 타입 처리
+     * FLUSHDB로 현재 데이터베이스의 모든 키를 한 번에 삭제
      */
     private void clearAllRedisKeys() {
-        Iterable<String> allKeys = redissonClient.getKeys().getKeysByPattern("*");
-        
-        int deletedCount = 0;
-        for (String key : allKeys) {
-            try {
-                // 각 자료구조 타입별로 삭제 시도
-                if (redissonClient.getBucket(key).delete()) {
-                    deletedCount++;
-                } else if (redissonClient.getScoredSortedSet(key).delete()) {
-                    deletedCount++;
-                } else if (redissonClient.getMap(key).delete()) {
-                    deletedCount++;
-                } else if (redissonClient.getList(key).delete()) {
-                    deletedCount++;
-                } else if (redissonClient.getSet(key).delete()) {
-                    deletedCount++;
+        try {
+            // Redis FLUSHDB로 현재 DB의 모든 키를 한번에 삭제
+            redissonClient.getKeys().flushdb();
+            System.out.println("Redis 테스트 캐시 FLUSHDB 초기화 완료");
+        } catch (Exception e) {
+            // FLUSHDB 실패시 기존 방식으로 fallback
+            System.err.println("Redis FLUSHDB 실패, 개별 키 삭제로 fallback: " + e.getMessage());
+            
+            Iterable<String> allKeys = redissonClient.getKeys().getKeysByPattern("*");
+            int deletedCount = 0;
+            for (String key : allKeys) {
+                try {
+                    // 각 자료구조 타입별로 삭제 시도
+                    if (redissonClient.getBucket(key).delete()) {
+                        deletedCount++;
+                    } else if (redissonClient.getScoredSortedSet(key).delete()) {
+                        deletedCount++;
+                    } else if (redissonClient.getMap(key).delete()) {
+                        deletedCount++;
+                    } else if (redissonClient.getList(key).delete()) {
+                        deletedCount++;
+                    } else if (redissonClient.getSet(key).delete()) {
+                        deletedCount++;
+                    } else if (redissonClient.getStream(key).delete()) {
+                        deletedCount++;
+                    }
+                } catch (Exception ex) {
+                    // 개별 키 삭제 실패는 무시하고 계속 진행
                 }
+            }
+            System.out.println("Redis 개별 키 삭제 완료: " + deletedCount + "개 키 삭제");
+        }
+    }
+    
+    /**
+     * DB 테이블 데이터 완전 정리
+     * 
+     * 테스트 격리를 위해 모든 테이블의 데이터를 삭제
+     */
+    private void clearEventLogData() {
+        if (eventLogRepository != null) {
+            try {
+                // EventLog 테이블 완전 초기화 (TRUNCATE 방식)
+                long beforeCount = eventLogRepository.count();
+                eventLogRepository.deleteAll();
+                long afterCount = eventLogRepository.count();
+                System.out.println("EventLog 테이블 초기화 완료: " + beforeCount + " -> " + afterCount + " 건");
             } catch (Exception e) {
-                // 개별 키 삭제 실패는 무시하고 계속 진행
-                System.err.println("키 삭제 실패: " + key + " - " + e.getMessage());
+                System.err.println("EventLog 삭제 중 오류: " + e.getMessage());
+                // 실패해도 테스트는 계속 진행
             }
         }
-        
-        System.out.println("Redis 테스트 캐시 초기화 완료: " + deletedCount + "개 키 삭제");
     }
+    
+    // TestEventPort 제거 - 실제 RedisEventAdapter 사용
 }

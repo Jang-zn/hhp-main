@@ -210,10 +210,10 @@ public class BalanceTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.data.amount").value(expectedAmount));
     }
 
-    // 차감 API가 구현되지 않았으므로 이 테스트는 제거
+
     // OrderService의 payOrder에서 잔액 차감이 처리됨
 
-    // 차감 API가 구현되지 않았으므로 이 테스트는 제거
+
     // OrderService의 payOrder에서 잔액 차감이 처리됨
 
     // === 테스트 데이터 제공자 ===

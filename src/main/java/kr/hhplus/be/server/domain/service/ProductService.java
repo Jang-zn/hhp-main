@@ -7,9 +7,10 @@ import kr.hhplus.be.server.domain.usecase.product.CreateProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.UpdateProductUseCase;
 import kr.hhplus.be.server.domain.usecase.product.DeleteProductUseCase;
 import kr.hhplus.be.server.domain.event.ProductUpdatedEvent;
+import kr.hhplus.be.server.domain.enums.EventTopic;
+import kr.hhplus.be.server.domain.port.event.EventPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -29,7 +30,7 @@ public class ProductService {
     private final CreateProductUseCase createProductUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final DeleteProductUseCase deleteProductUseCase;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPort eventPort;
 
 
     /**
@@ -82,6 +83,16 @@ public class ProductService {
         log.info("상품 생성 요청: name={}, price={}, stock={}", name, price, stock);
         
         Product createdProduct = createProductUseCase.execute(name, price, stock);
+        
+        // 상품 생성 이벤트 발행
+        ProductUpdatedEvent createdEvent = ProductUpdatedEvent.created(
+            createdProduct.getId(), createdProduct.getName(), 
+            createdProduct.getPrice(), createdProduct.getStock()
+        );
+        
+        eventPort.publish(EventTopic.PRODUCT_CREATED.getTopic(), createdEvent);
+        eventPort.publish(EventTopic.DATA_PLATFORM_PRODUCT_CREATED.getTopic(), createdEvent);
+        
         log.info("상품 생성 완료: productId={}", createdProduct.getId());
         
         return createdProduct;
@@ -99,7 +110,24 @@ public class ProductService {
     public Product updateProduct(Long productId, String name, BigDecimal price, Integer stock) {
         log.info("상품 수정 요청: productId={}, name={}, price={}, stock={}", productId, name, price, stock);
         
+        // 이전 상품 정보 조회 (변경 사항 추적용)
+        Product previousProduct = getProductUseCase.execute(productId).orElse(null);
+        
         Product updatedProduct = updateProductUseCase.execute(productId, name, price, stock);
+        
+        // 상품 수정 이벤트 발행
+        if (previousProduct != null) {
+            ProductUpdatedEvent updatedEvent = ProductUpdatedEvent.updated(
+                updatedProduct.getId(), updatedProduct.getName(),
+                updatedProduct.getPrice(), updatedProduct.getStock(),
+                previousProduct.getName(), previousProduct.getPrice(), 
+                previousProduct.getStock()
+            );
+            
+            eventPort.publish(EventTopic.PRODUCT_UPDATED.getTopic(), updatedEvent);
+            eventPort.publish(EventTopic.DATA_PLATFORM_PRODUCT_UPDATED.getTopic(), updatedEvent);
+        }
+        
         log.info("상품 수정 완료: productId={}", productId);
         
         return updatedProduct;
@@ -114,12 +142,14 @@ public class ProductService {
         log.info("상품 삭제 요청: productId={}", productId);
         
         try {
-            // 1. UseCase를 통한 상품 삭제 (캐시 무효화 포함)
+            // 1. 상품 삭제
             deleteProductUseCase.execute(productId);
             
-            // 2. 상품 삭제 이벤트 발행 (비동기 랭킹 처리)
+            // 2. 상품 삭제 이벤트 발행
             ProductUpdatedEvent deletedEvent = ProductUpdatedEvent.deleted(productId);
-            eventPublisher.publishEvent(deletedEvent);
+            
+            eventPort.publish(EventTopic.PRODUCT_DELETED.getTopic(), deletedEvent);
+            eventPort.publish(EventTopic.DATA_PLATFORM_PRODUCT_DELETED.getTopic(), deletedEvent);
             
             log.info("상품 삭제 및 이벤트 발행 완료: productId={}", productId);
             
