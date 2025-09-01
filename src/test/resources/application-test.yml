@@ -21,3 +21,7 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# Messaging 설정 (테스트용)
+messaging:
+  type: redis
