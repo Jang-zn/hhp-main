@@ -67,6 +67,25 @@ spring:
       password: 
       timeout: 2000
   
+  # Kafka 설정 (KRaft 모드 - ZooKeeper 불필요)
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: hhplus-server
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "kr.hhplus.be.server.domain.event"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+  
   # Async 스레드풀 설정
   task:
     execution:
