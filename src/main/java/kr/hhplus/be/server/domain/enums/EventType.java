@@ -6,6 +6,16 @@ public enum EventType {
     ORDER_COMPLETED,
     PAYMENT_COMPLETED,
     BALANCE_CHANGED,
+    BALANCE_CHARGED,
+    BALANCE_DEDUCTED,
+    
+    // 상품 이벤트
+    PRODUCT_CREATED,
+    PRODUCT_UPDATED,
+    PRODUCT_DELETED,
+    
+    // 쿠폰 이벤트
+    COUPON_ISSUED,
     
     ORDER_DATA_SYNC,           // 주문 데이터 플랫폼 동기화
     PAYMENT_DATA_SYNC,         // 결제 데이터 플랫폼 동기화

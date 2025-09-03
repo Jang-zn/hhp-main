@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +16,5 @@ public interface EventLogRepositoryPort extends JpaRepository<EventLog, Long> {
     List<EventLog> findByStatus(EventStatus status);
     List<EventLog> findByEventType(EventType eventType);
     List<EventLog> findByCorrelationId(String correlationId);
+    Optional<EventLog> findTopByStatusOrderByCreatedAtDesc(EventStatus status);
 } 
