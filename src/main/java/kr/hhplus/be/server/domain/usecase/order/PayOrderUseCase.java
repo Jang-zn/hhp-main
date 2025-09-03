@@ -135,16 +135,6 @@ public class PayOrderUseCase {
             log.info("결제 완료: paymentId={}, orderId={}, userId={}, amount={}", 
                     savedPayment.getId(), orderId, userId, finalAmount);
             
-            // 결제 완료 이벤트 발행 (외부 데이터 플랫폼 동기화용)
-            try {
-                PaymentCompletedEvent paymentEvent = new PaymentCompletedEvent(
-                    savedPayment.getId(), orderId, userId, finalAmount, LocalDateTime.now());
-                eventPort.publish(EventTopic.DATA_PLATFORM_PAYMENT_COMPLETED.getTopic(), paymentEvent);
-                
-                log.debug("결제 완료 이벤트 발행: paymentId={}", savedPayment.getId());
-            } catch (Exception e) {
-                log.warn("결제 완료 이벤트 발행 실패 - 비즈니스 로직에는 영향 없음", e);
-            }
             
             // 캐시 무효화 및 업데이트
             invalidateRelatedCache(userId, orderId, savedBalance, savedPayment);

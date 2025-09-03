@@ -192,25 +192,6 @@ public class OrderService {
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
             
-            // 주문 완료 이벤트 발행
-            Order updatedOrder = orderRepositoryPort.findById(orderId).orElse(null);
-            if (updatedOrder != null) {
-                var orderItems = orderItemRepositoryPort.findByOrderId(orderId);
-                if (!orderItems.isEmpty()) {
-                    List<OrderCompletedEvent.ProductOrderInfo> productOrders = orderItems.stream()
-                            .map(item -> new OrderCompletedEvent.ProductOrderInfo(item.getProductId(), item.getQuantity()))
-                            .toList();
-                    
-                    OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productOrders);
-                    
-                    // 주문 완료 이벤트 발행
-                    eventPort.publish(EventTopic.ORDER_COMPLETED.getTopic(), event);
-                    
-                    log.debug("주문 완료 이벤트 발행: orderId={}, productCount={}", 
-                             orderId, productOrders.size());
-                }
-            }
-            
             log.info("주문 결제 완료: orderId={}, userId={}, amount={}", orderId, userId, result.getAmount());
             return result;
             

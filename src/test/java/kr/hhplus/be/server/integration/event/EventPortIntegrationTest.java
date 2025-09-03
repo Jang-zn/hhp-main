@@ -85,6 +85,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
         
         // when
         eventPort.publish(topic, event);
+
         // then
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
             List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.PAYMENT_COMPLETED);
