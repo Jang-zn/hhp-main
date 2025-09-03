@@ -163,4 +163,32 @@ public class Coupon extends BaseEntity {
             updateStatusBasedOnConditions();
         }
     }
+
+    /**
+     * 총 수량 조회 (maxIssuance와 동일)
+     */
+    public long getTotalQuantity() {
+        return this.maxIssuance;
+    }
+
+    /**
+     * 발급된 수량 업데이트 (테스트용)
+     */
+    public void updateIssuedQuantity(long newIssuedCount) {
+        this.issuedCount = (int) newIssuedCount;
+    }
+
+    /**
+     * 종료 시간 업데이트 (테스트용)
+     */
+    public void updateEndAt(LocalDateTime newEndDate) {
+        this.endDate = newEndDate;
+    }
+
+    /**
+     * 총 수량 업데이트 (테스트용)
+     */
+    public void updateTotalQuantity(long newMaxIssuance) {
+        this.maxIssuance = (int) newMaxIssuance;
+    }
 } 
