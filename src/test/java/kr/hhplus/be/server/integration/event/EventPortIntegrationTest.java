@@ -17,6 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
@@ -35,6 +36,14 @@ import static org.awaitility.Awaitility.await;
  */
 @ActiveProfiles("integration")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@EmbeddedKafka(
+    partitions = 1,
+    topics = {"order.completed", "payment.completed", "coupon-requests", "coupon-results", "external-events"},
+    brokerProperties = {
+        "listeners=PLAINTEXT://localhost:9092",
+        "port=9092"
+    }
+)
 class EventPortIntegrationTest extends IntegrationTestBase {
 
     @Autowired
@@ -64,7 +73,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
             EventLog eventLog = eventLogs.get(0);
             assertThat(eventLog.getStatus())
                 .isIn(EventStatus.PUBLISHED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED);
-            assertThat(eventLog.getCorrelationId()).startsWith("TXN-");
+            assertThat(eventLog.getCorrelationId()).startsWith("event_");
             assertThat(eventLog.getPayload()).contains("orderId");
             assertThat(eventLog.getExternalEndpoint()).startsWith("stream:");
         });
@@ -195,7 +204,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
             
             String correlationId = targetEventLog.getCorrelationId();
             assertThat(correlationId).isNotNull();
-            assertThat(correlationId).startsWith("TXN-");
+            assertThat(correlationId).startsWith("event_");
             
             // correlation ID로 이벤트를 찾을 수 있는지 확인
             List<EventLog> foundByCorrelationId = eventLogRepository.findByCorrelationId(correlationId);
