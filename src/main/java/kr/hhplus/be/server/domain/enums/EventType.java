@@ -22,5 +22,8 @@ public enum EventType {
     PAYMENT_DATA_SYNC,         // 결제 데이터 플랫폼 동기화
     BALANCE_TRANSACTION_SYNC,  // 잔액 거래 동기화
     PRODUCT_STOCK_SYNC,        // 재고 변동 동기화
-    USER_ACTIVITY_SYNC
+    USER_ACTIVITY_SYNC,
+    
+    // 기타
+    UNKNOWN                    // 알 수 없는 이벤트 타입
 } 

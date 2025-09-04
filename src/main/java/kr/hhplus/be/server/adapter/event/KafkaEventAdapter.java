@@ -96,7 +96,7 @@ public class KafkaEventAdapter implements EventPort {
      */
     private EventType mapEventType(Object event) {
         if (event instanceof OrderCompletedEvent) {
-            return EventType.ORDER_CREATED;
+            return EventType.ORDER_COMPLETED;
         } else if (event instanceof PaymentCompletedEvent) {
             return EventType.PAYMENT_COMPLETED;
         } else if (event instanceof CouponRequestEvent) {
@@ -118,7 +118,7 @@ public class KafkaEventAdapter implements EventPort {
             return EventType.COUPON_ISSUED;
         } else {
             log.warn("알 수 없는 이벤트 타입: {}", event.getClass().getSimpleName());
-            return EventType.ORDER_CREATED; // 기본값
+            return EventType.UNKNOWN;
         }
     }
 
