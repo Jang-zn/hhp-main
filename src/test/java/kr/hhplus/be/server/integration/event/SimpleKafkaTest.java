@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,19 @@ class SimpleKafkaTest extends IntegrationTestBase {
 
         stringConsumer = new KafkaConsumer<>(consumerProps);
         stringConsumer.subscribe(Collections.singletonList("coupon-requests"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        // KafkaConsumer 안전하게 종료
+        if (stringConsumer != null) {
+            try {
+                stringConsumer.close(Duration.ofSeconds(5));
+                log.debug("KafkaConsumer 종료 완료");
+            } catch (Exception e) {
+                log.warn("KafkaConsumer 종료 중 예외 발생: {}", e.getMessage());
+            }
+        }
     }
 
     @Test

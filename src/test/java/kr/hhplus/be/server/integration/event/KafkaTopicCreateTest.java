@@ -10,6 +10,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,29 @@ class KafkaTopicCreateTest extends IntegrationTestBase {
 
         stringConsumer = new KafkaConsumer<>(consumerProps);
         stringConsumer.subscribe(Collections.singletonList("coupon-requests"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        // KafkaConsumer 안전하게 종료
+        if (stringConsumer != null) {
+            try {
+                stringConsumer.close(Duration.ofSeconds(5));
+                log.debug("KafkaConsumer 종료 완료");
+            } catch (Exception e) {
+                log.warn("KafkaConsumer 종료 중 예외 발생: {}", e.getMessage());
+            }
+        }
+        
+        // AdminClient 안전하게 종료
+        if (adminClient != null) {
+            try {
+                adminClient.close(Duration.ofSeconds(5));
+                log.debug("AdminClient 종료 완료");
+            } catch (Exception e) {
+                log.warn("AdminClient 종료 중 예외 발생: {}", e.getMessage());
+            }
+        }
     }
 
     @Test
