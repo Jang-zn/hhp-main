@@ -66,7 +66,7 @@ class CouponRequestConsumerTest {
         when(issueCouponUseCase.execute(1L, 100L)).thenReturn(couponHistory);
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(issueCouponUseCase).execute(1L, 100L);
@@ -90,7 +90,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new CouponException.OutOfStock());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(issueCouponUseCase).execute(1L, 100L);
@@ -114,7 +114,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new CouponException.AlreadyIssued());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(issueCouponUseCase).execute(1L, 100L);
@@ -134,7 +134,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new CouponException.Expired());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(eventPort).publish(eq("coupon-results"), argThat(event -> {
@@ -153,7 +153,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new CouponException.CouponNotYetStarted());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(eventPort).publish(eq("coupon-results"), argThat(event -> {
@@ -172,7 +172,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new CouponException.NotFound());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(eventPort).publish(eq("coupon-results"), argThat(event -> {
@@ -191,7 +191,7 @@ class CouponRequestConsumerTest {
                 .thenThrow(new RuntimeException("예상치 못한 오류"));
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(eventPort).publish(eq("coupon-results"), argThat(event -> {
@@ -216,7 +216,7 @@ class CouponRequestConsumerTest {
         doThrow(new RuntimeException("이벤트 발행 실패")).when(eventPort).publish(anyString(), any());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -232,7 +232,7 @@ class CouponRequestConsumerTest {
                 .when(eventPort).publish(anyString(), any());
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -254,7 +254,7 @@ class CouponRequestConsumerTest {
         });
 
         // when
-        couponRequestConsumer.handleCouponRequest(consumerRecord, 0, 0L, acknowledgment);
+        couponRequestConsumer.handleCouponRequest(couponRequestEvent, 0, 0L, acknowledgment);
 
         // then
         verify(eventPort).publish(eq("coupon-results"), argThat(event -> {

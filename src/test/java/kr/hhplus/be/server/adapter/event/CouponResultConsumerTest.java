@@ -58,7 +58,7 @@ class CouponResultConsumerTest {
     @DisplayName("성공 결과 이벤트를 정상적으로 처리한다")
     void shouldHandleSuccessResultEvent() {
         // when
-        couponResultConsumer.handleCouponResult(successRecord, 0, 0L, acknowledgment);
+        couponResultConsumer.handleCouponResult(successRecord.value(), 0, 0L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -68,7 +68,7 @@ class CouponResultConsumerTest {
     @DisplayName("실패 결과 이벤트를 정상적으로 처리한다")
     void shouldHandleFailureResultEvent() {
         // when
-        couponResultConsumer.handleCouponResult(failureRecord, 0, 1L, acknowledgment);
+        couponResultConsumer.handleCouponResult(failureRecord.value(), 0, 1L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -89,7 +89,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 1, 2L, "user:2", outOfStockEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(outOfStockRecord, 1, 2L, acknowledgment);
+        couponResultConsumer.handleCouponResult(outOfStockRecord.value(), 1, 2L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -110,7 +110,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 2, 3L, "user:3", alreadyIssuedEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(alreadyIssuedRecord, 2, 3L, acknowledgment);
+        couponResultConsumer.handleCouponResult(alreadyIssuedRecord.value(), 2, 3L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -131,7 +131,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 3, 4L, "user:4", systemErrorEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(systemErrorRecord, 3, 4L, acknowledgment);
+        couponResultConsumer.handleCouponResult(systemErrorRecord.value(), 3, 4L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -153,7 +153,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 4, 5L, "user:5", expiredEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(expiredRecord, 4, 5L, acknowledgment);
+        couponResultConsumer.handleCouponResult(expiredRecord.value(), 4, 5L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -175,7 +175,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 5, 6L, "user:6", notStartedEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(notStartedRecord, 5, 6L, acknowledgment);
+        couponResultConsumer.handleCouponResult(notStartedRecord.value(), 5, 6L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -197,7 +197,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 6, 7L, "user:7", slowEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(slowRecord, 6, 7L, acknowledgment);
+        couponResultConsumer.handleCouponResult(slowRecord.value(), 6, 7L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -221,7 +221,7 @@ class CouponResultConsumerTest {
                 new ConsumerRecord<>("coupon-results", 7, 8L, "user:8", normalEvent);
 
         // when
-        couponResultConsumer.handleCouponResult(normalRecord, 7, 8L, acknowledgment);
+        couponResultConsumer.handleCouponResult(normalRecord.value(), 7, 8L, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
@@ -245,7 +245,7 @@ class CouponResultConsumerTest {
             ConsumerRecord<String, CouponResultEvent> record = 
                     new ConsumerRecord<>("coupon-results", i, (long)i, "user:" + (i+1), events[i]);
             
-            couponResultConsumer.handleCouponResult(record, i, (long)i, acknowledgment);
+            couponResultConsumer.handleCouponResult(record.value(), i, (long)i, acknowledgment);
         }
 
         // 모든 이벤트에 대해 ACK가 수행되었는지 확인
@@ -260,7 +260,7 @@ class CouponResultConsumerTest {
         long offset = 10L;
 
         // when
-        couponResultConsumer.handleCouponResult(successRecord, partition, offset, acknowledgment);
+        couponResultConsumer.handleCouponResult(successRecord.value(), partition, offset, acknowledgment);
 
         // then
         verify(acknowledgment).acknowledge();
