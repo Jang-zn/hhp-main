@@ -40,7 +40,7 @@ public class CouponResultConsumer {
         
         log.info("쿠폰 결과 수신: partition={}, offset={}, requestId={}, userId={}, couponId={}, success={}, resultCode={}", 
                 partition, offset, requestId, userId, couponId, 
-                result.isSuccess(), result.getResultCode().getCode());
+                result.isSuccessful(), result.getResultCode().getCode());
         
         try {
             // 처리 성공/실패에 따른 분기 처리
