@@ -17,7 +17,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
@@ -36,15 +41,18 @@ import static org.awaitility.Awaitility.await;
  */
 @ActiveProfiles("integration")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@EmbeddedKafka(
-    partitions = 1,
-    topics = {"order.completed", "payment.completed", "coupon-requests", "coupon-results", "external-events"},
-    brokerProperties = {
-        "listeners=PLAINTEXT://localhost:9092",
-        "port=9092"
-    }
-)
+@Testcontainers
 class EventPortIntegrationTest extends IntegrationTestBase {
+
+    @Container
+    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+            .withKraft();
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
 
     @Autowired
     private EventPort eventPort;
