@@ -17,4 +17,5 @@ public interface EventLogRepositoryPort extends JpaRepository<EventLog, Long> {
     List<EventLog> findByEventType(EventType eventType);
     List<EventLog> findByCorrelationId(String correlationId);
     Optional<EventLog> findTopByStatusOrderByCreatedAtDesc(EventStatus status);
+    Optional<EventLog> findTopByCorrelationIdAndStatusOrderByCreatedAtDesc(String correlationId, EventStatus status);
 } 

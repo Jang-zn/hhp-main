@@ -83,11 +83,17 @@ public class ExternalEventConsumer {
 
     /**
      * EventLog 상태 업데이트
+     * 
+     * correlationId 기반으로 정확한 EventLog를 찾아서 업데이트합니다.
+     * 동시성 환경에서 잘못된 EventLog가 업데이트되는 것을 방지합니다.
      */
     private void updateEventLogStatus(String key, EventStatus status, String errorMessage) {
         try {
-            // 최근 PUBLISHED 상태인 EventLog를 찾아서 업데이트 (임시 방식)
-            eventLogRepository.findTopByStatusOrderByCreatedAtDesc(EventStatus.PUBLISHED)
+            // key에서 correlationId 추출 (key 형식: "event:correlationId" 또는 correlationId)
+            String correlationId = extractCorrelationId(key);
+            
+            // correlationId와 status가 일치하는 EventLog 찾기
+            eventLogRepository.findTopByCorrelationIdAndStatusOrderByCreatedAtDesc(correlationId, EventStatus.PUBLISHED)
                 .ifPresentOrElse(
                     eventLog -> {
                         eventLog.updateStatus(status);
@@ -96,14 +102,36 @@ public class ExternalEventConsumer {
                         }
                         eventLogRepository.save(eventLog);
                         
-                        log.debug("EventLog 상태 업데이트: id={}, status={}", eventLog.getId(), status);
+                        log.debug("EventLog 상태 업데이트 완료: correlationId={}, id={}, status={}", 
+                                correlationId, eventLog.getId(), status);
                     },
-                    () -> log.warn("업데이트할 EventLog를 찾을 수 없음: key={}", key)
+                    () -> log.warn("업데이트할 EventLog를 찾을 수 없음: correlationId={}, key={}", correlationId, key)
                 );
                 
         } catch (Exception e) {
             log.error("EventLog 상태 업데이트 실패: key={}, status={}", key, status, e);
             // EventLog 업데이트 실패 시도 업무 처리는 진행
         }
+    }
+    
+    /**
+     * Event key에서 correlationId를 추출합니다.
+     * 
+     * Key 형식:
+     * - "event:correlationId" → correlationId
+     * - "correlationId" → correlationId (그대로)
+     */
+    private String extractCorrelationId(String key) {
+        if (key == null) {
+            return null;
+        }
+        
+        // "event:" 접두사가 있는 경우 제거
+        if (key.startsWith("event:")) {
+            return key.substring("event:".length());
+        }
+        
+        // 접두사가 없으면 key 자체가 correlationId
+        return key;
     }
 }
