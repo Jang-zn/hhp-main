@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.domain.service;
 
 import kr.hhplus.be.server.domain.entity.Order;
+import kr.hhplus.be.server.domain.entity.OrderItem;
 import kr.hhplus.be.server.domain.entity.Payment;
 import kr.hhplus.be.server.common.util.KeyGenerator;
 import kr.hhplus.be.server.domain.dto.ProductQuantityDto;
@@ -192,6 +193,9 @@ public class OrderService {
                 return createPaymentUseCase.execute(order.getId(), userId, finalAmount);
             });
             
+            // 주문 완료 이벤트 발행 (랭킹 업데이트용)
+            publishOrderCompletedEvent(result.getOrderId(), userId);
+            
             log.info("주문 결제 완료: orderId={}, userId={}, amount={}", orderId, userId, result.getAmount());
             return result;
             
@@ -201,5 +205,35 @@ public class OrderService {
         }
     }
     
+    /**
+     * 주문 완료 이벤트를 발행합니다.
+     * 상품 랭킹 업데이트를 위한 비동기 처리를 수행합니다.
+     */
+    private void publishOrderCompletedEvent(Long orderId, Long userId) {
+        try {
+            // 주문 정보와 OrderItem 조회
+            Order order = orderRepositoryPort.findById(orderId)
+                    .orElseThrow(() -> new OrderException.NotFound());
+                    
+            List<OrderItem> orderItems = orderItemRepositoryPort.findByOrderId(orderId);
+            
+            // OrderCompletedEvent 생성
+            List<OrderCompletedEvent.ProductOrderInfo> productInfos = orderItems.stream()
+                    .map(item -> new OrderCompletedEvent.ProductOrderInfo(item.getProductId(), item.getQuantity()))
+                    .toList();
+                    
+            OrderCompletedEvent event = new OrderCompletedEvent(orderId, userId, productInfos);
+            
+            // 이벤트 발행
+            eventPort.publish(EventTopic.ORDER_COMPLETED.getTopic(), event);
+            
+            log.info("주문 완료 이벤트 발행: orderId={}, userId={}, productCount={}", 
+                    orderId, userId, productInfos.size());
+                    
+        } catch (Exception e) {
+            // 이벤트 발행 실패는 주문 프로세스에 영향을 주지 않음
+            log.error("주문 완료 이벤트 발행 실패: orderId={}, userId={}", orderId, userId, e);
+        }
+    }
     
 }

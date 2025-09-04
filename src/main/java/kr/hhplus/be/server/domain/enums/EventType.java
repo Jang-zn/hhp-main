@@ -15,6 +15,7 @@ public enum EventType {
     PRODUCT_DELETED,
     
     // 쿠폰 이벤트
+    COUPON_REQUEST,
     COUPON_ISSUED,
     
     ORDER_DATA_SYNC,           // 주문 데이터 플랫폼 동기화
