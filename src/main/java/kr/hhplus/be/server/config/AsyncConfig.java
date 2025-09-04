@@ -53,32 +53,6 @@ public class AsyncConfig implements AsyncConfigurer {
         return executor;
     }
 
-    /**
-     * 메시징 전용 비동기 실행기
-     * 
-     * 이벤트 발행 및 소비 전용 스레드풀
-     * - 기본 스레드풀과 분리하여 이벤트 처리 성능 최적화
-     * - Redis Streams Publisher/Consumer 전용
-     */
-    @Bean(name = "messagingExecutor")
-    public Executor messagingExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        
-        // 메시징 전용 스레드풀 설정
-        executor.setCorePoolSize(5);            // 메시징 전용 기본 스레드
-        executor.setMaxPoolSize(15);            // 메시징 전용 최대 스레드
-        executor.setQueueCapacity(200);         // 이벤트 처리용 큰 큐
-        executor.setKeepAliveSeconds(120);      // 더 긴 유휴 스레드 유지
-        
-        // 디버깅용 스레드 이름 설정
-        executor.setThreadNamePrefix("Messaging-");
-        
-        // 메시징에서는 백프레셔보다는 큐잉 우선
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        
-        executor.initialize();
-        return executor;
-    }
 
     /**
      * 비동기 작업에서 발생하는 예외 처리

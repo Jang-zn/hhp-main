@@ -17,6 +17,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
@@ -35,7 +41,18 @@ import static org.awaitility.Awaitility.await;
  */
 @ActiveProfiles("integration")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Testcontainers
 class EventPortIntegrationTest extends IntegrationTestBase {
+
+    @Container
+    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+            .withKraft();
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
 
     @Autowired
     private EventPort eventPort;
@@ -64,7 +81,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
             EventLog eventLog = eventLogs.get(0);
             assertThat(eventLog.getStatus())
                 .isIn(EventStatus.PUBLISHED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED);
-            assertThat(eventLog.getCorrelationId()).startsWith("TXN-");
+            assertThat(eventLog.getCorrelationId()).startsWith("event_");
             assertThat(eventLog.getPayload()).contains("orderId");
             assertThat(eventLog.getExternalEndpoint()).startsWith("stream:");
         });
@@ -85,6 +102,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
         
         // when
         eventPort.publish(topic, event);
+
         // then
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
             List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.PAYMENT_COMPLETED);
@@ -194,7 +212,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
             
             String correlationId = targetEventLog.getCorrelationId();
             assertThat(correlationId).isNotNull();
-            assertThat(correlationId).startsWith("TXN-");
+            assertThat(correlationId).startsWith("event_");
             
             // correlation ID로 이벤트를 찾을 수 있는지 확인
             List<EventLog> foundByCorrelationId = eventLogRepository.findByCorrelationId(correlationId);
