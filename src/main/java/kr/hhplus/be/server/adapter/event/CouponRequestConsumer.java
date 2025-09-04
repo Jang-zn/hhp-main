@@ -37,15 +37,13 @@ public class CouponRequestConsumer {
     @KafkaListener(
         topics = "coupon-requests",
         groupId = "coupon-processor-group",
-        containerFactory = "couponKafkaListenerContainerFactory"
+        containerFactory = "couponRequestKafkaListenerContainerFactory"
     )
     public void handleCouponRequest(
-            ConsumerRecord<String, CouponRequestEvent> record,
+            CouponRequestEvent request,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
-        
-        CouponRequestEvent request = record.value();
         String requestId = request.getRequestId();
         Long userId = request.getUserId();
         Long couponId = request.getCouponId();

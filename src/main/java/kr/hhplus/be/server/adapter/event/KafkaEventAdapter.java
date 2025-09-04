@@ -99,6 +99,8 @@ public class KafkaEventAdapter implements EventPort {
             return EventType.ORDER_CREATED;
         } else if (event instanceof PaymentCompletedEvent) {
             return EventType.PAYMENT_COMPLETED;
+        } else if (event instanceof CouponRequestEvent) {
+            return EventType.COUPON_REQUEST;
         } else if (event instanceof ProductUpdatedEvent) {
             ProductUpdatedEvent productEvent = (ProductUpdatedEvent) event;
             switch (productEvent.getEventType()) {
@@ -144,7 +146,9 @@ public class KafkaEventAdapter implements EventPort {
      * - 기타: 이벤트 타입 기반
      */
     private String generateEventKey(Object event) {
-        if (event instanceof CouponIssuedEvent couponEvent) {
+        if (event instanceof CouponRequestEvent couponRequestEvent) {
+            return "user:" + couponRequestEvent.getUserId();
+        } else if (event instanceof CouponIssuedEvent couponEvent) {
             return "user:" + couponEvent.getUserId();
         } else if (event instanceof OrderCompletedEvent orderEvent) {
             return "order:" + orderEvent.getOrderId();
