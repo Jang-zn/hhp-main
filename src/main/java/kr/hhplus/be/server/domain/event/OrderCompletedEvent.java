@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.domain.event;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,7 +11,11 @@ public class OrderCompletedEvent {
     private final List<ProductOrderInfo> productOrders;
     private final LocalDateTime completedAt;
     
-    public OrderCompletedEvent(Long orderId, Long userId, List<ProductOrderInfo> productOrders) {
+    @JsonCreator
+    public OrderCompletedEvent(
+            @JsonProperty("orderId") Long orderId, 
+            @JsonProperty("userId") Long userId, 
+            @JsonProperty("productOrders") List<ProductOrderInfo> productOrders) {
         this.orderId = orderId;
         this.userId = userId;
         this.productOrders = productOrders;
@@ -36,7 +42,10 @@ public class OrderCompletedEvent {
         private final Long productId;
         private final int quantity;
         
-        public ProductOrderInfo(Long productId, int quantity) {
+        @JsonCreator
+        public ProductOrderInfo(
+                @JsonProperty("productId") Long productId, 
+                @JsonProperty("quantity") int quantity) {
             this.productId = productId;
             this.quantity = quantity;
         }

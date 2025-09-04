@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
 
@@ -88,6 +89,7 @@ public class CouponRequestEvent {
     /**
      * 파티션 키 생성 (userId 기반 파티셔닝)
      */
+    @JsonIgnore
     public String getPartitionKey() {
         return "user:" + userId;
     }
