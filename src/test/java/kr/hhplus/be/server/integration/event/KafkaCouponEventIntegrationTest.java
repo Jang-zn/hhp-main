@@ -21,6 +21,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +94,20 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
+        // 토픽 보장 (없으면 생성)
+        try {
+            Properties adminProps = new Properties();
+            adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+            
+            try (AdminClient adminClient = AdminClient.create(adminProps)) {
+                adminClient.createTopics(List.of(
+                    new NewTopic("coupon-requests", 1, (short) 1),
+                    new NewTopic("coupon-results", 1, (short) 1)
+                )).all().get(5, TimeUnit.SECONDS);
+            }
+        } catch (Exception ignored) {
+            // 이미 존재하면 무시
+        }
         // Consumer Group 초기화 - 각 테스트마다 고유한 Consumer Group 사용
         String uniqueGroupId = "test-group-" + System.nanoTime();
         
@@ -158,6 +173,21 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
         // Consumer 초기화를 위한 poll 실행
         resultConsumer.poll(Duration.ofMillis(100));
     }
+    
+    @AfterEach
+    void tearDown() {
+        // Kafka Consumer 리소스 정리
+        if (resultConsumer != null) {
+            try {
+                resultConsumer.close(Duration.ofSeconds(5));
+            } catch (Exception e) {
+                // 테스트 teardown이 실패하지 않도록 예외 처리
+                System.err.println("Consumer 종료 중 오류 발생: " + e.getMessage());
+            } finally {
+                resultConsumer = null;
+            }
+        }
+    }
 
     @Test
     @DisplayName("쿠폰 요청 이벤트 발행 시 결과 이벤트를 정상적으로 수신한다")
@@ -187,7 +217,14 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
         
         txTemplate.execute(status -> {
             Coupon coupon = couponRepository.findById(testCoupon.getId()).orElseThrow();
-            coupon.updateIssuedQuantity(coupon.getTotalQuantity());
+            // NPE 방지: totalQuantity가 null일 수 있으므로 안전하게 처리
+            Integer totalQty = coupon.getTotalQuantity();
+            if (totalQty != null) {
+                coupon.updateIssuedQuantity(totalQty);
+            } else {
+                // totalQuantity가 null이면 0으로 간주하고 재고를 0으로 설정
+                coupon.updateIssuedQuantity(0);
+            }
             return couponRepository.save(coupon);
         });
 
@@ -241,6 +278,8 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
                            resultConsumer, "coupon-results", Duration.ofSeconds(5));
                    
                    CouponResultEvent resultEvent = record.value();
+                   // requestId 검증 추가 - 요청과 응답의 상관관계 확인
+                   assertThat(resultEvent.getRequestId()).isEqualTo(requestEvent.getRequestId());
                    assertThat(resultEvent.getResultCode()).isEqualTo(CouponResultEvent.ResultCode.ALREADY_ISSUED);
                    assertThat(resultEvent.isSuccess()).isFalse();
                });
@@ -271,6 +310,8 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
                            resultConsumer, "coupon-results", Duration.ofSeconds(5));
                    
                    CouponResultEvent resultEvent = record.value();
+                   // requestId 검증 추가 - 요청과 응답의 상관관계 확인
+                   assertThat(resultEvent.getRequestId()).isEqualTo(requestEvent.getRequestId());
                    assertThat(resultEvent.getResultCode()).isEqualTo(CouponResultEvent.ResultCode.EXPIRED);
                    assertThat(resultEvent.isSuccess()).isFalse();
                });

@@ -35,8 +35,18 @@ public class ExternalEventConsumer {
         String eventKey = record.key();
         Object eventValue = record.value();
         
+        // NPE 방지: null 체크 및 안전한 로깅
+        if (eventValue == null) {
+            log.warn("외부 이벤트 수신 실패: null 페이로드. partition={}, offset={}, key={}", 
+                    record.partition(), record.offset(), eventKey);
+            // null 페이로드는 처리하지 않고 ACK 처리
+            ack.acknowledge();
+            return;
+        }
+        
+        String eventType = eventValue.getClass().getSimpleName();
         log.info("외부 이벤트 수신: partition={}, offset={}, key={}, event={}", 
-                record.partition(), record.offset(), eventKey, eventValue.getClass().getSimpleName());
+                record.partition(), record.offset(), eventKey, eventType);
         
         try {
             // 외부 시스템으로 이벤트 전송

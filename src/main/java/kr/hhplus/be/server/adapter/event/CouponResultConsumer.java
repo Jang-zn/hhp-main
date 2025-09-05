@@ -116,14 +116,16 @@ public class CouponResultConsumer {
      * 성능 메트릭 수집
      */
     private void collectPerformanceMetrics(CouponResultEvent result, int partition) {
-        Long processingTime = result.getProcessingTimeMs();
+        // NPE 방지: primitive long 사용 및 null 체크
+        long processingTime = result.getProcessingTimeMs() != null ? result.getProcessingTimeMs() : 0L;
         CouponResultEvent.ResultCode resultCode = result.getResultCode();
+        String resultCodeStr = resultCode != null ? resultCode.getCode() : "UNKNOWN";
         
         log.debug("성능 메트릭 수집: partition={}, processingTime={}ms, resultCode={}", 
-                partition, processingTime, resultCode.getCode());
+                partition, processingTime, resultCodeStr);
         
-        // 성능 임계값 체크
-        if (processingTime > 1000) { // 1초 이상
+        // 성능 임계값 체크 - primitive long 비교로 autounboxing 방지
+        if (processingTime > 1000L) { // 1초 이상
             log.warn("쿠폰 처리 성능 경고: 처리시간이 {}ms로 임계값(1000ms)을 초과했습니다. requestId={}", 
                     processingTime, result.getRequestId());
         }
