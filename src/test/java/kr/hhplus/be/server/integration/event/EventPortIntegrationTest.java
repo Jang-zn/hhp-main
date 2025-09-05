@@ -75,7 +75,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
         
         // then - 비동기 처리이므로 잠시 대기
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.ORDER_CREATED);
+            List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.ORDER_COMPLETED);
             assertThat(eventLogs).hasSize(1);
             
             EventLog eventLog = eventLogs.get(0);
@@ -143,7 +143,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
         
         // then
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.ORDER_CREATED);
+            List<EventLog> eventLogs = eventLogRepository.findByEventType(EventType.ORDER_COMPLETED);
             assertThat(eventLogs).hasSizeGreaterThanOrEqualTo(eventCount);
             
             // 모든 이벤트가 성공적으로 발행되었는지 확인
@@ -179,7 +179,7 @@ class EventPortIntegrationTest extends IntegrationTestBase {
         
         // then
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<EventLog> orderEventLogs = eventLogRepository.findByEventType(EventType.ORDER_CREATED);
+            List<EventLog> orderEventLogs = eventLogRepository.findByEventType(EventType.ORDER_COMPLETED);
             List<EventLog> paymentEventLogs = eventLogRepository.findByEventType(EventType.PAYMENT_COMPLETED);
             
             assertThat(orderEventLogs).hasSize(1);

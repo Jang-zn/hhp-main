@@ -218,9 +218,9 @@ class KafkaCouponEventIntegrationTest extends IntegrationTestBase {
         txTemplate.execute(status -> {
             Coupon coupon = couponRepository.findById(testCoupon.getId()).orElseThrow();
             // NPE 방지: totalQuantity가 null일 수 있으므로 안전하게 처리
-            Integer totalQty = coupon.getTotalQuantity();
+            Long totalQty = coupon.getTotalQuantity();
             if (totalQty != null) {
-                coupon.updateIssuedQuantity(totalQty);
+                coupon.updateIssuedQuantity(totalQty.intValue());
             } else {
                 // totalQuantity가 null이면 0으로 간주하고 재고를 0으로 설정
                 coupon.updateIssuedQuantity(0);
