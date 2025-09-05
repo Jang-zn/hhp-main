@@ -191,7 +191,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(consumerFactory);
         
         // 기본 성능 튜닝
-        factory.setConcurrency(1); // 테스트 환경용 축소
+        factory.setConcurrency(3); // 파티션 수와 동일하게 설정
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         
         return factory;
@@ -210,7 +210,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(consumerFactory);
         
         // 동시성 설정 - 외부 연동은 순서가 중요하지 않으므로 병렬 처리
-        factory.setConcurrency(1); // 테스트 환경용 축소
+        factory.setConcurrency(3); // 파티션 수와 동일하게 설정
         
         // 수동 ACK 모드 - 처리 완료 후 명시적으로 커밋
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
@@ -240,7 +240,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(couponRequestConsumerFactory);
         
         // 동시성 설정 - 파티션별로 순서 보장을 위해 파티션 수와 동일하게 설정
-        factory.setConcurrency(1);
+        factory.setConcurrency(3);
         
         // 수동 ACK 모드 - 처리 완료 후 명시적으로 커밋
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
@@ -265,7 +265,7 @@ public class KafkaConfig {
             new ConcurrentKafkaListenerContainerFactory<>();
         
         factory.setConsumerFactory(couponResultConsumerFactory);
-        factory.setConcurrency(1);
+        factory.setConcurrency(3);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         
         factory.setCommonErrorHandler(new org.springframework.kafka.listener.DefaultErrorHandler(
@@ -289,7 +289,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(consumerFactory);
         
         // 동시성 설정 - 파티션별로 순서 보장을 위해 파티션 수와 동일하게 설정
-        factory.setConcurrency(1);
+        factory.setConcurrency(3);
         
         // 수동 ACK 모드 - 처리 완료 후 명시적으로 커밋
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
@@ -342,7 +342,7 @@ public class KafkaConfig {
             new ConcurrentKafkaListenerContainerFactory<>();
         
         factory.setConsumerFactory(orderCompletedConsumerFactory);
-        factory.setConcurrency(1);
+        factory.setConcurrency(3);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         
         factory.setCommonErrorHandler(new org.springframework.kafka.listener.DefaultErrorHandler(
@@ -373,7 +373,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic couponRequestsTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("coupon-requests")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -384,7 +384,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic couponResultsTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("coupon-results")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -395,7 +395,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic externalEventsTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("external-events")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -406,7 +406,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic orderCompletedTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("order.completed")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -417,7 +417,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic productCreatedTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("product.created")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -428,7 +428,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic productUpdatedTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("product.updated")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
@@ -439,7 +439,7 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic productDeletedTopic() {
         return org.springframework.kafka.config.TopicBuilder.name("product.deleted")
-                .partitions(1)
+                .partitions(3)
                 .replicas(1)
                 .build();
     }
