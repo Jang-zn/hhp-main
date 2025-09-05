@@ -32,6 +32,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import org.junit.jupiter.api.BeforeEach;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.DeleteConsumerGroupsResult;
+import org.springframework.kafka.core.KafkaAdmin;
+import java.util.Collections;
+import java.util.Properties;
 
 /**
  * 주문 완료 이벤트 기반 상품 랭킹 업데이트 통합 테스트
@@ -40,8 +53,19 @@ import org.springframework.context.annotation.Import;
  * How: 주문 → 결제 → 이벤트 발행 → 랭킹 업데이트 전체 플로우 테스트
  * 
  */
+@Testcontainers
 @DisplayName("주문 완료 이벤트 기반 상품 랭킹 통합 테스트")
 public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
+
+    @Container
+    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+            .withKraft();
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -60,6 +84,37 @@ public class ProductRankingEventIntegrationTest extends IntegrationTestBase {
 
     @Autowired
     private KeyGenerator keyGenerator;
+
+    @BeforeEach
+    void clearKafkaConsumerGroups() {
+        try {
+            // Consumer Group offset을 초기화하여 이전 테스트의 영향 제거
+            Properties adminProps = new Properties();
+            adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+            
+            try (AdminClient adminClient = AdminClient.create(adminProps)) {
+                // order-ranking-group Consumer Group 삭제 (offset 초기화 목적)
+                DeleteConsumerGroupsResult result = adminClient.deleteConsumerGroups(
+                    Collections.singletonList("order-ranking-group")
+                );
+                
+                // Consumer Group 삭제 완료까지 대기 (최대 5초)
+                result.all().get(5, TimeUnit.SECONDS);
+                
+                System.out.println("Consumer Group 'order-ranking-group' 초기화 완료");
+                
+            } catch (Exception e) {
+                // Consumer Group이 존재하지 않거나 삭제 실패해도 테스트는 계속 진행
+                System.out.println("Consumer Group 초기화 실패 또는 이미 없음 (테스트는 계속 진행): " + e.getMessage());
+            }
+            
+            // 잠시 대기하여 Consumer Group 삭제 완전 반영 확인
+            Thread.sleep(500);
+            
+        } catch (Exception e) {
+            System.err.println("Kafka Admin 작업 실패 (테스트는 계속 진행): " + e.getMessage());
+        }
+    }
 
     @Test
     @DisplayName("주문 결제 완료 시 해당 상품들의 랭킹 점수가 비동기로 업데이트된다")

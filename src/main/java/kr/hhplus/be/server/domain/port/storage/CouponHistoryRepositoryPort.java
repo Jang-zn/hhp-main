@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
@@ -47,4 +48,14 @@ public interface CouponHistoryRepositoryPort extends JpaRepository<CouponHistory
     default long countUsableCouponsByUserId(Long userId) {
         return countUsableCouponsByUserId(userId, CouponHistoryStatus.ISSUED, LocalDateTime.now());
     }
+
+    /**
+     * 사용자와 쿠폰 ID로 쿠폰 히스토리 조회
+     */
+    Optional<CouponHistory> findByUserIdAndCouponId(Long userId, Long couponId);
+
+    /**
+     * 쿠폰 ID로 발급된 쿠폰 개수 조회
+     */
+    long countByCouponId(Long couponId);
 }

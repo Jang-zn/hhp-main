@@ -401,4 +401,14 @@ public class KeyGenerator {
     public String generateRankingCachePattern(Long productId) {
         return generateCustomCacheKey(PRODUCT_DOMAIN, RANKING_TYPE, "*product_" + productId + "*");
     }
+    
+    // ========================= 이벤트 상관관계 ID 생성 =========================
+    
+    /**
+     * 이벤트 상관관계 ID 생성
+     * @return UUID 기반 상관관계 ID
+     */
+    public String generateEventCorrelationId() {
+        return "event_" + java.util.UUID.randomUUID().toString().replace("-", "");
+    }
 }

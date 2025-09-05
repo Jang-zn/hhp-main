@@ -43,6 +43,11 @@ dependencies {
     // Redis (락, 캐싱)
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.redisson:redisson-spring-boot-starter:3.25.2")
+	
+	// Kafka
+	implementation("org.springframework.kafka:spring-kafka")
+	testImplementation("org.springframework.kafka:spring-kafka-test")
+	testImplementation("org.testcontainers:kafka")
 
     // Swagger/OpenAPI
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")

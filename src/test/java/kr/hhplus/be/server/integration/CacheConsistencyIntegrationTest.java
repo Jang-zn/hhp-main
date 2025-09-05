@@ -13,6 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
 import java.util.concurrent.CompletableFuture;
@@ -33,8 +39,19 @@ import static org.awaitility.Awaitility.await;
  */
 @SpringBootTest
 @ActiveProfiles("integration")
+@Testcontainers
 @DisplayName("캐시 일관성 통합 테스트")
 public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
+
+    @Container
+    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+            .withKraft();
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
     
     @Autowired
     private EventPort eventPort;
@@ -71,8 +88,9 @@ public class CacheConsistencyIntegrationTest extends IntegrationTestBase {
         
         // then - 비동기 이벤트 처리를 기다린 후 캐시 확인 (Consumer 스케줄링 고려)
         String productCacheKey = keyGenerator.generateProductCacheKey(testProductId);
-        await().atMost(6, TimeUnit.SECONDS).untilAsserted(() -> {
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             Product cachedProduct = cachePort.get(productCacheKey, Product.class);
+            System.out.println("캐시에서 조회한 상품: " + cachedProduct);
             assertThat(cachedProduct).isNotNull();
         });
         

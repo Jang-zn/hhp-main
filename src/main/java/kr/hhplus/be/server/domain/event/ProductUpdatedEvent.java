@@ -3,6 +3,9 @@ package kr.hhplus.be.server.domain.event;
 import kr.hhplus.be.server.domain.enums.ProductEventType;
 import lombok.Builder;
 import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,6 +31,31 @@ public class ProductUpdatedEvent {
     private final BigDecimal previousPrice;
     private final Integer previousStock;
     private final String previousName;
+    
+    /**
+     * Jackson 역직렬화용 생성자
+     */
+    @JsonCreator
+    public ProductUpdatedEvent(
+            @JsonProperty("productId") Long productId,
+            @JsonProperty("productName") String productName,
+            @JsonProperty("price") BigDecimal price,
+            @JsonProperty("stock") Integer stock,
+            @JsonProperty("eventType") ProductEventType eventType,
+            @JsonProperty("eventTime") LocalDateTime eventTime,
+            @JsonProperty("previousPrice") BigDecimal previousPrice,
+            @JsonProperty("previousStock") Integer previousStock,
+            @JsonProperty("previousName") String previousName) {
+        this.productId = productId;
+        this.productName = productName;
+        this.price = price;
+        this.stock = stock;
+        this.eventType = eventType;
+        this.eventTime = eventTime;
+        this.previousPrice = previousPrice;
+        this.previousStock = previousStock;
+        this.previousName = previousName;
+    }
     
     /**
      * 상품 생성 이벤트 팩토리 메서드
@@ -95,6 +123,7 @@ public class ProductUpdatedEvent {
     /**
      * 가격이 변경되었는지 확인
      */
+    @JsonIgnore
     public boolean isPriceChanged() {
         if (previousPrice == null || price == null) {
             return false;
@@ -105,6 +134,7 @@ public class ProductUpdatedEvent {
     /**
      * 재고가 변경되었는지 확인
      */
+    @JsonIgnore
     public boolean isStockChanged() {
         if (previousStock == null || stock == null) {
             return false;
@@ -115,6 +145,7 @@ public class ProductUpdatedEvent {
     /**
      * 상품명이 변경되었는지 확인
      */
+    @JsonIgnore
     public boolean isNameChanged() {
         if (previousName == null || productName == null) {
             return false;
@@ -125,6 +156,7 @@ public class ProductUpdatedEvent {
     /**
      * 캐시 무효화가 필요한 이벤트인지 확인
      */
+    @JsonIgnore
     public boolean requiresCacheInvalidation() {
         return eventType != null && 
                (eventType == ProductEventType.UPDATED || 
