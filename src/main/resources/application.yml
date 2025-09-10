@@ -2,7 +2,18 @@ spring:
   application:
     name: hhplus
   profiles:
-    active: test
+    active: local
+  boot:
+    admin:
+      client:
+        url: http://localhost:9090  # Admin 서버 주소
+        instance:
+          name: HH Plus 이커머스
+          service-url: http://localhost:8080  # 현재 서비스 URL
+          metadata:
+            tags:
+              environment: local
+              version: ${version:1.0.0}
 
 # SpringDoc/Swagger 설정
 springdoc:
@@ -18,31 +29,60 @@ springdoc:
     operations-sorter: alpha
   show-actuator: false
 
-# Actuator 설정 (모니터링용)
+# Actuator 설정 (확장된 모니터링)
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,threaddump,configprops
+        include: health,info,metrics,threaddump,configprops,hikaricp,loggers,httptrace,beans,env
   endpoint:
     health:
       show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    hikaricp:
+      enabled: true  # HikariCP 연결 풀 메트릭
+    loggers:
+      enabled: true  # 로깅 레벨 동적 조정
   metrics:
+    enable:
+      jvm: true
+      system: true
+      tomcat: true
+      hikaricp: true
+      jdbc: true  # JDBC 연결 메트릭
+      http: true  # HTTP 요청 메트릭
     export:
       simple:
         enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true  # HTTP 요청 히스토그램
+        jdbc.connections.idle: true  # JDBC 유휴 연결 히스토그램
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99  # HTTP 응답시간 백분위수
+        jdbc.connections.idle: 0.5,0.95,0.99  # JDBC 연결 백분위수
 
 
 ---
-# JPA + MySQL 환경 (일반적인 모든 환경)
+# JPA + MySQL 환경 (성능 테스트용)
 spring.config.activate.on-profile: local, dev, prod
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/hhplus?characterEncoding=UTF-8&serverTimezone=UTC
-    username: application
-    password: application
+    url: jdbc:mysql://localhost:3306/hhplus?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 50          # 부하테스트용 증가 (기본 10 → 50)
+      minimum-idle: 10               # 최소 유지 연결 수 증가
+      connection-timeout: 20000      # 연결 타임아웃 감소 (빠른 실패)
+      idle-timeout: 300000           # 5분간 유휴 연결 유지
+      max-lifetime: 1200000          # 20분간 연결 최대 유지
+      validation-timeout: 5000       # 연결 검증 타임아웃
+      leak-detection-threshold: 60000 # 1분 이상 연결 누수 감지
   logging:
     level:
       org.hibernate.SQL: DEBUG
@@ -50,12 +90,23 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
+    open-in-view: false  # 트랜잭션 범위 최적화 (OSIV 비활성화)
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect  # 최신 Dialect 사용
         format_sql: true
         use_sql_comments: true
+        jdbc:
+          batch_size: 20  # 배치 쿼리 최적화
+          batch_versioned_data: true
+        order_inserts: true  # INSERT 순서 최적화
+        order_updates: true  # UPDATE 순서 최적화
+        generate_statistics: true  # 쿼리 통계 수집
+        session:
+          events:
+            log:
+              LOG_QUERIES_SLOWER_THAN_MS: 100  # 100ms 이상 슬로우 쿼리 로깅
   # Retry 설정 (동시성 제어용)
   retry:
     enabled: true
@@ -128,7 +179,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
   retry:
     enabled: false  # 통합 테스트에서는 재시도 비활성화
@@ -194,7 +245,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
   retry:
     enabled: false  # 통합 테스트에서는 재시도 비활성화

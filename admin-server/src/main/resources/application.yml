@@ -1,0 +1,18 @@
+server:
+  port: 9090  # Admin 서버는 9090 포트에서 실행
+
+spring:
+  application:
+    name: HH Plus Admin Server
+  boot:
+    admin:
+      ui:
+        title: "HH Plus 모니터링 대시보드"
+        brand: "<span>HH Plus Admin</span>"
+      discovery:
+        enabled: false  # 자동 디스커버리 비활성화 (수동 등록)
+
+# 로깅
+logging:
+  level:
+    de.codecentric.boot.admin: DEBUG
