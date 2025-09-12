@@ -45,8 +45,8 @@ export default function () {
   const headers = { 'Content-Type': 'application/json' };
   
   const issueRes = http.post(
-    `${BASE_URL}/api/coupons/${COUPON_ID}/issue`,
-    JSON.stringify({ userId: userId }),
+    `${BASE_URL}/api/coupon/issue`,
+    JSON.stringify({ userId: userId, couponId: COUPON_ID }),
     { headers }
   );
   
@@ -71,7 +71,7 @@ export default function () {
   if (issueRes.status === 201) {
     sleep(0.5);
     
-    const myCouponsRes = http.get(`${BASE_URL}/api/coupons/user/${userId}`);
+    const myCouponsRes = http.get(`${BASE_URL}/api/coupon/user/${userId}`);
     check(myCouponsRes, {
       '내 쿠폰 조회 성공': (r) => r.status === 200,
       '발급된 쿠폰 확인': (r) => {

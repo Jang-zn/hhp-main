@@ -55,7 +55,7 @@ export function concurrentOrders() {
   // 주문 생성
   const orderPayload = JSON.stringify({
     userId: userId,
-    items: [
+    products: [
       {
         productId: productId,
         quantity: 1,
@@ -64,7 +64,7 @@ export function concurrentOrders() {
   });
   
   const headers = { 'Content-Type': 'application/json' };
-  const orderRes = http.post(`${BASE_URL}/api/orders`, orderPayload, { headers });
+  const orderRes = http.post(`${BASE_URL}/api/order`, orderPayload, { headers });
   
   const orderCreated = check(orderRes, {
     '주문 생성 성공': (r) => r.status === 201,
@@ -87,7 +87,7 @@ export function concurrentOrders() {
       userId: userId,
     });
     
-    const paymentRes = http.post(`${BASE_URL}/api/orders/${order.id}/pay`, paymentPayload, { headers });
+    const paymentRes = http.post(`${BASE_URL}/api/order/${order.orderId}/pay`, paymentPayload, { headers });
     
     check(paymentRes, {
       '결제 성공': (r) => r.status === 200,
@@ -124,11 +124,11 @@ export function normalOrderFlow() {
       // 3. 주문 생성
       const orderPayload = JSON.stringify({
         userId: userId,
-        items: selectedProducts,
+        products: selectedProducts,
       });
       
       const headers = { 'Content-Type': 'application/json' };
-      const orderRes = http.post(`${BASE_URL}/api/orders`, orderPayload, { headers });
+      const orderRes = http.post(`${BASE_URL}/api/order`, orderPayload, { headers });
       
       if (check(orderRes, { '주문 생성 성공': (r) => r.status === 201 })) {
         const order = orderRes.json('data');
@@ -150,7 +150,7 @@ export function normalOrderFlow() {
           userId: userId,
         });
         
-        const paymentRes = http.post(`${BASE_URL}/api/orders/${order.id}/pay`, paymentPayload, { headers });
+        const paymentRes = http.post(`${BASE_URL}/api/order/${order.orderId}/pay`, paymentPayload, { headers });
         
         check(paymentRes, {
           '결제 완료': (r) => r.status === 200,
