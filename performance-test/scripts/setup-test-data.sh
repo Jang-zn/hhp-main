@@ -96,25 +96,39 @@ for i in {1..20}; do
     fi
 done
 
-# 2. 사용자 잔액 설정 (1000명) - 쿠폰 스파이크 테스트용
-log "사용자 잔액 설정 중... (1000명)"
-for userId in {1..1000}; do
-    amount=200000  # 20만원으로 고정 (주문 테스트에 충분한 금액)
-    
-    response=$(curl -s -X POST "${BASE_URL}/api/balance/charge" \
-        -H "$HEADERS" \
-        -d "{\"userId\": ${userId}, \"amount\": ${amount}}")
-    
-    if ! check_response "$response" "사용자 ${userId} 잔액 충전"; then
-        # 잔액 충전 실패는 이미 존재하는 경우일 수 있으므로 계속 진행
-        log "사용자 ${userId} 잔액 충전 실패 (이미 존재할 수 있음)"
-    fi
-    
-    # 진행률 표시 (100명 단위)
-    if [ $((userId % 100)) -eq 0 ]; then
-        log "사용자 잔액 ${userId}/1000명 설정 완료"
-    fi
-done
+# 2. 사용자 및 잔액 생성 (1000명) - 쿠폰 스파이크 테스트용
+log "사용자 및 잔액 데이터 생성 중... (1000명)"
+
+# MySQL에서 직접 배치로 사용자 및 잔액 생성 (더 효율적)
+mysql -h localhost -u root -proot hhplus << 'EOF'
+-- 사용자 테이블이 있는 경우 사용자 생성 (있다면)
+-- INSERT IGNORE INTO user (id) VALUES (1), (2), (3), ..., (1000);
+
+-- 잔액 직접 생성 (1000명, 각각 20만원)
+INSERT IGNORE INTO balance (user_id, amount, created_at, updated_at) 
+SELECT 
+    numbers.n as user_id,
+    200000 as amount,
+    NOW() as created_at,
+    NOW() as updated_at
+FROM (
+    SELECT 
+        a.N + b.N * 10 + c.N * 100 + 1 as n
+    FROM 
+        (SELECT 0 as N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a
+        CROSS JOIN (SELECT 0 as N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) b  
+        CROSS JOIN (SELECT 0 as N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) c
+    WHERE a.N + b.N * 10 + c.N * 100 + 1 <= 1000
+) numbers
+ON DUPLICATE KEY UPDATE amount = VALUES(amount);
+EOF
+
+if [ $? -eq 0 ]; then
+    log "사용자 1000명 및 잔액 데이터 생성 완료"
+else
+    error "사용자 및 잔액 생성 실패"
+    exit 1
+fi
 
 # 3. 쿠폰 생성 (3개) - 쿠폰 테스트용
 log "쿠폰 데이터 생성 중... (3개)"
