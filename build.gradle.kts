@@ -36,6 +36,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	
+	// Spring Boot Admin Client
+	implementation("de.codecentric:spring-boot-admin-starter-client:3.2.0")
+	
     // Spring Retry (낙관적 락 충돌 재시도)
 	implementation("org.springframework.retry:spring-retry")
 	implementation("org.springframework:spring-aspects")
@@ -53,7 +56,8 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 
     // DB
-	runtimeOnly("com.mysql:mysql-connector-j")
+	implementation("com.mysql:mysql-connector-j:8.2.0")
+	runtimeOnly("com.h2database:h2")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 

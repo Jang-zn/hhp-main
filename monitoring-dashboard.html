@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HH Plus 모니터링 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f6fa;
+            color: #2f3542;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e1e5e9;
+        }
+        
+        .card h3 {
+            color: #2f3542;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.75rem 0;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #2ed573;
+        }
+        
+        .metric-value.warning {
+            color: #ffa502;
+        }
+        
+        .metric-value.error {
+            color: #ff4757;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .status-up {
+            background: #2ed573;
+        }
+        
+        .status-down {
+            background: #ff4757;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin-top: 1rem;
+        }
+        
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #747d8c;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 0 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 HH Plus 이커머스 모니터링 대시보드</h1>
+    </div>
+    
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <button class="refresh-btn" onclick="refreshData()">🔄 데이터 새로고침</button>
+        </div>
+        
+        <div class="grid">
+            <!-- 시스템 상태 -->
+            <div class="card">
+                <h3>🏥 시스템 상태</h3>
+                <div id="system-status">
+                    <div class="metric">
+                        <span class="metric-label">전체 상태</span>
+                        <span class="metric-value" id="overall-status">
+                            <span class="status-dot status-up"></span>로딩 중...
+                        </span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">MySQL</span>
+                        <span class="metric-value" id="mysql-status">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Redis</span>
+                        <span class="metric-value" id="redis-status">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">디스크 여유공간</span>
+                        <span class="metric-value" id="disk-space">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- HTTP 성능 -->
+            <div class="card">
+                <h3>📊 HTTP 성능</h3>
+                <div id="http-metrics">
+                    <div class="metric">
+                        <span class="metric-label">총 요청 수</span>
+                        <span class="metric-value" id="total-requests">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">총 처리시간</span>
+                        <span class="metric-value" id="total-time">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">최대 응답시간</span>
+                        <span class="metric-value" id="max-time">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">평균 응답시간</span>
+                        <span class="metric-value" id="avg-time">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 데이터베이스 연결 -->
+            <div class="card">
+                <h3>🗄️ 데이터베이스 연결</h3>
+                <div id="db-metrics">
+                    <div class="metric">
+                        <span class="metric-label">활성 연결</span>
+                        <span class="metric-value" id="active-connections">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">최대 연결</span>
+                        <span class="metric-value" id="max-connections">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">최소 연결</span>
+                        <span class="metric-value" id="min-connections">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">연결 풀 사용률</span>
+                        <span class="metric-value" id="pool-usage">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- JVM 메모리 -->
+            <div class="card">
+                <h3>💾 JVM 메모리</h3>
+                <div id="memory-metrics">
+                    <div class="metric">
+                        <span class="metric-label">사용중 메모리</span>
+                        <span class="metric-value" id="memory-used">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">최대 메모리</span>
+                        <span class="metric-value" id="memory-max">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">메모리 사용률</span>
+                        <span class="metric-value" id="memory-usage">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">힙 메모리</span>
+                        <span class="metric-value" id="heap-memory">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 응답시간 차트 -->
+            <div class="card">
+                <h3>📈 응답시간 추이</h3>
+                <div class="chart-container">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- 요청 수 차트 -->
+            <div class="card">
+                <h3>🔢 요청 수 추이</h3>
+                <div class="chart-container">
+                    <canvas id="requestCountChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="last-updated" id="last-updated">
+            마지막 업데이트: -
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/actuator';
+        
+        // 차트 초기화
+        const responseTimeChart = new Chart(document.getElementById('responseTimeChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '평균 응답시간 (ms)',
+                    data: [],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        const requestCountChart = new Chart(document.getElementById('requestCountChart'), {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '누적 요청 수',
+                    data: [],
+                    backgroundColor: '#2ed573',
+                    borderColor: '#27d16a',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // 데이터 가져오기 함수들
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                return null;
+            }
+        }
+        
+        function formatBytes(bytes) {
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            if (bytes === 0) return '0 Bytes';
+            const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function formatTime(seconds) {
+            if (seconds < 1) return Math.round(seconds * 1000) + ' ms';
+            return Math.round(seconds * 100) / 100 + ' s';
+        }
+        
+        async function updateSystemStatus() {
+            const health = await fetchData('/health');
+            if (health) {
+                const status = health.status === 'UP';
+                document.getElementById('overall-status').innerHTML = 
+                    `<span class="status-dot ${status ? 'status-up' : 'status-down'}"></span>${health.status}`;
+                
+                if (health.components) {
+                    document.getElementById('mysql-status').textContent = health.components.db?.status || '-';
+                    document.getElementById('redis-status').textContent = health.components.redis?.status || '-';
+                    
+                    if (health.components.diskSpace?.details) {
+                        const free = health.components.diskSpace.details.free;
+                        const total = health.components.diskSpace.details.total;
+                        const percent = Math.round((free / total) * 100);
+                        document.getElementById('disk-space').textContent = `${formatBytes(free)} (${percent}%)`;
+                    }
+                }
+            }
+        }
+        
+        async function updateHttpMetrics() {
+            const httpMetrics = await fetchData('/metrics/http.server.requests');
+            if (httpMetrics && httpMetrics.measurements) {
+                const measurements = httpMetrics.measurements;
+                const count = measurements.find(m => m.statistic === 'COUNT')?.value || 0;
+                const totalTime = measurements.find(m => m.statistic === 'TOTAL_TIME')?.value || 0;
+                const maxTime = measurements.find(m => m.statistic === 'MAX')?.value || 0;
+                
+                document.getElementById('total-requests').textContent = count.toFixed(0);
+                document.getElementById('total-time').textContent = formatTime(totalTime);
+                document.getElementById('max-time').textContent = formatTime(maxTime);
+                document.getElementById('avg-time').textContent = 
+                    count > 0 ? formatTime(totalTime / count) : '0 ms';
+                
+                // 차트 업데이트
+                const now = new Date().toLocaleTimeString();
+                responseTimeChart.data.labels.push(now);
+                responseTimeChart.data.datasets[0].data.push(count > 0 ? (totalTime / count * 1000) : 0);
+                
+                requestCountChart.data.labels.push(now);
+                requestCountChart.data.datasets[0].data.push(count);
+                
+                // 최근 10개 데이터만 유지
+                if (responseTimeChart.data.labels.length > 10) {
+                    responseTimeChart.data.labels.shift();
+                    responseTimeChart.data.datasets[0].data.shift();
+                    requestCountChart.data.labels.shift();
+                    requestCountChart.data.datasets[0].data.shift();
+                }
+                
+                responseTimeChart.update('none');
+                requestCountChart.update('none');
+            }
+        }
+        
+        async function updateDatabaseMetrics() {
+            const activeConn = await fetchData('/metrics/hikaricp.connections.active');
+            const maxConn = await fetchData('/metrics/hikaricp.connections.max');
+            const minConn = await fetchData('/metrics/hikaricp.connections.min');
+            
+            if (activeConn?.measurements) {
+                const active = activeConn.measurements[0].value;
+                document.getElementById('active-connections').textContent = active;
+                
+                if (maxConn?.measurements) {
+                    const max = maxConn.measurements[0].value;
+                    document.getElementById('max-connections').textContent = max;
+                    const usage = max > 0 ? Math.round((active / max) * 100) : 0;
+                    document.getElementById('pool-usage').textContent = usage + '%';
+                    document.getElementById('pool-usage').className = 
+                        `metric-value ${usage > 80 ? 'error' : usage > 60 ? 'warning' : ''}`;
+                }
+                
+                if (minConn?.measurements) {
+                    document.getElementById('min-connections').textContent = minConn.measurements[0].value;
+                }
+            }
+        }
+        
+        async function updateMemoryMetrics() {
+            const memoryUsed = await fetchData('/metrics/jvm.memory.used');
+            const memoryMax = await fetchData('/metrics/jvm.memory.max');
+            
+            if (memoryUsed?.measurements && memoryMax?.measurements) {
+                const used = memoryUsed.measurements[0].value;
+                const max = memoryMax.measurements[0].value;
+                const usage = Math.round((used / max) * 100);
+                
+                document.getElementById('memory-used').textContent = formatBytes(used);
+                document.getElementById('memory-max').textContent = formatBytes(max);
+                document.getElementById('memory-usage').textContent = usage + '%';
+                document.getElementById('memory-usage').className = 
+                    `metric-value ${usage > 85 ? 'error' : usage > 70 ? 'warning' : ''}`;
+                
+                // 힙 메모리 별도 조회
+                const heapMemory = memoryUsed.measurements.find(m => m.tags?.area === 'heap');
+                if (heapMemory) {
+                    document.getElementById('heap-memory').textContent = formatBytes(heapMemory.value);
+                }
+            }
+        }
+        
+        async function refreshData() {
+            document.querySelector('.refresh-btn').textContent = '🔄 업데이트 중...';
+            
+            await Promise.all([
+                updateSystemStatus(),
+                updateHttpMetrics(),
+                updateDatabaseMetrics(),
+                updateMemoryMetrics()
+            ]);
+            
+            document.getElementById('last-updated').textContent = 
+                `마지막 업데이트: ${new Date().toLocaleString()}`;
+            document.querySelector('.refresh-btn').textContent = '🔄 데이터 새로고침';
+        }
+        
+        // 초기 로드 및 자동 새로고침
+        refreshData();
+        setInterval(refreshData, 10000); // 10초마다 자동 새로고침
+    </script>
+</body>
+</html>
